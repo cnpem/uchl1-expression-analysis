@@ -1,0 +1,30 @@
+# Bundled UCHL1 reference study.
+study_id: uchl1
+species: homo_sapiens
+assembly: GRCh38
+gene_symbol: UCHL1
+window:
+  policy: regulatory_unit
+  explicit_interval: null
+  regulatory_search_upstream_bp: 2000
+  max_feature_gap_bp: 0
+  feature_biotypes: [promoter, enhancer]
+cohorts:
+  target:
+    label: Cerebral
+    curies:
+      - UBERON:0000956   # cerebral cortex
+      - UBERON:0002038   # substantia nigra
+      - UBERON:0002435   # striatum
+      - UBERON:0001890   # forebrain
+      - UBERON:0000955   # brain
+  control:
+    label: Peripheral
+    curies:
+      - UBERON:0000178   # blood
+      - UBERON:0002107   # liver
+      - UBERON:0001134   # skeletal muscle
+      - UBERON:0002113   # kidney
+scorers: [RNA_SEQ, CAGE, DNASE, ATAC]
+report:
+  top_n: 20

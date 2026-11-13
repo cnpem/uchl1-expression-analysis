@@ -1,0 +1,67 @@
+# Researcher decisions for the UCHL1 reference study.
+"locus.exon1_overlap:ENSR4_837Q9H":
+  value: keep_full_unit
+  workflow_step: 4
+  asked_at: "2026-10-28T21:54:45+00:00"
+  answered_at: "2026-10-28T21:54:45+00:00"
+  note: "Question: Regulatory feature ENSR4_837Q9H (promoter) extends 28 bp into Exon 1. Options: keep_full_unit, abort."
+cohort.target:
+  value: [UBERON:0000956, UBERON:0002038, UBERON:0002435, UBERON:0001890, UBERON:0000955]
+  workflow_step: 5
+  asked_at: "2026-11-12T00:00:00+00:00"
+  answered_at: "2026-11-12T00:00:00+00:00"
+  note: "Target cohort (Cerebral) chosen for the UCHL1 reference study."
+cohort.control:
+  value: [UBERON:0000178, UBERON:0002107, UBERON:0001134, UBERON:0002113]
+  workflow_step: 5
+  asked_at: "2026-11-12T00:00:00+00:00"
+  answered_at: "2026-11-12T00:00:00+00:00"
+  note: "Control cohort (Peripheral) chosen for the UCHL1 reference study."
+"cohort.unserved:UBERON:0000956":
+  value: drop_curie
+  workflow_step: 8
+  asked_at: "2026-10-28T23:03:24+00:00"
+  answered_at: "2026-10-28T23:03:24+00:00"
+  note: "Question: Target cohort term UBERON:0000956 (cerebral cortex) has no AlphaGenome track for any requested scorer ['RNA_SEQ', 'CAGE', 'DNASE', 'ATAC']. Drop it from the cohort? 14 served descendant term(s) exist. Options: drop_curie, abort."
+"cohort.unserved:UBERON:0002435":
+  value: drop_curie
+  workflow_step: 8
+  asked_at: "2026-10-28T23:03:24+00:00"
+  answered_at: "2026-10-28T23:03:24+00:00"
+  note: "Question: Target cohort term UBERON:0002435 (striatum) has no AlphaGenome track for any requested scorer ['RNA_SEQ', 'CAGE', 'DNASE', 'ATAC']. Drop it from the cohort? 4 served descendant term(s) exist. Options: drop_curie, abort."
+"cohort.unserved:UBERON:0001890":
+  value: drop_curie
+  workflow_step: 8
+  asked_at: "2026-10-28T23:03:24+00:00"
+  answered_at: "2026-10-28T23:03:24+00:00"
+  note: "Question: Target cohort term UBERON:0001890 (forebrain) has no AlphaGenome track for any requested scorer ['RNA_SEQ', 'CAGE', 'DNASE', 'ATAC']. Drop it from the cohort? 28 served descendant term(s) exist. Options: drop_curie, abort."
+"cohort.scorer_without_cohort:ATAC":
+  value: drop_scorer
+  workflow_step: 8
+  asked_at: "2026-10-28T23:03:24+00:00"
+  answered_at: "2026-10-28T23:03:24+00:00"
+  note: "Question: Scorer ATAC has no track in the target cohort, so no target-vs-control contrast is possible for it. Drop ATAC from this study? Options: drop_scorer, abort."
+"contrast.review:mixed_assays:rna_seq":
+  value: accept
+  workflow_step: 12
+  asked_at: "2026-10-28T23:58:32+00:00"
+  answered_at: "2026-10-28T23:58:32+00:00"
+  note: "Question: Contrast rna_seq (RNA_SEQ) mixes assay titles ['polyA plus RNA-seq', 'total RNA-seq']. Accept, or abort and set track_filter.assay_title in the plan? Options: accept, abort."
+"contrast.review:mixed_sources:rna_seq":
+  value: accept
+  workflow_step: 12
+  asked_at: "2026-10-28T23:58:32+00:00"
+  answered_at: "2026-10-28T23:58:32+00:00"
+  note: "Question: Contrast rna_seq (RNA_SEQ) mixes data sources ['encode', 'gtex']. Accept, or abort and set track_filter.data_source in the plan? Options: accept, abort."
+"contrast.review:single_tissue:dnase:target":
+  value: accept
+  workflow_step: 12
+  asked_at: "2026-10-28T23:58:32+00:00"
+  answered_at: "2026-10-28T23:58:32+00:00"
+  note: "Question: Contrast dnase (DNASE) has a single target tissue (brain, UBERON:0000955); its target mean/max/min are that tissue's value. Accept? Options: accept, abort."
+contrast.plan:
+  value: accept
+  workflow_step: 12
+  asked_at: "2026-10-28T23:58:32+00:00"
+  answered_at: "2026-10-28T23:58:32+00:00"
+  note: "contrasts.yaml approved as proposed."
