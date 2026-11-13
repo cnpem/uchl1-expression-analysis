@@ -1,0 +1,109 @@
+{
+  "status": "success",
+  "total_found": 13,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002038",
+      "label": "substantia nigra",
+      "description": [
+        "Predominantly gray matter midbrain structure lying dorsal to the crus cerebri and ventral to the midbrain tegmentum. It is divided into a dorsal, cellularly compact region known as the pars compacta and a more ventrally located, containing more loosely packed cells, the pars reticulata. The most lateral region of the reticulata is identified as the pars lateralis (MM)."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002038",
+      "short_form": "UBERON_0002038",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "Soemmering's substance",
+        "nucleus of basis pedunculi"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001966",
+      "label": "substantia nigra pars reticulata",
+      "description": [
+        "the cells of pars reticulata bear a strong structural and functional resemblance to the inner segment of the globus pallidus",
+        "Regional part of substantia nigra consisting of loosely packed cells, generally located ventral and lateral to the pars compacta. Many cells in this region use GABA as a neurotransmitter (MM)."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001966",
+      "short_form": "UBERON_0001966",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "pars reticulata",
+        "reticular part of substantia nigra",
+        "substantia nigra, reticular part",
+        "nucleus substantiae nigrae, pars reticularis",
+        "pars reticularis substantiae nigrae",
+        "pars reticularis",
+        "substantia nigra, pars diffusa"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001965",
+      "label": "substantia nigra pars compacta",
+      "description": [
+        "Regional part of substantia nigra consisting of a densely packed region of cells, more or less dorsal to the pars reticulata, but extending into the pars reticulata in some species. The dominant neurotransmitter used by pars compacta neurons is dopamine. Pars compacta neurons are pigmented in many species (MM)."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001965",
+      "short_form": "UBERON_0001965",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "SNpc",
+        "compact part of substantia nigra",
+        "pars compacta",
+        "substantia nigra, compact part",
+        "pars compacta substantiae nigrae",
+        "substantia nigra compact part",
+        "substantia nigra compacta"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002995",
+      "label": "substantia nigra pars lateralis",
+      "description": [],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002995",
+      "short_form": "UBERON_0002995",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "lateral part of substantia nigra",
+        "pars lateralis substantiae nigrae",
+        "pars lateralis",
+        "substantia nigra, lateral part"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001943",
+      "label": "midbrain tegmentum",
+      "description": [
+        "'tegmentum' is used generically for the ventral part of the brainstem (ISBN:0471888893). We use the label 'midbrain tegmentum' to denote the midbrain structure. In NIFSTD tegmentum is a composite structure and there is a separate class for midbrain tegmentum and pontine tegmentum",
+        "Ventral part of the midbrain, separated from the hindbrain by the isthmus[ISBN:0471888893]. Subdivision of the midbrain lying anterior to the tectum and posterior to the substantia nigra and cerebral peduncle[FMA] The part of the midbrain extending from the substantia nigra to the cerebral aqueduct in a horizontal section of the midbrain. It forms the floor of the midbrain that surrounds the cerebral aqueduct[WP]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001943",
+      "short_form": "UBERON_0001943",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "tegmentum of midbrain",
+        "tegmentum mesencephali"
+      ]
+    }
+  ]
+}

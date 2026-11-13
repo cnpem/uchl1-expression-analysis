@@ -1,0 +1,104 @@
+{
+  "status": "success",
+  "total_found": 523,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0000955",
+      "label": "brain",
+      "description": [
+        "The brain is the center of the nervous system in all vertebrate, and most invertebrate, animals. Some primitive animals such as jellyfish and starfish have a decentralized nervous system without a brain, while sponges lack any nervous system at all. In vertebrates, the brain is located in the head, protected by the skull and close to the primary sensory apparatus of vision, hearing, balance, taste, and smell[WP]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0000955",
+      "short_form": "UBERON_0000955",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": []
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002616",
+      "label": "regional part of brain",
+      "description": [
+        "Anatomical divisons of the brain according to one or more criteria, e.g. cytoarchitectural, gross anatomy. Parts may be contiguous in 3D or not, e.g., basal ganglia."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002616",
+      "short_form": "UBERON_0002616",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "brain part",
+        "neuroanatomical region",
+        "anatomical structure of brain",
+        "biological structure of brain",
+        "brain anatomical structure",
+        "brain biological structure",
+        "neuraxis segment",
+        "segment of brain"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003528",
+      "label": "brain gray matter",
+      "description": [
+        "A gray matter that is part of a brain [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003528",
+      "short_form": "UBERON_0003528",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "brain grey matter",
+        "brain grey substance",
+        "gray matter of brain",
+        "grey matter of brain",
+        "grey substance of brain"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003544",
+      "label": "brain white matter",
+      "description": [
+        "The regions of the brain that are largely or entirely composed of myelinated nerve cell axons and contain few or no neural cell bodies or dendrites."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003544",
+      "short_form": "UBERON_0003544",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "brain white matter of neuraxis",
+        "brain white substance",
+        "white matter of brain",
+        "white matter of neuraxis of brain",
+        "white substance of brain"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0013150",
+      "label": "future brain vesicle",
+      "description": [],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0013150",
+      "short_form": "UBERON_0013150",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "early brain vesicle",
+        "primitive brain vesicle"
+      ]
+    }
+  ]
+}

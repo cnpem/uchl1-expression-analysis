@@ -1,0 +1,2709 @@
+{
+  "status": "success",
+  "term": {
+    "iri": "http://purl.obolibrary.org/obo/UBERON_0000956",
+    "label": "cerebral cortex",
+    "description": [
+      "The thin layer of gray matter on the surface of the cerebral hemisphere that develops from the telencephalon. It consists of the neocortex (6 layered cortex or isocortex), the hippocampal formation and the olfactory cortex."
+    ],
+    "obo_id": "UBERON:0000956",
+    "ontology_name": "uberon",
+    "ontology_prefix": "UBERON",
+    "is_defining_ontology": true,
+    "is_obsolete": false,
+    "has_children": true,
+    "is_root": false,
+    "short_form": "UBERON_0000956",
+    "synonyms": [
+      "brain cortex",
+      "cortex cerebralis",
+      "cortex cerebri",
+      "cortex of cerebral hemisphere",
+      "cortical plate (CTXpl)",
+      "cortical plate (areas)",
+      "pallium of the brain"
+    ],
+    "annotation": {
+      "curator note": [
+        "We follow NIFSTD in defining cerebral cortex and including both neocortex and hippocampal formation (DG+hippocampus)."
+      ],
+      "database_cross_reference": [
+        "BAMS:C",
+        "BAMS:CTX",
+        "BAMS:Cerebral_cortex",
+        "BAMS:Cx",
+        "BIRNLEX:1494",
+        "BM:Tel-Cx",
+        "BTO:0000233",
+        "CALOHA:TS-0091",
+        "DHBA:10159",
+        "EFO:0000328",
+        "EHDAA2:0000234",
+        "EHDAA:5464",
+        "EMAPA:17544",
+        "EV:0100166",
+        "FMA:61830",
+        "GAID:629",
+        "HBA:4008",
+        "MA:0000185",
+        "MAT:0000108",
+        "MBA:688",
+        "MESH:D002540",
+        "MIAA:0000108",
+        "NCIT:C12443",
+        "PBA:128011354",
+        "SCTID:362880003",
+        "VHOG:0000722",
+        "Wikipedia:Cerebral_cortex",
+        "UMLS:C0007776",
+        "neuronames:39"
+      ],
+      "depiction": [
+        "http://upload.wikimedia.org/wikipedia/commons/7/7b/Cerebral_Cortex_location.jpg",
+        "http://upload.wikimedia.org/wikipedia/commons/9/9a/Brainmaps-macaque-hippocampus.jpg"
+      ],
+      "external_definition": [
+        "The cerebral cortex is a structure within the brain that plays a key role in memory, attention, perceptual awareness, thought, language, and consciousness. It constitutes the outermost layer of the cerebrum. In preserved brains, it has a grey color, hence the name 'grey matter'. Grey matter is formed by neurons and their unmyelinated fibers, whereas the white matter below the grey matter of the cortex is formed predominantly by myelinated axons interconnecting different regions of the central nervous system. The human cerebral cortex is 2-4 mm (0.08-0.16 inches) thick. The surface of the cerebral cortex is folded in large mammals, such that more than two-thirds of the cortical surface is buried in the grooves, called 'sulci. ' The phylogenetically most recent part of the cerebral cortex, the neocortex, also called isocortex, is differentiated into six horizontal layers; the more ancient part of the cerebral cortex, the hippocampus (also called archicortex), has at most three cellular layers, and is divided into subfields. Relative variations in thickness or cell type (among other parameters) allow us to distinguish between different neocortical architectonic fields. The geometry of at least some of these fields seems to be related to the anatomy of the cortical folds, and, for example, layers in the upper part of the cortical ridges seem to be more clearly differentiated than in its deeper parts. [WP,unvetted][Wikipedia:Cerebral_cortex]."
+      ],
+      "homology_notes": [
+        "Migration of neurons from the basal or striatal portions of the anterior part of the neural tube occurs to varying degrees in different vertebrate classes, but a true cerebral cortex is generally acknowledged to have made its first appearance in reptiles. The definition can be unambiguous, since 'cortex' simply implies the existence of a surface neuronal layer with an overlying 'zonal lamina' or 'molecular' layer containing dendrites and axons, which is separated from the underlying basal 'matrix' by white matter. Although reptilian cerebral cortex does indeed fulfill these conditions in certain locations, the separation from striatal structures is often indistinct, so that it may even be argued that some primitive dipnoans possess a pallium or cortex. Nevertheless, an extensive laminated layer separated by underlying white matter is well represented only in reptiles and mammals.[well established][VHOG]"
+      ],
+      "id": [
+        "UBERON:0000956"
+      ],
+      "present in taxon": [
+        "http://purl.obolibrary.org/obo/NCBITaxon_117569"
+      ],
+      "taxon_notes": [
+        "hagfishes have independently evolved a highly laminated cerebral cortex, comparable in many ways to the cerebral cortex of mammals [http://icb.oxfordjournals.org/content/42/4/743]"
+      ]
+    },
+    "in_subset": [
+      "efo_slim",
+      "human_reference_atlas",
+      "human_subset",
+      "mouse_subset",
+      "pheno_slim",
+      "uberon_slim"
+    ],
+    "hierarchicalChildren": [
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_0002605",
+        "label": "astrocyte of the cerebral cortex",
+        "obo_id": "CL:0002605"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_1001579",
+        "label": "cerebral cortex glial cell",
+        "obo_id": "CL:1001579"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_1001602",
+        "label": "cerebral cortex endothelial cell",
+        "obo_id": "CL:1001602"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0000200",
+        "label": "gyrus",
+        "obo_id": "UBERON:0000200"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0000451",
+        "label": "prefrontal cortex",
+        "obo_id": "UBERON:0000451"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001384",
+        "label": "primary motor cortex",
+        "obo_id": "UBERON:0001384"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001393",
+        "label": "auditory cortex",
+        "obo_id": "UBERON:0001393"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001950",
+        "label": "neocortex",
+        "obo_id": "UBERON:0001950"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002021",
+        "label": "occipital lobe",
+        "obo_id": "UBERON:0002021"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002022",
+        "label": "insula",
+        "obo_id": "UBERON:0002022"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002421",
+        "label": "hippocampal formation",
+        "obo_id": "UBERON:0002421"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002586",
+        "label": "calcarine sulcus",
+        "obo_id": "UBERON:0002586"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002590",
+        "label": "prepyriform area",
+        "obo_id": "UBERON:0002590"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002683",
+        "label": "rhinal sulcus",
+        "obo_id": "UBERON:0002683"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002721",
+        "label": "lateral sulcus",
+        "obo_id": "UBERON:0002721"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002894",
+        "label": "olfactory cortex",
+        "obo_id": "UBERON:0002894"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002895",
+        "label": "secondary olfactory cortex",
+        "obo_id": "UBERON:0002895"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002916",
+        "label": "central sulcus",
+        "obo_id": "UBERON:0002916"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006083",
+        "label": "perirhinal cortex",
+        "obo_id": "UBERON:0006083"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006099",
+        "label": "Brodmann (1909) area 1",
+        "obo_id": "UBERON:0006099"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006100",
+        "label": "Brodmann (1909) area 3",
+        "obo_id": "UBERON:0006100"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006471",
+        "label": "Brodmann (1909) area 5",
+        "obo_id": "UBERON:0006471"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006472",
+        "label": "Brodmann (1909) area 6",
+        "obo_id": "UBERON:0006472"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006473",
+        "label": "Brodmann (1909) area 18",
+        "obo_id": "UBERON:0006473"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006474",
+        "label": "Brodmann (1909) area 30",
+        "obo_id": "UBERON:0006474"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006475",
+        "label": "Brodmann (1909) area 31",
+        "obo_id": "UBERON:0006475"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006477",
+        "label": "Brodmann (1909) area 34",
+        "obo_id": "UBERON:0006477"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006478",
+        "label": "Brodmann (1909) area 37",
+        "obo_id": "UBERON:0006478"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006479",
+        "label": "Brodmann (1909) area 38",
+        "obo_id": "UBERON:0006479"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006480",
+        "label": "Brodmann (1909) area 39",
+        "obo_id": "UBERON:0006480"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006481",
+        "label": "Brodmann (1909) area 44",
+        "obo_id": "UBERON:0006481"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006482",
+        "label": "Brodmann (1909) area 45",
+        "obo_id": "UBERON:0006482"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006483",
+        "label": "Brodmann (1909) area 46",
+        "obo_id": "UBERON:0006483"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006484",
+        "label": "Brodmann (1909) area 47",
+        "obo_id": "UBERON:0006484"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006485",
+        "label": "Brodmann (1909) area 48",
+        "obo_id": "UBERON:0006485"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006486",
+        "label": "Brodmann (1909) area 52",
+        "obo_id": "UBERON:0006486"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013529",
+        "label": "Brodmann area",
+        "obo_id": "UBERON:0013529"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013589",
+        "label": "koniocortex",
+        "obo_id": "UBERON:0013589"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013693",
+        "label": "cerebral cortex neuropil",
+        "obo_id": "UBERON:0013693"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014537",
+        "label": "periamygdaloid cortex",
+        "obo_id": "UBERON:0014537"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014734",
+        "label": "allocortex",
+        "obo_id": "UBERON:0014734"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014735",
+        "label": "paleocortex",
+        "obo_id": "UBERON:0014735"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014736",
+        "label": "periallocortex",
+        "obo_id": "UBERON:0014736"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014950",
+        "label": "layer of developing cerebral cortex",
+        "obo_id": "UBERON:0014950"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016634",
+        "label": "premotor cortex",
+        "obo_id": "UBERON:0016634"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016636",
+        "label": "supplemental motor cortex",
+        "obo_id": "UBERON:0016636"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022398",
+        "label": "paracingulate gyrus",
+        "obo_id": "UBERON:0022398"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023852",
+        "label": "temporoparietal junction",
+        "obo_id": "UBERON:0023852"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025584",
+        "label": "perirhinal cortex of rodent of Burwell et al 1995",
+        "obo_id": "UBERON:0025584"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035933",
+        "label": "paracentral lobule",
+        "obo_id": "UBERON:0035933"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440011",
+        "label": "cortical visual area",
+        "obo_id": "UBERON:8440011"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440024",
+        "label": "visceral area",
+        "obo_id": "UBERON:8440024"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440039",
+        "label": "piriform-amygdalar area",
+        "obo_id": "UBERON:8440039"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440040",
+        "label": "dorsal peduncular area",
+        "obo_id": "UBERON:8440040"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440075",
+        "label": "gustatory cortex",
+        "obo_id": "UBERON:8440075"
+      }
+    ],
+    "hierarchicalDescendants": [
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_0002604",
+        "label": "hippocampal astrocyte",
+        "obo_id": "CL:0002604"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_0002605",
+        "label": "astrocyte of the cerebral cortex",
+        "obo_id": "CL:0002605"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_1001571",
+        "label": "hippocampal pyramidal neuron",
+        "obo_id": "CL:1001571"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_1001579",
+        "label": "cerebral cortex glial cell",
+        "obo_id": "CL:1001579"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_1001580",
+        "label": "hippocampal glial cell",
+        "obo_id": "CL:1001580"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/CL_1001602",
+        "label": "cerebral cortex endothelial cell",
+        "obo_id": "CL:1001602"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0000052",
+        "label": "fornix of brain",
+        "obo_id": "UBERON:0000052"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0000200",
+        "label": "gyrus",
+        "obo_id": "UBERON:0000200"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0000411",
+        "label": "visual cortex",
+        "obo_id": "UBERON:0000411"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0000451",
+        "label": "prefrontal cortex",
+        "obo_id": "UBERON:0000451"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001384",
+        "label": "primary motor cortex",
+        "obo_id": "UBERON:0001384"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001393",
+        "label": "auditory cortex",
+        "obo_id": "UBERON:0001393"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001870",
+        "label": "frontal cortex",
+        "obo_id": "UBERON:0001870"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001883",
+        "label": "olfactory tubercle",
+        "obo_id": "UBERON:0001883"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001885",
+        "label": "dentate gyrus of hippocampal formation",
+        "obo_id": "UBERON:0001885"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001950",
+        "label": "neocortex",
+        "obo_id": "UBERON:0001950"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001953",
+        "label": "presubiculum",
+        "obo_id": "UBERON:0001953"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001954",
+        "label": "Ammon's horn",
+        "obo_id": "UBERON:0001954"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002021",
+        "label": "occipital lobe",
+        "obo_id": "UBERON:0002021"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002022",
+        "label": "insula",
+        "obo_id": "UBERON:0002022"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002136",
+        "label": "hilus of dentate gyrus",
+        "obo_id": "UBERON:0002136"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002191",
+        "label": "subiculum",
+        "obo_id": "UBERON:0002191"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002266",
+        "label": "anterior olfactory nucleus",
+        "obo_id": "UBERON:0002266"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002301",
+        "label": "layer of neocortex",
+        "obo_id": "UBERON:0002301"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002304",
+        "label": "layer of dentate gyrus",
+        "obo_id": "UBERON:0002304"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002305",
+        "label": "layer of hippocampus",
+        "obo_id": "UBERON:0002305"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002310",
+        "label": "hippocampus fimbria",
+        "obo_id": "UBERON:0002310"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002313",
+        "label": "hippocampus pyramidal layer",
+        "obo_id": "UBERON:0002313"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002421",
+        "label": "hippocampal formation",
+        "obo_id": "UBERON:0002421"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002436",
+        "label": "primary visual cortex",
+        "obo_id": "UBERON:0002436"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002564",
+        "label": "lateral orbital gyrus",
+        "obo_id": "UBERON:0002564"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002570",
+        "label": "medial orbital gyrus",
+        "obo_id": "UBERON:0002570"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002575",
+        "label": "posterior orbital gyrus",
+        "obo_id": "UBERON:0002575"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002581",
+        "label": "postcentral gyrus",
+        "obo_id": "UBERON:0002581"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002586",
+        "label": "calcarine sulcus",
+        "obo_id": "UBERON:0002586"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002590",
+        "label": "prepyriform area",
+        "obo_id": "UBERON:0002590"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002599",
+        "label": "medial olfactory gyrus",
+        "obo_id": "UBERON:0002599"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002603",
+        "label": "paraterminal gyrus",
+        "obo_id": "UBERON:0002603"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002624",
+        "label": "orbital part of inferior frontal gyrus",
+        "obo_id": "UBERON:0002624"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002629",
+        "label": "triangular part of inferior frontal gyrus",
+        "obo_id": "UBERON:0002629"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002644",
+        "label": "intermediate orbital gyrus",
+        "obo_id": "UBERON:0002644"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002656",
+        "label": "periamygdaloid area",
+        "obo_id": "UBERON:0002656"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002657",
+        "label": "posterior parahippocampal gyrus",
+        "obo_id": "UBERON:0002657"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002661",
+        "label": "superior frontal gyrus",
+        "obo_id": "UBERON:0002661"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002665",
+        "label": "supracallosal gyrus",
+        "obo_id": "UBERON:0002665"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002669",
+        "label": "anterior horizontal limb of lateral sulcus",
+        "obo_id": "UBERON:0002669"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002670",
+        "label": "anterior ascending limb of lateral sulcus",
+        "obo_id": "UBERON:0002670"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002672",
+        "label": "anterior subcentral sulcus",
+        "obo_id": "UBERON:0002672"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002675",
+        "label": "diagonal sulcus",
+        "obo_id": "UBERON:0002675"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002683",
+        "label": "rhinal sulcus",
+        "obo_id": "UBERON:0002683"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002686",
+        "label": "angular gyrus",
+        "obo_id": "UBERON:0002686"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002688",
+        "label": "supramarginal gyrus",
+        "obo_id": "UBERON:0002688"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002698",
+        "label": "preoccipital notch",
+        "obo_id": "UBERON:0002698"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002702",
+        "label": "middle frontal gyrus",
+        "obo_id": "UBERON:0002702"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002703",
+        "label": "precentral gyrus",
+        "obo_id": "UBERON:0002703"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002713",
+        "label": "circular sulcus of insula",
+        "obo_id": "UBERON:0002713"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002721",
+        "label": "lateral sulcus",
+        "obo_id": "UBERON:0002721"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002724",
+        "label": "limen of insula",
+        "obo_id": "UBERON:0002724"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002728",
+        "label": "entorhinal cortex",
+        "obo_id": "UBERON:0002728"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002738",
+        "label": "isthmus of cingulate gyrus",
+        "obo_id": "UBERON:0002738"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002740",
+        "label": "posterior cingulate gyrus",
+        "obo_id": "UBERON:0002740"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002751",
+        "label": "inferior temporal gyrus",
+        "obo_id": "UBERON:0002751"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002756",
+        "label": "anterior cingulate gyrus",
+        "obo_id": "UBERON:0002756"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002764",
+        "label": "inferior precentral sulcus",
+        "obo_id": "UBERON:0002764"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002766",
+        "label": "fusiform gyrus",
+        "obo_id": "UBERON:0002766"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002769",
+        "label": "superior temporal gyrus",
+        "obo_id": "UBERON:0002769"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002771",
+        "label": "middle temporal gyrus",
+        "obo_id": "UBERON:0002771"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002773",
+        "label": "anterior transverse temporal gyrus",
+        "obo_id": "UBERON:0002773"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002774",
+        "label": "posterior transverse temporal gyrus",
+        "obo_id": "UBERON:0002774"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002799",
+        "label": "fronto-orbital sulcus",
+        "obo_id": "UBERON:0002799"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002806",
+        "label": "left occipital lobe",
+        "obo_id": "UBERON:0002806"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002807",
+        "label": "right occipital lobe",
+        "obo_id": "UBERON:0002807"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002810",
+        "label": "right frontal lobe",
+        "obo_id": "UBERON:0002810"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002811",
+        "label": "left frontal lobe",
+        "obo_id": "UBERON:0002811"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002893",
+        "label": "nucleus of lateral olfactory tract",
+        "obo_id": "UBERON:0002893"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002894",
+        "label": "olfactory cortex",
+        "obo_id": "UBERON:0002894"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002895",
+        "label": "secondary olfactory cortex",
+        "obo_id": "UBERON:0002895"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002900",
+        "label": "transverse occipital sulcus",
+        "obo_id": "UBERON:0002900"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002901",
+        "label": "posterior calcarine sulcus",
+        "obo_id": "UBERON:0002901"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002902",
+        "label": "occipital pole",
+        "obo_id": "UBERON:0002902"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002903",
+        "label": "lunate sulcus",
+        "obo_id": "UBERON:0002903"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002905",
+        "label": "intralingual sulcus",
+        "obo_id": "UBERON:0002905"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002906",
+        "label": "anterior occipital sulcus",
+        "obo_id": "UBERON:0002906"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002910",
+        "label": "posterior ascending limb of lateral sulcus",
+        "obo_id": "UBERON:0002910"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002916",
+        "label": "central sulcus",
+        "obo_id": "UBERON:0002916"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002928",
+        "label": "dentate gyrus polymorphic layer",
+        "obo_id": "UBERON:0002928"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002929",
+        "label": "dentate gyrus pyramidal layer",
+        "obo_id": "UBERON:0002929"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002940",
+        "label": "anterior column of fornix",
+        "obo_id": "UBERON:0002940"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002943",
+        "label": "lingual gyrus",
+        "obo_id": "UBERON:0002943"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002948",
+        "label": "superior occipital gyrus",
+        "obo_id": "UBERON:0002948"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002961",
+        "label": "archicortex",
+        "obo_id": "UBERON:0002961"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002967",
+        "label": "cingulate gyrus",
+        "obo_id": "UBERON:0002967"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002973",
+        "label": "parahippocampal gyrus",
+        "obo_id": "UBERON:0002973"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002980",
+        "label": "opercular part of inferior frontal gyrus",
+        "obo_id": "UBERON:0002980"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002998",
+        "label": "inferior frontal gyrus",
+        "obo_id": "UBERON:0002998"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003016",
+        "label": "postcommissural fornix of brain",
+        "obo_id": "UBERON:0003016"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003027",
+        "label": "cingulate cortex",
+        "obo_id": "UBERON:0003027"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003876",
+        "label": "hippocampal field",
+        "obo_id": "UBERON:0003876"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003881",
+        "label": "CA1 field of hippocampus",
+        "obo_id": "UBERON:0003881"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003882",
+        "label": "CA2 field of hippocampus",
+        "obo_id": "UBERON:0003882"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003883",
+        "label": "CA3 field of hippocampus",
+        "obo_id": "UBERON:0003883"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003884",
+        "label": "CA4 field of hippocampus",
+        "obo_id": "UBERON:0003884"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0003939",
+        "label": "transverse gyrus of Heschl",
+        "obo_id": "UBERON:0003939"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004035",
+        "label": "cortical subplate",
+        "obo_id": "UBERON:0004035"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004040",
+        "label": "cortical intermediate zone",
+        "obo_id": "UBERON:0004040"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004167",
+        "label": "orbitofrontal cortex",
+        "obo_id": "UBERON:0004167"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004671",
+        "label": "gyrus rectus",
+        "obo_id": "UBERON:0004671"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004679",
+        "label": "dentate gyrus molecular layer",
+        "obo_id": "UBERON:0004679"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004680",
+        "label": "body of fornix",
+        "obo_id": "UBERON:0004680"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004683",
+        "label": "parasubiculum",
+        "obo_id": "UBERON:0004683"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004717",
+        "label": "Brodmann (1909) area 29",
+        "obo_id": "UBERON:0004717"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004718",
+        "label": "Brodmann (1909) area 26",
+        "obo_id": "UBERON:0004718"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0004725",
+        "label": "piriform cortex",
+        "obo_id": "UBERON:0004725"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005343",
+        "label": "cortical plate",
+        "obo_id": "UBERON:0005343"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005367",
+        "label": "hippocampus granule cell layer",
+        "obo_id": "UBERON:0005367"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005368",
+        "label": "hippocampus molecular layer",
+        "obo_id": "UBERON:0005368"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005370",
+        "label": "hippocampus stratum lacunosum",
+        "obo_id": "UBERON:0005370"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005371",
+        "label": "hippocampus stratum oriens",
+        "obo_id": "UBERON:0005371"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005372",
+        "label": "hippocampus stratum radiatum",
+        "obo_id": "UBERON:0005372"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005381",
+        "label": "dentate gyrus granule cell layer",
+        "obo_id": "UBERON:0005381"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005390",
+        "label": "cortical layer I",
+        "obo_id": "UBERON:0005390"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005391",
+        "label": "cortical layer II",
+        "obo_id": "UBERON:0005391"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005392",
+        "label": "cortical layer III",
+        "obo_id": "UBERON:0005392"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005393",
+        "label": "cortical layer IV",
+        "obo_id": "UBERON:0005393"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005394",
+        "label": "cortical layer V",
+        "obo_id": "UBERON:0005394"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005395",
+        "label": "cortical layer VI",
+        "obo_id": "UBERON:0005395"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006083",
+        "label": "perirhinal cortex",
+        "obo_id": "UBERON:0006083"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006092",
+        "label": "cuneus cortex",
+        "obo_id": "UBERON:0006092"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006093",
+        "label": "precuneus cortex",
+        "obo_id": "UBERON:0006093"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006094",
+        "label": "superior parietal cortex",
+        "obo_id": "UBERON:0006094"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006095",
+        "label": "anterior transverse temporal area 41",
+        "obo_id": "UBERON:0006095"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006096",
+        "label": "posterior transverse temporal area 42",
+        "obo_id": "UBERON:0006096"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006099",
+        "label": "Brodmann (1909) area 1",
+        "obo_id": "UBERON:0006099"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006100",
+        "label": "Brodmann (1909) area 3",
+        "obo_id": "UBERON:0006100"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006101",
+        "label": "Brodmann (1909) area 24",
+        "obo_id": "UBERON:0006101"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006102",
+        "label": "Brodmann (1909) area 35",
+        "obo_id": "UBERON:0006102"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006104",
+        "label": "Brodmann (1909) area 36",
+        "obo_id": "UBERON:0006104"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006114",
+        "label": "lateral occipital cortex",
+        "obo_id": "UBERON:0006114"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006115",
+        "label": "posterior column of fornix",
+        "obo_id": "UBERON:0006115"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006445",
+        "label": "caudal middle frontal gyrus",
+        "obo_id": "UBERON:0006445"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006446",
+        "label": "rostral middle frontal gyrus",
+        "obo_id": "UBERON:0006446"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006471",
+        "label": "Brodmann (1909) area 5",
+        "obo_id": "UBERON:0006471"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006472",
+        "label": "Brodmann (1909) area 6",
+        "obo_id": "UBERON:0006472"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006473",
+        "label": "Brodmann (1909) area 18",
+        "obo_id": "UBERON:0006473"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006474",
+        "label": "Brodmann (1909) area 30",
+        "obo_id": "UBERON:0006474"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006475",
+        "label": "Brodmann (1909) area 31",
+        "obo_id": "UBERON:0006475"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006476",
+        "label": "Brodmann (1909) area 33",
+        "obo_id": "UBERON:0006476"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006477",
+        "label": "Brodmann (1909) area 34",
+        "obo_id": "UBERON:0006477"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006478",
+        "label": "Brodmann (1909) area 37",
+        "obo_id": "UBERON:0006478"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006479",
+        "label": "Brodmann (1909) area 38",
+        "obo_id": "UBERON:0006479"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006480",
+        "label": "Brodmann (1909) area 39",
+        "obo_id": "UBERON:0006480"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006481",
+        "label": "Brodmann (1909) area 44",
+        "obo_id": "UBERON:0006481"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006482",
+        "label": "Brodmann (1909) area 45",
+        "obo_id": "UBERON:0006482"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006483",
+        "label": "Brodmann (1909) area 46",
+        "obo_id": "UBERON:0006483"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006484",
+        "label": "Brodmann (1909) area 47",
+        "obo_id": "UBERON:0006484"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006485",
+        "label": "Brodmann (1909) area 48",
+        "obo_id": "UBERON:0006485"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0006486",
+        "label": "Brodmann (1909) area 52",
+        "obo_id": "UBERON:0006486"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007190",
+        "label": "paracentral gyrus",
+        "obo_id": "UBERON:0007190"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007191",
+        "label": "anterior paracentral gyrus",
+        "obo_id": "UBERON:0007191"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007192",
+        "label": "posterior paracentral gyrus",
+        "obo_id": "UBERON:0007192"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007193",
+        "label": "orbital gyrus",
+        "obo_id": "UBERON:0007193"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007224",
+        "label": "medial entorhinal cortex",
+        "obo_id": "UBERON:0007224"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007225",
+        "label": "lateral entorhinal cortex",
+        "obo_id": "UBERON:0007225"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007637",
+        "label": "hippocampus stratum lucidum",
+        "obo_id": "UBERON:0007637"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007639",
+        "label": "hippocampus alveus",
+        "obo_id": "UBERON:0007639"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007640",
+        "label": "hippocampus stratum lacunosum moleculare",
+        "obo_id": "UBERON:0007640"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0008930",
+        "label": "somatosensory cortex",
+        "obo_id": "UBERON:0008930"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0008933",
+        "label": "primary somatosensory cortex",
+        "obo_id": "UBERON:0008933"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0008934",
+        "label": "secondary somatosensory cortex",
+        "obo_id": "UBERON:0008934"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0009834",
+        "label": "dorsolateral prefrontal cortex",
+        "obo_id": "UBERON:0009834"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0009835",
+        "label": "anterior cingulate cortex",
+        "obo_id": "UBERON:0009835"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0009836",
+        "label": "fronto-orbital gyrus",
+        "obo_id": "UBERON:0009836"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0009897",
+        "label": "right auditory cortex",
+        "obo_id": "UBERON:0009897"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0009898",
+        "label": "left auditory cortex",
+        "obo_id": "UBERON:0009898"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0009952",
+        "label": "dentate gyrus subgranular zone",
+        "obo_id": "UBERON:0009952"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0010415",
+        "label": "barrel cortex",
+        "obo_id": "UBERON:0010415"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013528",
+        "label": "Brodmann (1909) area 11",
+        "obo_id": "UBERON:0013528"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013529",
+        "label": "Brodmann area",
+        "obo_id": "UBERON:0013529"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013531",
+        "label": "retrosplenial region",
+        "obo_id": "UBERON:0013531"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013533",
+        "label": "Brodmann (1909) area 2",
+        "obo_id": "UBERON:0013533"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013535",
+        "label": "Brodmann (1909) area 4",
+        "obo_id": "UBERON:0013535"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013538",
+        "label": "Brodmann (1909) area 7",
+        "obo_id": "UBERON:0013538"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013539",
+        "label": "Brodmann (1909) area 8",
+        "obo_id": "UBERON:0013539"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013540",
+        "label": "Brodmann (1909) area 9",
+        "obo_id": "UBERON:0013540"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013541",
+        "label": "Brodmann (1909) area 10",
+        "obo_id": "UBERON:0013541"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013543",
+        "label": "Brodmann (1909) area 12",
+        "obo_id": "UBERON:0013543"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013544",
+        "label": "Brodmann (1909) area 13",
+        "obo_id": "UBERON:0013544"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013545",
+        "label": "Brodmann (1909) area 14",
+        "obo_id": "UBERON:0013545"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013546",
+        "label": "Brodmann (1909) area 15",
+        "obo_id": "UBERON:0013546"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013547",
+        "label": "Brodmann (1909) area 16",
+        "obo_id": "UBERON:0013547"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013550",
+        "label": "Brodmann (1909) area 19",
+        "obo_id": "UBERON:0013550"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013551",
+        "label": "Brodmann (1909) area 20",
+        "obo_id": "UBERON:0013551"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013552",
+        "label": "Brodmann (1909) area 21",
+        "obo_id": "UBERON:0013552"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013553",
+        "label": "Brodmann (1909) area 22",
+        "obo_id": "UBERON:0013553"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013554",
+        "label": "Brodmann (1909) area 23",
+        "obo_id": "UBERON:0013554"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013556",
+        "label": "Brodmann (1909) area 25",
+        "obo_id": "UBERON:0013556"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013558",
+        "label": "Brodmann (1909) area 27",
+        "obo_id": "UBERON:0013558"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013559",
+        "label": "Brodmann (1909) area 28",
+        "obo_id": "UBERON:0013559"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013560",
+        "label": "Brodmann (1909) area 32",
+        "obo_id": "UBERON:0013560"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013561",
+        "label": "Brodmann (1909) area 43",
+        "obo_id": "UBERON:0013561"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013562",
+        "label": "Brodmann (1909) area 8a",
+        "obo_id": "UBERON:0013562"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013573",
+        "label": "Brodmann (1909) area 40",
+        "obo_id": "UBERON:0013573"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013589",
+        "label": "koniocortex",
+        "obo_id": "UBERON:0013589"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0013693",
+        "label": "cerebral cortex neuropil",
+        "obo_id": "UBERON:0013693"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014277",
+        "label": "piriform cortex layer 1",
+        "obo_id": "UBERON:0014277"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014280",
+        "label": "piriform cortex layer 2",
+        "obo_id": "UBERON:0014280"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014283",
+        "label": "piriform cortex layer 3",
+        "obo_id": "UBERON:0014283"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014370",
+        "label": "extrastriate cortex",
+        "obo_id": "UBERON:0014370"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014537",
+        "label": "periamygdaloid cortex",
+        "obo_id": "UBERON:0014537"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014539",
+        "label": "precommissural fornix of forebrain",
+        "obo_id": "UBERON:0014539"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014548",
+        "label": "pyramidal layer of CA1",
+        "obo_id": "UBERON:0014548"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014549",
+        "label": "pyramidal layer of CA2",
+        "obo_id": "UBERON:0014549"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014550",
+        "label": "pyramidal layer of CA3",
+        "obo_id": "UBERON:0014550"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014551",
+        "label": "CA2 stratum oriens",
+        "obo_id": "UBERON:0014551"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014552",
+        "label": "CA1 stratum oriens",
+        "obo_id": "UBERON:0014552"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014553",
+        "label": "CA3 stratum oriens",
+        "obo_id": "UBERON:0014553"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014554",
+        "label": "CA1 stratum radiatum",
+        "obo_id": "UBERON:0014554"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014555",
+        "label": "CA2 stratum radiatum",
+        "obo_id": "UBERON:0014555"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014556",
+        "label": "CA3 stratum radiatum",
+        "obo_id": "UBERON:0014556"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014557",
+        "label": "CA1 stratum lacunosum moleculare",
+        "obo_id": "UBERON:0014557"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014558",
+        "label": "CA2 stratum lacunosum moleculare",
+        "obo_id": "UBERON:0014558"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014559",
+        "label": "CA3 stratum lacunosum moleculare",
+        "obo_id": "UBERON:0014559"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014560",
+        "label": "CA3 stratum lucidum",
+        "obo_id": "UBERON:0014560"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014567",
+        "label": "layer of hippocampal field",
+        "obo_id": "UBERON:0014567"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014570",
+        "label": "CA1 alveus",
+        "obo_id": "UBERON:0014570"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014571",
+        "label": "CA3 alveus",
+        "obo_id": "UBERON:0014571"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014608",
+        "label": "inferior occipital gyrus",
+        "obo_id": "UBERON:0014608"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014618",
+        "label": "middle frontal sulcus",
+        "obo_id": "UBERON:0014618"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014639",
+        "label": "frontal sulcus",
+        "obo_id": "UBERON:0014639"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014640",
+        "label": "occipital gyrus",
+        "obo_id": "UBERON:0014640"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014734",
+        "label": "allocortex",
+        "obo_id": "UBERON:0014734"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014735",
+        "label": "paleocortex",
+        "obo_id": "UBERON:0014735"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014736",
+        "label": "periallocortex",
+        "obo_id": "UBERON:0014736"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014918",
+        "label": "retrosplenial granular cortex",
+        "obo_id": "UBERON:0014918"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014935",
+        "label": "cerebral cortex marginal layer",
+        "obo_id": "UBERON:0014935"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014936",
+        "label": "cerebral cortex ventricular layer",
+        "obo_id": "UBERON:0014936"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014940",
+        "label": "cerebral cortex subventricular zone",
+        "obo_id": "UBERON:0014940"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014950",
+        "label": "layer of developing cerebral cortex",
+        "obo_id": "UBERON:0014950"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014951",
+        "label": "proisocortex",
+        "obo_id": "UBERON:0014951"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0015593",
+        "label": "frontal gyrus",
+        "obo_id": "UBERON:0015593"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0015793",
+        "label": "induseum griseum",
+        "obo_id": "UBERON:0015793"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0015800",
+        "label": "taenia tectum of brain",
+        "obo_id": "UBERON:0015800"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016529",
+        "label": "cortex of cerebral lobe",
+        "obo_id": "UBERON:0016529"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016530",
+        "label": "parietal cortex",
+        "obo_id": "UBERON:0016530"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016535",
+        "label": "white matter of occipital lobe",
+        "obo_id": "UBERON:0016535"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016538",
+        "label": "temporal cortex",
+        "obo_id": "UBERON:0016538"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016540",
+        "label": "occipital cortex",
+        "obo_id": "UBERON:0016540"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016542",
+        "label": "limbic cortex",
+        "obo_id": "UBERON:0016542"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016634",
+        "label": "premotor cortex",
+        "obo_id": "UBERON:0016634"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0016636",
+        "label": "supplemental motor cortex",
+        "obo_id": "UBERON:0016636"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0018262",
+        "label": "dorsal zone of medial entorhinal cortex",
+        "obo_id": "UBERON:0018262"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0018263",
+        "label": "ventral zone of medial entorhinal cortex",
+        "obo_id": "UBERON:0018263"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0019278",
+        "label": "inferior rostral gyrus",
+        "obo_id": "UBERON:0019278"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0019279",
+        "label": "superior rostral gyrus",
+        "obo_id": "UBERON:0019279"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0019280",
+        "label": "rostral gyrus",
+        "obo_id": "UBERON:0019280"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0019283",
+        "label": "lateral longitudinal stria",
+        "obo_id": "UBERON:0019283"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0019303",
+        "label": "occipital sulcus",
+        "obo_id": "UBERON:0019303"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022230",
+        "label": "retrohippocampal region",
+        "obo_id": "UBERON:0022230"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022232",
+        "label": "secondary visual cortex",
+        "obo_id": "UBERON:0022232"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022234",
+        "label": "medial longitudinal stria",
+        "obo_id": "UBERON:0022234"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022244",
+        "label": "anterior orbital gyrus",
+        "obo_id": "UBERON:0022244"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022252",
+        "label": "precentral sulcus",
+        "obo_id": "UBERON:0022252"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022315",
+        "label": "primary motor cortex layer 5",
+        "obo_id": "UBERON:0022315"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022316",
+        "label": "primary motor cortex layer 6",
+        "obo_id": "UBERON:0022316"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022317",
+        "label": "olfactory cortex layer 1",
+        "obo_id": "UBERON:0022317"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022318",
+        "label": "olfactory cortex layer 2",
+        "obo_id": "UBERON:0022318"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022323",
+        "label": "entorhinal cortex layer 4",
+        "obo_id": "UBERON:0022323"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022325",
+        "label": "entorhinal cortex layer 5",
+        "obo_id": "UBERON:0022325"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022327",
+        "label": "entorhinal cortex layer 3",
+        "obo_id": "UBERON:0022327"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022329",
+        "label": "entorhinal cortex layer 6",
+        "obo_id": "UBERON:0022329"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022336",
+        "label": "entorhinal cortex layer 1",
+        "obo_id": "UBERON:0022336"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022337",
+        "label": "entorhinal cortex layer 2",
+        "obo_id": "UBERON:0022337"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022340",
+        "label": "piriform cortex layer 2a",
+        "obo_id": "UBERON:0022340"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022341",
+        "label": "piriform cortex layer 2b",
+        "obo_id": "UBERON:0022341"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022346",
+        "label": "dentate gyrus molecular layer middle",
+        "obo_id": "UBERON:0022346"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022347",
+        "label": "dentate gyrus molecular layer inner",
+        "obo_id": "UBERON:0022347"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022348",
+        "label": "dentate gyrus granule cell layer inner blade",
+        "obo_id": "UBERON:0022348"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022349",
+        "label": "dentate gyrus granule cell layer outer blade",
+        "obo_id": "UBERON:0022349"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022352",
+        "label": "medial orbital frontal cortex",
+        "obo_id": "UBERON:0022352"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022353",
+        "label": "posterior cingulate cortex",
+        "obo_id": "UBERON:0022353"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022364",
+        "label": "occipital fusiform gyrus",
+        "obo_id": "UBERON:0022364"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022367",
+        "label": "inferior lateral occipital cortex",
+        "obo_id": "UBERON:0022367"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022368",
+        "label": "superior lateral occipital cortex",
+        "obo_id": "UBERON:0022368"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022383",
+        "label": "anterior parahippocampal gyrus",
+        "obo_id": "UBERON:0022383"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022394",
+        "label": "posterior parahippocampal white matter",
+        "obo_id": "UBERON:0022394"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022395",
+        "label": "temporal fusiform gyrus",
+        "obo_id": "UBERON:0022395"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022396",
+        "label": "anterior temporal fusiform gyrus",
+        "obo_id": "UBERON:0022396"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022397",
+        "label": "posterior temporal fusiform gyrus",
+        "obo_id": "UBERON:0022397"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022398",
+        "label": "paracingulate gyrus",
+        "obo_id": "UBERON:0022398"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022428",
+        "label": "cingulate cortex cingulum",
+        "obo_id": "UBERON:0022428"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022430",
+        "label": "hippocampus cortex cingulum",
+        "obo_id": "UBERON:0022430"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022438",
+        "label": "rostral anterior cingulate cortex",
+        "obo_id": "UBERON:0022438"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022453",
+        "label": "olfactory entorhinal cortex",
+        "obo_id": "UBERON:0022453"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022469",
+        "label": "primary olfactory cortex",
+        "obo_id": "UBERON:0022469"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0022716",
+        "label": "lateral orbital frontal cortex",
+        "obo_id": "UBERON:0022716"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023462",
+        "label": "superficial feature part of occipital lobe",
+        "obo_id": "UBERON:0023462"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023787",
+        "label": "subicular complex",
+        "obo_id": "UBERON:0023787"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023852",
+        "label": "temporoparietal junction",
+        "obo_id": "UBERON:0023852"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023859",
+        "label": "primary somatosensory cortex layer 6",
+        "obo_id": "UBERON:0023859"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023861",
+        "label": "planum polare",
+        "obo_id": "UBERON:0023861"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023867",
+        "label": "islands of Calleja of olfactory tubercle",
+        "obo_id": "UBERON:0023867"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023900",
+        "label": "piriform cortex layer 1a",
+        "obo_id": "UBERON:0023900"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023901",
+        "label": "piriform cortex layer 1b",
+        "obo_id": "UBERON:0023901"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023932",
+        "label": "Sommer's sector",
+        "obo_id": "UBERON:0023932"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0023936",
+        "label": "perirhinal cortex of Burwell et al 1995",
+        "obo_id": "UBERON:0023936"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025096",
+        "label": "superior calcarine sulcus",
+        "obo_id": "UBERON:0025096"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025102",
+        "label": "inferior occipital sulcus",
+        "obo_id": "UBERON:0025102"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025103",
+        "label": "inferior calcarine sulcus",
+        "obo_id": "UBERON:0025103"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025104",
+        "label": "ectocalcarine sulcus",
+        "obo_id": "UBERON:0025104"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025581",
+        "label": "perirhinal cortex of primate of Burwell et al 1995",
+        "obo_id": "UBERON:0025581"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025584",
+        "label": "perirhinal cortex of rodent of Burwell et al 1995",
+        "obo_id": "UBERON:0025584"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0026137",
+        "label": "annectant gyrus",
+        "obo_id": "UBERON:0026137"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0026725",
+        "label": "angular sulcus",
+        "obo_id": "UBERON:0026725"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0026765",
+        "label": "Hadjikhani et al. (1998) visuotopic partition scheme region",
+        "obo_id": "UBERON:0026765"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0026775",
+        "label": "Tootell and Hadjikhani (2001) LOC/LOP complex",
+        "obo_id": "UBERON:0026775"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0026776",
+        "label": "Press, Brewer, Dougherty, Wade and Wandell (2001) visuotopic area V7",
+        "obo_id": "UBERON:0026776"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0027061",
+        "label": "isthmus of cingulate cortex",
+        "obo_id": "UBERON:0027061"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028395",
+        "label": "calcarine sulcus (dorsal)",
+        "obo_id": "UBERON:0028395"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028396",
+        "label": "calcarine sulcus (ventral)",
+        "obo_id": "UBERON:0028396"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028398",
+        "label": "Hadjikhani et al. (1998) visuotopic area V1d",
+        "obo_id": "UBERON:0028398"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028399",
+        "label": "Hadjikhani et al. (1998) visuotopic area V1v",
+        "obo_id": "UBERON:0028399"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028401",
+        "label": "Hadjikhani et al. (1998) visuotopic area V2v",
+        "obo_id": "UBERON:0028401"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028402",
+        "label": "Hadjikhani et al. (1998) visuotopic area V3",
+        "obo_id": "UBERON:0028402"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028403",
+        "label": "Hadjikhani et al. (1998) visuotopic area V3A",
+        "obo_id": "UBERON:0028403"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028404",
+        "label": "Hadjikhani et al. (1998) visuotopic area VP",
+        "obo_id": "UBERON:0028404"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028405",
+        "label": "Hadjikhani et al. (1998) visuotopic area V4v",
+        "obo_id": "UBERON:0028405"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028406",
+        "label": "Hadjikhani et al. (1998) visuotopic area V8",
+        "obo_id": "UBERON:0028406"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0028715",
+        "label": "caudal anterior cingulate cortex",
+        "obo_id": "UBERON:0028715"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0030649",
+        "label": "cytoarchitecture of entorhinal cortex",
+        "obo_id": "UBERON:0030649"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034711",
+        "label": "cortical preplate",
+        "obo_id": "UBERON:0034711"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034750",
+        "label": "visual association cortex",
+        "obo_id": "UBERON:0034750"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034751",
+        "label": "primary auditory cortex",
+        "obo_id": "UBERON:0034751"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034752",
+        "label": "secondary auditory cortex",
+        "obo_id": "UBERON:0034752"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034773",
+        "label": "uncus of parahippocampal gyrus",
+        "obo_id": "UBERON:0034773"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034774",
+        "label": "uncal CA1",
+        "obo_id": "UBERON:0034774"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034775",
+        "label": "uncal CA2",
+        "obo_id": "UBERON:0034775"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034776",
+        "label": "uncal CA3",
+        "obo_id": "UBERON:0034776"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034777",
+        "label": "rostral CA1",
+        "obo_id": "UBERON:0034777"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034778",
+        "label": "rostral CA2",
+        "obo_id": "UBERON:0034778"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034779",
+        "label": "rostral CA3",
+        "obo_id": "UBERON:0034779"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034780",
+        "label": "caudal CA1",
+        "obo_id": "UBERON:0034780"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034781",
+        "label": "caudal CA2",
+        "obo_id": "UBERON:0034781"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034782",
+        "label": "caudal CA3",
+        "obo_id": "UBERON:0034782"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034798",
+        "label": "stratum lacunosum-moleculare of caudal CA1",
+        "obo_id": "UBERON:0034798"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034799",
+        "label": "stratum radiatum of caudal CA1",
+        "obo_id": "UBERON:0034799"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034800",
+        "label": "stratum pyramidale of caudal CA1",
+        "obo_id": "UBERON:0034800"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034801",
+        "label": "stratum oriens of caudal CA1",
+        "obo_id": "UBERON:0034801"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034803",
+        "label": "stratum lacunosum-moleculare of caudal CA2",
+        "obo_id": "UBERON:0034803"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034804",
+        "label": "stratum radiatum of caudal CA2",
+        "obo_id": "UBERON:0034804"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034805",
+        "label": "stratum pyramidale of caudal CA2",
+        "obo_id": "UBERON:0034805"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034806",
+        "label": "stratum oriens of caudal CA2",
+        "obo_id": "UBERON:0034806"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034808",
+        "label": "stratum lacunosum-moleculare of caudal CA3",
+        "obo_id": "UBERON:0034808"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034809",
+        "label": "stratum radiatum of caudal CA3",
+        "obo_id": "UBERON:0034809"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034810",
+        "label": "stratum lucidum of caudal CA3",
+        "obo_id": "UBERON:0034810"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034811",
+        "label": "stratum pyramidale of caudal CA3",
+        "obo_id": "UBERON:0034811"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034812",
+        "label": "stratum oriens of caudal CA3",
+        "obo_id": "UBERON:0034812"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034828",
+        "label": "stratum lacunosum-moleculare of rostral CA1",
+        "obo_id": "UBERON:0034828"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034829",
+        "label": "stratum radiatum of rostral CA1",
+        "obo_id": "UBERON:0034829"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034830",
+        "label": "stratum pyramidale of rostral CA1",
+        "obo_id": "UBERON:0034830"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034831",
+        "label": "stratum oriens of rostral CA1",
+        "obo_id": "UBERON:0034831"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034833",
+        "label": "stratum lacunosum-moleculare of rostral CA2",
+        "obo_id": "UBERON:0034833"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034834",
+        "label": "stratum radiatum of rostral CA2",
+        "obo_id": "UBERON:0034834"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034835",
+        "label": "stratum pyramidale of rostral CA2",
+        "obo_id": "UBERON:0034835"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034836",
+        "label": "stratum oriens of rostral CA2",
+        "obo_id": "UBERON:0034836"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034838",
+        "label": "stratum lacunosum-moleculare of rostral CA3",
+        "obo_id": "UBERON:0034838"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034839",
+        "label": "stratum radiatum of rostral CA3",
+        "obo_id": "UBERON:0034839"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034840",
+        "label": "stratum lucidum of rostral CA3",
+        "obo_id": "UBERON:0034840"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034841",
+        "label": "stratum pyramidale of rostral CA3",
+        "obo_id": "UBERON:0034841"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034842",
+        "label": "stratum oriens of rostral CA3",
+        "obo_id": "UBERON:0034842"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034858",
+        "label": "stratum lacunosum-moleculare of uncal CA1",
+        "obo_id": "UBERON:0034858"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034859",
+        "label": "stratum radiatum of uncal CA1",
+        "obo_id": "UBERON:0034859"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034860",
+        "label": "stratum pyramidale of uncal CA1",
+        "obo_id": "UBERON:0034860"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034861",
+        "label": "stratum oriens of uncal CA1",
+        "obo_id": "UBERON:0034861"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034863",
+        "label": "stratum lacunosum-moleculare of uncal CA2",
+        "obo_id": "UBERON:0034863"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034864",
+        "label": "stratum radiatum of uncal CA2",
+        "obo_id": "UBERON:0034864"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034865",
+        "label": "stratum pyramidale of uncal CA2",
+        "obo_id": "UBERON:0034865"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034866",
+        "label": "stratum oriens of uncal CA2",
+        "obo_id": "UBERON:0034866"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034868",
+        "label": "stratum lacunosum-moleculare of uncal CA3",
+        "obo_id": "UBERON:0034868"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034869",
+        "label": "stratum radiatum of uncal CA3",
+        "obo_id": "UBERON:0034869"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034870",
+        "label": "stratum lucidum of uncal CA3",
+        "obo_id": "UBERON:0034870"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034871",
+        "label": "stratum pyramidale of uncal CA3",
+        "obo_id": "UBERON:0034871"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034872",
+        "label": "stratum oriens of uncal CA3",
+        "obo_id": "UBERON:0034872"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034888",
+        "label": "primary motor cortex layer 1",
+        "obo_id": "UBERON:0034888"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034889",
+        "label": "posterior parietal cortex",
+        "obo_id": "UBERON:0034889"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034891",
+        "label": "insular cortex",
+        "obo_id": "UBERON:0034891"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034892",
+        "label": "granular insular cortex",
+        "obo_id": "UBERON:0034892"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034893",
+        "label": "agranular insular cortex",
+        "obo_id": "UBERON:0034893"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0034994",
+        "label": "hindbrain cortical intermediate zone",
+        "obo_id": "UBERON:0034994"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035013",
+        "label": "temporal cortex association area",
+        "obo_id": "UBERON:0035013"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035044",
+        "label": "olfactory cortex layer 3",
+        "obo_id": "UBERON:0035044"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035153",
+        "label": "dorsolateral prefrontal cortex layer 1",
+        "obo_id": "UBERON:0035153"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035154",
+        "label": "dorsolateral prefrontal cortex layer 2",
+        "obo_id": "UBERON:0035154"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035155",
+        "label": "dorsolateral prefrontal cortex layer 3",
+        "obo_id": "UBERON:0035155"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035156",
+        "label": "dorsolateral prefrontal cortex layer 4",
+        "obo_id": "UBERON:0035156"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035157",
+        "label": "dorsolateral prefrontal cortex layer 5",
+        "obo_id": "UBERON:0035157"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035158",
+        "label": "dorsolateral prefrontal cortex layer 6",
+        "obo_id": "UBERON:0035158"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035786",
+        "label": "layer of CA1 field",
+        "obo_id": "UBERON:0035786"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035787",
+        "label": "layer of CA2 field",
+        "obo_id": "UBERON:0035787"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035788",
+        "label": "layer of CA3 field",
+        "obo_id": "UBERON:0035788"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035802",
+        "label": "alveus of CA2 field",
+        "obo_id": "UBERON:0035802"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035872",
+        "label": "primary somatosensory area barrel field layer 5",
+        "obo_id": "UBERON:0035872"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035873",
+        "label": "primary somatosensory area barrel field layer 1",
+        "obo_id": "UBERON:0035873"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035874",
+        "label": "primary somatosensory area barrel field layer 2/3",
+        "obo_id": "UBERON:0035874"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035875",
+        "label": "primary somatosensory area barrel field layer 6b",
+        "obo_id": "UBERON:0035875"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035876",
+        "label": "primary somatosensory area barrel field layer 6a",
+        "obo_id": "UBERON:0035876"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035877",
+        "label": "primary somatosensory area barrel field layer 4",
+        "obo_id": "UBERON:0035877"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035885",
+        "label": "dorsal auditory area",
+        "obo_id": "UBERON:0035885"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035886",
+        "label": "posterior parietal association areas",
+        "obo_id": "UBERON:0035886"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035890",
+        "label": "postrhinal area",
+        "obo_id": "UBERON:0035890"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035892",
+        "label": "primary visual area, layer 6a",
+        "obo_id": "UBERON:0035892"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035893",
+        "label": "anteromedial visual area",
+        "obo_id": "UBERON:0035893"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035894",
+        "label": "anterolateral visual area",
+        "obo_id": "UBERON:0035894"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035895",
+        "label": "lateral visual area",
+        "obo_id": "UBERON:0035895"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035897",
+        "label": "posterolateral visual area",
+        "obo_id": "UBERON:0035897"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035900",
+        "label": "posteromedial visual area",
+        "obo_id": "UBERON:0035900"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035904",
+        "label": "primary visual area, layer 4",
+        "obo_id": "UBERON:0035904"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035906",
+        "label": "primary visual area, layer 5",
+        "obo_id": "UBERON:0035906"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035907",
+        "label": "primary visual area, layer 2/3",
+        "obo_id": "UBERON:0035907"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035908",
+        "label": "anterolateral visual area, layer 5",
+        "obo_id": "UBERON:0035908"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035909",
+        "label": "posteromedial visual area, layer 6a",
+        "obo_id": "UBERON:0035909"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035911",
+        "label": "postrhinal area, layer 4",
+        "obo_id": "UBERON:0035911"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035912",
+        "label": "rostrolateral visual area",
+        "obo_id": "UBERON:0035912"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035913",
+        "label": "anteromedial visual area, layer 5",
+        "obo_id": "UBERON:0035913"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035914",
+        "label": "posteromedial visual area, layer 4",
+        "obo_id": "UBERON:0035914"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035915",
+        "label": "lateral visual area, layer 4",
+        "obo_id": "UBERON:0035915"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035916",
+        "label": "lateral visual area, layer 5",
+        "obo_id": "UBERON:0035916"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035917",
+        "label": "dorsal auditory area, layer 4",
+        "obo_id": "UBERON:0035917"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035918",
+        "label": "lateral visual area, layer 6a",
+        "obo_id": "UBERON:0035918"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035919",
+        "label": "posterolateral visual area, layer 4",
+        "obo_id": "UBERON:0035919"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035920",
+        "label": "rostrolateral area, layer 5",
+        "obo_id": "UBERON:0035920"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035925",
+        "label": "central sulcus of insula",
+        "obo_id": "UBERON:0035925"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035932",
+        "label": "anterior segment of paracentral lobule",
+        "obo_id": "UBERON:0035932"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035933",
+        "label": "paracentral lobule",
+        "obo_id": "UBERON:0035933"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035934",
+        "label": "posterior segment of paracentral lobule",
+        "obo_id": "UBERON:0035934"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035970",
+        "label": "calcar avis of the lateral ventricle",
+        "obo_id": "UBERON:0035970"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0035971",
+        "label": "postsubiculum",
+        "obo_id": "UBERON:0035971"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0036164",
+        "label": "ambient gyrus",
+        "obo_id": "UBERON:0036164"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_4450000",
+        "label": "medial prefrontal cortex",
+        "obo_id": "UBERON:4450000"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440000",
+        "label": "cortical layer II/III",
+        "obo_id": "UBERON:8440000"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440001",
+        "label": "cortical layer IV/V",
+        "obo_id": "UBERON:8440001"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440002",
+        "label": "cortical layer V/VI",
+        "obo_id": "UBERON:8440002"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440003",
+        "label": "cortical layer VIb",
+        "obo_id": "UBERON:8440003"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440004",
+        "label": "laminar subdivision of the cortex",
+        "obo_id": "UBERON:8440004"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440010",
+        "label": "Brodmann (1909) area 17",
+        "obo_id": "UBERON:8440010"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440011",
+        "label": "cortical visual area",
+        "obo_id": "UBERON:8440011"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440013",
+        "label": "fasciola cinerea",
+        "obo_id": "UBERON:8440013"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440024",
+        "label": "visceral area",
+        "obo_id": "UBERON:8440024"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440032",
+        "label": "prelimbic area",
+        "obo_id": "UBERON:8440032"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440033",
+        "label": "infralimbic area",
+        "obo_id": "UBERON:8440033"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440039",
+        "label": "piriform-amygdalar area",
+        "obo_id": "UBERON:8440039"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440040",
+        "label": "dorsal peduncular area",
+        "obo_id": "UBERON:8440040"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440044",
+        "label": "upper layers of the cortex",
+        "obo_id": "UBERON:8440044"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440045",
+        "label": "second visual cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440045"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440046",
+        "label": "third visual cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440046"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440047",
+        "label": "fourth visual cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440047"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440048",
+        "label": "temporal visual area a (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440048"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440049",
+        "label": "temporal visual area b (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440049"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440050",
+        "label": "posterior parietal rostral cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440050"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440051",
+        "label": "lower layers of the cortex",
+        "obo_id": "UBERON:8440051"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440052",
+        "label": "posterior parietal caudal cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440052"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440054",
+        "label": "anteromedial lateral suprasylvian visual area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440054"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440055",
+        "label": "anterolateral lateral suprasylvian visual area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440055"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440056",
+        "label": "posteromedial lateral suprasylvian visual area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440056"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440059",
+        "label": "posterolateral lateral suprasylvian visual area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440059"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440060",
+        "label": "dorsal lateral suprasylvian visual cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440060"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440061",
+        "label": "ventral lateral suprasylvian visual area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440061"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440062",
+        "label": "posterior suprasylvian visual cortical area (sensu Mustela putorius furo)",
+        "obo_id": "UBERON:8440062"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440075",
+        "label": "gustatory cortex",
+        "obo_id": "UBERON:8440075"
+      }
+    ]
+  }
+}

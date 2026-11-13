@@ -1,0 +1,110 @@
+{
+  "status": "success",
+  "total_found": 162,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002107",
+      "label": "liver",
+      "description": [
+        "An exocrine gland which secretes bile and functions in metabolism of protein and carbohydrate and fat, synthesizes substances involved in the clotting of the blood, synthesizes vitamin A, detoxifies poisonous substances, stores glycogen, and breaks down worn-out erythrocytes[GO]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002107",
+      "short_form": "UBERON_0002107",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": []
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001117",
+      "label": "caudate lobe of liver",
+      "description": [
+        "The caudate lobe (posterior hepatic segment I, Spigelian lobe) is situated upon the postero-superior surface of the liver on the right lobe of the liver, opposite the tenth and eleventh thoracic vertebrae. It is bounded on the left side by the physiological division of the liver called the ligamentum venosum. It is bounded, below, by the porta; on the right, by the fossa for the inferior vena cava; and, on the left, by the fossa for the ductus venosus. It looks backward, being nearly vertical in position; it is longer from above downward than from side to side, and is somewhat concave in the transverse direction. The caudate process is a small elevation of the hepatic substance extending obliquely and laterally, from the lower extremity of the caudate lobe to the under surface of the right lobe. It is situated behind the porta, and separates the fossa for the gall-bladder from the commencement of the fossa for the inferior vena cava. Budd-Chiari syndrome, caused by occlusion of hepatic venous outflow, can lead to hypertrophy of the caudate lobe due to its own caval anastomosis that allows for continued function of this lobe of the liver. [WP,unvetted]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001117",
+      "short_form": "UBERON_0001117",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "Spiegelian lobe",
+        "Spigel lobe",
+        "hepatovenous segment I",
+        "liver caudate lobe",
+        "posterior hepatic segment i",
+        "posterior liver",
+        "posterior part of liver",
+        "segment I of liver",
+        "couinaud hepatic segment I",
+        "lobus caudatus hepatis",
+        "lobus caudatus",
+        "pars posterior hepatis",
+        "segmentum hepatis I"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0006727",
+      "label": "liver left lateral lobe",
+      "description": [],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0006727",
+      "short_form": "UBERON_0006727",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "lateral segment of left lobe of liver",
+        "lateral segment of liver",
+        "segmentum laterale (lobus hepatis sinister)"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_8400024",
+      "label": "subcapsular region of liver",
+      "description": [
+        "Region of liver parenchyma immediately below the capsule. This region is frequently specified in pathology diagnoses."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:8400024",
+      "short_form": "UBERON_8400024",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "liver subcapsular region",
+        "liver subcapsular tissue",
+        "subcapsular tissue of liver"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001281",
+      "label": "hepatic sinusoid",
+      "description": [
+        "Wide thin-walled blood vessels in the liver. In mammals they have neither veinous or arterial markers."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001281",
+      "short_form": "UBERON_0001281",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "liver sinusoid",
+        "vas capillare sinusoideum",
+        "liver hepatic sinusoids",
+        "liver sinusoidal blood vessel",
+        "sinusoid of liver",
+        "sinusoidal blood vessel of liver",
+        "vas sinusoideum"
+      ]
+    }
+  ]
+}

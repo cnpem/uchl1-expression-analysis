@@ -1,0 +1,257 @@
+{
+  "status": "success",
+  "term": {
+    "iri": "http://purl.obolibrary.org/obo/UBERON_0002435",
+    "label": "striatum",
+    "description": [
+      "A region of the forebrain consisting of the caudate nucleus, putamen and fundus striati.[GO]."
+    ],
+    "obo_id": "UBERON:0002435",
+    "ontology_name": "uberon",
+    "ontology_prefix": "UBERON",
+    "is_defining_ontology": true,
+    "is_obsolete": false,
+    "has_children": true,
+    "is_root": false,
+    "short_form": "UBERON_0002435",
+    "synonyms": [
+      "caudate putamen",
+      "corpus striatum (Zilles)",
+      "corpus striatum",
+      "dorsal striatum",
+      "neostriatum",
+      "neuraxis striatum",
+      "striate nucleus",
+      "striated nucleus",
+      "striatum of neuraxis",
+      "striatum"
+    ],
+    "annotation": {
+      "database_cross_reference": [
+        "BAMS:STR",
+        "BAMS:Str",
+        "BAMS:Striatum",
+        "BIRNLEX:1672",
+        "BM:N",
+        "BTO:0000418",
+        "DHBA:10333",
+        "DMBA:15851",
+        "EFO:0000109",
+        "EMAPA:17549",
+        "FMA:77618",
+        "FMA:83683",
+        "HBA:4277",
+        "MA:0000891",
+        "MBA:477",
+        "MESH:D017072",
+        "NCIT:C111122",
+        "PBA:10080",
+        "Wikipedia:Striatum",
+        "ncithesaurus:Striatum",
+        "UMLS:C0162512",
+        "neuronames:225"
+      ],
+      "depiction": [
+        "http://upload.wikimedia.org/wikipedia/commons/3/33/BrainCaudatePutamen.svg"
+      ],
+      "external_ontology_notes": [
+        "FMA divides 'striatum of neuraxis' into 4, neostriatum is seperate class. In NIF these are synonyms. TODO - check striatum vs corpus striatum see Wikipedia:Striatum#History. Check caudoputamen"
+      ],
+      "has_relational_adjective": [
+        "striatal"
+      ],
+      "id": [
+        "UBERON:0002435"
+      ],
+      "mutually spatially disjoint with": [
+        "http://purl.obolibrary.org/obo/UBERON_0006514"
+      ]
+    },
+    "in_subset": [
+      "human_reference_atlas",
+      "human_subset",
+      "mouse_subset",
+      "pheno_slim",
+      "uberon_slim"
+    ],
+    "hierarchicalChildren": [
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001873",
+        "label": "caudate nucleus",
+        "obo_id": "UBERON:0001873"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001874",
+        "label": "putamen",
+        "obo_id": "UBERON:0001874"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005382",
+        "label": "dorsal striatum",
+        "obo_id": "UBERON:0005382"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005403",
+        "label": "ventral striatum",
+        "obo_id": "UBERON:0005403"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007628",
+        "label": "lateral septal complex",
+        "obo_id": "UBERON:0007628"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025736",
+        "label": "chemoarchitectural part of striatum",
+        "obo_id": "UBERON:0025736"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440030",
+        "label": "striatum-like amygdalar nuclei",
+        "obo_id": "UBERON:8440030"
+      }
+    ],
+    "hierarchicalDescendants": [
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001873",
+        "label": "caudate nucleus",
+        "obo_id": "UBERON:0001873"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001874",
+        "label": "putamen",
+        "obo_id": "UBERON:0001874"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0001882",
+        "label": "nucleus accumbens",
+        "obo_id": "UBERON:0001882"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002263",
+        "label": "lentiform nucleus",
+        "obo_id": "UBERON:0002263"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002626",
+        "label": "head of caudate nucleus",
+        "obo_id": "UBERON:0002626"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002628",
+        "label": "tail of caudate nucleus",
+        "obo_id": "UBERON:0002628"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002630",
+        "label": "body of caudate nucleus",
+        "obo_id": "UBERON:0002630"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0002667",
+        "label": "lateral septal nucleus",
+        "obo_id": "UBERON:0002667"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005382",
+        "label": "dorsal striatum",
+        "obo_id": "UBERON:0005382"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005383",
+        "label": "caudate-putamen",
+        "obo_id": "UBERON:0005383"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0005403",
+        "label": "ventral striatum",
+        "obo_id": "UBERON:0005403"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0007628",
+        "label": "lateral septal complex",
+        "obo_id": "UBERON:0007628"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0008884",
+        "label": "left putamen",
+        "obo_id": "UBERON:0008884"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0008885",
+        "label": "right putamen",
+        "obo_id": "UBERON:0008885"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0012170",
+        "label": "core of nucleus accumbens",
+        "obo_id": "UBERON:0012170"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0012171",
+        "label": "shell of nucleus accumbens",
+        "obo_id": "UBERON:0012171"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0014605",
+        "label": "fundus striati",
+        "obo_id": "UBERON:0014605"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0025736",
+        "label": "chemoarchitectural part of striatum",
+        "obo_id": "UBERON:0025736"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0027244",
+        "label": "striosomal part of body of caudate nucleus",
+        "obo_id": "UBERON:0027244"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0027245",
+        "label": "matrix part of head of caudate nucleus",
+        "obo_id": "UBERON:0027245"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0027246",
+        "label": "matrix part of tail of caudate nucleus",
+        "obo_id": "UBERON:0027246"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0027368",
+        "label": "matrix compartment",
+        "obo_id": "UBERON:0027368"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0027371",
+        "label": "striosome",
+        "obo_id": "UBERON:0027371"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0029001",
+        "label": "matrix compartment of caudate nucleus",
+        "obo_id": "UBERON:0029001"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0029002",
+        "label": "matrix compartment of putamen",
+        "obo_id": "UBERON:0029002"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0029004",
+        "label": "striosomal part of caudate nucleus",
+        "obo_id": "UBERON:0029004"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_0029005",
+        "label": "striosomal part of putamen",
+        "obo_id": "UBERON:0029005"
+      },
+      {
+        "iri": "http://purl.obolibrary.org/obo/UBERON_8440030",
+        "label": "striatum-like amygdalar nuclei",
+        "obo_id": "UBERON:8440030"
+      }
+    ]
+  }
+}

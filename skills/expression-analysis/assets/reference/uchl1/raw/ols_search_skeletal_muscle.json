@@ -1,0 +1,124 @@
+{
+  "status": "success",
+  "total_found": 199,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004857",
+      "label": "skeletal muscle connective tissue",
+      "description": [
+        "A connective tissue that surrounds a skeletal muscle tissue."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004857",
+      "short_form": "UBERON_0004857",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "connective tissue of skeletal muscle tissue",
+        "connective tissue of skeletal muscle",
+        "portion of connective tissue of skeletal muscle tissue",
+        "portion of connective tissue of skeletal muscle",
+        "skeletal muscle portion of connective tissue",
+        "skeletal muscle textus connectivus",
+        "skeletal muscle tissue connective tissue",
+        "skeletal muscle tissue portion of connective tissue",
+        "skeletal muscle tissue textus connectivus",
+        "textus connectivus of skeletal muscle tissue",
+        "textus connectivus of skeletal muscle"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004832",
+      "label": "anal region skeletal muscle",
+      "description": [
+        "A portion of skeletal muscle tissue that is part of an anal region [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004832",
+      "short_form": "UBERON_0004832",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "anal part of perineum skeletal muscle tissue",
+        "anal part of perineum skeletal muscle",
+        "anal region skeletal muscle tissue",
+        "anal triangle skeletal muscle tissue",
+        "anal triangle skeletal muscle",
+        "skeletal muscle of anal part of perineum",
+        "skeletal muscle of anal region",
+        "skeletal muscle of anal triangle",
+        "skeletal muscle tissue of anal part of perineum",
+        "skeletal muscle tissue of anal region",
+        "skeletal muscle tissue of anal triangle"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003898",
+      "label": "skeletal muscle tissue of trunk",
+      "description": [
+        "A portion of skeletal muscle tissue in the trunk."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003898",
+      "short_form": "UBERON_0003898",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "skeletal muscle of torso",
+        "skeletal muscle tissue of torso",
+        "skeletal muscle tissue of trunk",
+        "torso skeletal muscle tissue",
+        "torso skeletal muscle",
+        "trunk skeletal muscle tissue",
+        "trunk skeletal muscle"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004829",
+      "label": "urethra skeletal muscle tissue",
+      "description": [
+        "A portion of skeletal muscle tissue that is part of a urethra [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004829",
+      "short_form": "UBERON_0004829",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "skeletal muscle of urethra",
+        "skeletal muscle tissue of urethra",
+        "urethra skeletal muscle tissue"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004830",
+      "label": "respiratory system skeletal muscle",
+      "description": [
+        "A portion of skeletal muscle tissue that is part of a respiratory system [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004830",
+      "short_form": "UBERON_0004830",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "respiratory system skeletal muscle tissue",
+        "skeletal muscle of apparatus respiratorius",
+        "skeletal muscle of respiratory system",
+        "skeletal muscle tissue of apparatus respiratorius",
+        "skeletal muscle tissue of respiratory system"
+      ]
+    }
+  ]
+}

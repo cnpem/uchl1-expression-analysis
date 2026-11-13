@@ -1,0 +1,40 @@
+# Approved Contrast Plan for uchl1 (user approval 2026-10-28, proposed plan accepted as is).
+study_id: uchl1
+contrasts:
+- name: rna_seq
+  scorer: RNA_SEQ
+  strand: unstranded
+  track_filter: {}
+  target:
+  - UBERON:0002038  # substantia nigra
+  - UBERON:0000955  # brain
+  control:
+  - UBERON:0002107  # liver
+  - UBERON:0001134  # skeletal muscle tissue
+  - UBERON:0002113  # kidney
+  tissue_aggregation: mean
+- name: cage_sense
+  scorer: CAGE
+  strand: sense
+  track_filter: {}
+  target:
+  - UBERON:0002038  # substantia nigra
+  - UBERON:0000955  # brain
+  control:
+  - UBERON:0000178  # blood
+  - UBERON:0002107  # liver
+  - UBERON:0001134  # skeletal muscle tissue
+  - UBERON:0002113  # kidney
+  tissue_aggregation: mean
+- name: dnase
+  scorer: DNASE
+  strand: unstranded
+  track_filter: {}
+  target:
+  - UBERON:0000955  # brain
+  control:
+  - UBERON:0002107  # liver
+  - UBERON:0002113  # kidney
+  tissue_aggregation: mean
+priority:
+  direction_contrast: rna_seq

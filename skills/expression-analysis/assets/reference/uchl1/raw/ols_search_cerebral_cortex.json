@@ -1,0 +1,89 @@
+{
+  "status": "success",
+  "total_found": 146,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0000956",
+      "label": "cerebral cortex",
+      "description": [
+        "The thin layer of gray matter on the surface of the cerebral hemisphere that develops from the telencephalon. It consists of the neocortex (6 layered cortex or isocortex), the hippocampal formation and the olfactory cortex."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0000956",
+      "short_form": "UBERON_0000956",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "cortex of cerebral hemisphere"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0016526",
+      "label": "lobe of cerebral hemisphere",
+      "description": [
+        "We use the term lobe broadly as a rough regional area, encompassing homologous regions in smooth-brained mammals. We subdivide the lobes into white matter and neocortical parts.",
+        "Subdivision of telencephalon which is one of a number of subdivisions of each hemisphere separated by both real landmarks (sulci and fissures) and arbitrary boundaries[FMA,modified]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0016526",
+      "short_form": "UBERON_0016526",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "cerebral hemisphere lobe",
+        "cerebral lobe",
+        "lobe of cerebral cortex",
+        "lobe parts of cerebral cortex",
+        "lobi cerebri"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0013693",
+      "label": "cerebral cortex neuropil",
+      "description": [
+        "A neuropil that is part of a cerebral cortex [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0013693",
+      "short_form": "UBERON_0013693",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "neuropil of cerebral cortex"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0014936",
+      "label": "cerebral cortex ventricular layer",
+      "description": [],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0014936",
+      "short_form": "UBERON_0014936",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": []
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0014940",
+      "label": "cerebral cortex subventricular zone",
+      "description": [],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0014940",
+      "short_form": "UBERON_0014940",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": []
+    }
+  ]
+}

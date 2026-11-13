@@ -1,0 +1,179 @@
+{
+  "reference": "uchl1",
+  "sources": {
+    "ensembl": "116",
+    "gencode": "v46",
+    "atlas_pull": "2026-11-12"
+  },
+  "stages": {
+    "locus": {
+      "transcript_id": {
+        "value": "ENST00000284440"
+      },
+      "strand": {
+        "value": 1
+      },
+      "tss": {
+        "value": 41256928
+      },
+      "cds_start": {
+        "value": 41256977
+      },
+      "window_start": {
+        "value": 41256216
+      },
+      "window_end": {
+        "value": 41257009
+      },
+      "window_length": {
+        "value": 794
+      },
+      "n_regulatory_in_window": {
+        "value": 2
+      },
+      "snvs.enhancer": {
+        "value": 1485
+      },
+      "snvs.promoter": {
+        "value": 651
+      },
+      "snvs.utr5": {
+        "value": 147
+      },
+      "snvs.cds": {
+        "value": 99
+      },
+      "snvs.total": {
+        "value": 2382
+      }
+    },
+    "cohorts": {
+      "n_tracks.RNA_SEQ": {
+        "value": 7,
+        "headline": true
+      },
+      "n_tracks.CAGE": {
+        "value": 12,
+        "headline": true
+      },
+      "n_tracks.DNASE": {
+        "value": 3,
+        "headline": true
+      },
+      "target_curies": {
+        "value": "UBERON:0000955,UBERON:0002038"
+      },
+      "control_curies": {
+        "value": "UBERON:0000178,UBERON:0001134,UBERON:0002107,UBERON:0002113"
+      },
+      "dropped_scorers": {
+        "value": "ATAC"
+      }
+    },
+    "variants": {
+      "n_rows": {
+        "value": 2382,
+        "headline": true
+      },
+      "n_positions": {
+        "value": 794
+      },
+      "distance_to_tss_min": {
+        "value": -712
+      },
+      "distance_to_tss_max": {
+        "value": 81
+      },
+      "region.upstream_gene_variant": {
+        "value": 2136
+      },
+      "region.5_prime_UTR_variant": {
+        "value": 147
+      },
+      "region.start_codon_variant": {
+        "value": 9
+      },
+      "region.coding_sequence_variant": {
+        "value": 90
+      },
+      "ref_mismatches": {
+        "value": 0
+      }
+    },
+    "master": {
+      "n_rows": {
+        "value": 2382,
+        "headline": true
+      },
+      "gate1_pass": {
+        "value": "true"
+      },
+      "gate2_pass": {
+        "value": "true"
+      },
+      "top_feature.CACTUS_241_WAY": {
+        "value": 1198
+      },
+      "top_feature.MERGED_SPLICING": {
+        "value": 476
+      },
+      "top_feature.PHASTCONS_470_WAY": {
+        "value": 369
+      },
+      "n_long_scores": {
+        "value": 52404
+      }
+    },
+    "contrast": {
+      "direction.Decrease": {
+        "value": 1155,
+        "headline": true
+      },
+      "direction.Increase": {
+        "value": 784,
+        "headline": true
+      },
+      "direction.Inconsistent": {
+        "value": 443,
+        "headline": true
+      },
+      "scope.Shared": {
+        "value": 803,
+        "headline": true
+      },
+      "scope.Opposite": {
+        "value": 800,
+        "headline": true
+      },
+      "scope.Mixed": {
+        "value": 336,
+        "headline": true
+      },
+      "scope.No scope": {
+        "value": 443,
+        "headline": true
+      },
+      "diff_sum.rna_seq": {
+        "value": 10.62568782,
+        "tol": 1e-06
+      },
+      "diff_sum.cage_sense": {
+        "value": 30.013294147,
+        "tol": 1e-06
+      },
+      "diff_sum.dnase": {
+        "value": -46.803667185,
+        "tol": 1e-06
+      }
+    },
+    "workbench": {
+      "default_filter_count": {
+        "value": 713,
+        "headline": true
+      },
+      "domain_options": {
+        "value": "ENSR4_9LD5M (Enhancer)|ENSR4_837Q9H (Promoter)|Exon 1 (5' UTR)|ATG Start Codon|Exon 1 (CDS)"
+      }
+    }
+  }
+}
