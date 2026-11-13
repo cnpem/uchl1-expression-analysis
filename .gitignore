@@ -1,0 +1,16 @@
+.env
+.env.*
+.licenses/
+.venv/
+.workbench/
+.dashboard/
+.agents/
+.claude/
+studies/
+__marimo__/
+__pycache__/
+*.pyc
+*.pyo
+*.lock
+.DS_Store
+Thumbs.db
