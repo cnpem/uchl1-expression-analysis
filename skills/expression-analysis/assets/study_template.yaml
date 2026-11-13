@@ -1,0 +1,23 @@
+# Study request (expression). `study.py init` fills the gene placeholders.
+# Ask the researcher for the gene, target and control tissues, scorers and window policy
+# (Workflow step 1), then run `study.py validate`.
+study_id: {{STUDY_ID}}            # lowercase gene symbol
+species: homo_sapiens
+assembly: GRCh38
+gene_symbol: {{GENE_SYMBOL}}
+window:
+  policy: regulatory_unit          # how the window around the gene is built
+  explicit_interval: null          # CHR:START-END when the researcher fixes the window
+  regulatory_search_upstream_bp: 2000   # search upstream of the gene for Regulatory Build features
+  max_feature_gap_bp: 0            # largest gap that still chains neighbouring features
+  feature_biotypes: [promoter, enhancer]
+cohorts:
+  target:
+    label: Target                  # name of the tissue group of interest
+    curies: []                     # UBERON/CL CURIEs, chosen after the OLS search (Workflow step 5)
+  control:
+    label: Control
+    curies: []
+scorers: [RNA_SEQ, CAGE, DNASE, ATAC]
+report:
+  top_n: 20                        # variants that go to interpretation and the Atlas links
