@@ -1,0 +1,106 @@
+{
+  "status": "success",
+  "total_found": 26,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002435",
+      "label": "striatum",
+      "description": [
+        "A region of the forebrain consisting of the caudate nucleus, putamen and fundus striati.[GO]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002435",
+      "short_form": "UBERON_0002435",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "neostriatum",
+        "neuraxis striatum",
+        "striate nucleus",
+        "striatum of neuraxis",
+        "striatum"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0005382",
+      "label": "dorsal striatum",
+      "description": [
+        "Dorsal components of the striatum comprising the caudate nucleus and the putamen, in species that have distinct nuclei; the caudoputamen in species which don't."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0005382",
+      "short_form": "UBERON_0005382",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "striatum dorsal region"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0005403",
+      "label": "ventral striatum",
+      "description": [
+        "A composite structure of the telencephalon that is defined in the striatopallidal system by connectivity and neurochemical staining. It includes the nucleus accumbens, the most ventral portions of the caudate nucleus and the putamen, the rostrolateral portion of the anterior perforated substance, the islands of Calleja and a rostral subcommissural portion of substantia innominata. The boundary between the ventral striatum and dorsal striatum is indistinct in sections stained for Nissl substance (Heimer-1995; adapted from Brain Info)."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0005403",
+      "short_form": "UBERON_0005403",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "striatum ventral region"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_8440030",
+      "label": "striatum-like amygdalar nuclei",
+      "description": [
+        "A part of the striatum which is primarilly composed of amygdalar areas. The sAMY is composed of the anterior amygdalar area, central amygdalar nucleus, intercalated amygdalar nucleus, medial amygdalar nucleus, and the bed nucleus of the accessory olfactory tract."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:8440030",
+      "short_form": "UBERON_8440030",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "sAMY"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002727",
+      "label": "medial medullary lamina of globus pallidus",
+      "description": [
+        "Thin sheet of white matter dividing the external and internal segments of the globus pallidus in primates."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002727",
+      "short_form": "UBERON_0002727",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "inner medullary lamina",
+        "internal medullary lamina of corpus striatum",
+        "internal medullary lamina of globus pallidus",
+        "internal medullary lamina of lentiform nucleus",
+        "lamina medullaris interna corporis striati",
+        "lamina medullaris medialis corporis striati",
+        "medial medullary lamina of corpus striatum",
+        "medial medullary lamina of globus pallidus",
+        "medial medullary lamina of pallidum",
+        "medial medullary lamina",
+        "medial medullary stria"
+      ]
+    }
+  ]
+}

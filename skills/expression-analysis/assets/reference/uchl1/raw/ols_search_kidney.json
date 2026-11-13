@@ -1,0 +1,141 @@
+{
+  "status": "success",
+  "total_found": 393,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002113",
+      "label": "kidney",
+      "description": [
+        "A paired organ of the urinary tract that produces urine and maintains bodily fluid homeostasis, blood pressure, pH levels, red blood cell production and skeleton mineralization."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002113",
+      "short_form": "UBERON_0002113",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": []
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003527",
+      "label": "kidney capillary",
+      "description": [
+        "A capillary that is part of a kidney [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003527",
+      "short_form": "UBERON_0003527",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "blood capillary of kidney",
+        "capillary of kidney",
+        "capillary vessel of kidney",
+        "kidney blood capillary",
+        "kidney capillary vessel",
+        "renal capillary"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004788",
+      "label": "kidney pelvis urothelium",
+      "description": [
+        "The epithelial lining of the luminal space of the kidney pelvis."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004788",
+      "short_form": "UBERON_0004788",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "kidney pelvis transitional epithelium",
+        "kidney pelvis uroepithelium",
+        "pelvis of ureter uroepithelium",
+        "pelvis of ureter urothelium",
+        "renal pelvis transitional epithelium",
+        "renal pelvis uroepithelium",
+        "renal pelvis urothelium",
+        "transitional epithelium of kidney pelvis",
+        "transitional epithelium of renal pelvis",
+        "uroepithelium of kidney pelvis",
+        "uroepithelium of pelvis of ureter",
+        "uroepithelium of renal pelvis",
+        "urothelium of kidney pelvis",
+        "urothelium of pelvis of ureter",
+        "urothelium of renal pelvis"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0005006",
+      "label": "mucosa of renal pelvis",
+      "description": [
+        "A mucosa that is part of a renal pelvis [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0005006",
+      "short_form": "UBERON_0005006",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "kidney pelvis mucosa of organ",
+        "kidney pelvis mucosa",
+        "kidney pelvis mucous membrane",
+        "kidney pelvis organ mucosa",
+        "mucosa of kidney pelvis",
+        "mucosa of organ of kidney pelvis",
+        "mucosa of organ of pelvis of ureter",
+        "mucosa of organ of renal pelvis",
+        "mucosa of pelvis of ureter",
+        "mucous membrane of kidney pelvis",
+        "mucous membrane of pelvis of ureter",
+        "mucous membrane of renal pelvis",
+        "organ mucosa of kidney pelvis",
+        "organ mucosa of pelvis of ureter",
+        "organ mucosa of renal pelvis",
+        "pelvis of ureter mucosa of organ",
+        "pelvis of ureter mucosa",
+        "pelvis of ureter mucous membrane",
+        "pelvis of ureter organ mucosa",
+        "renal pelvic mucosa",
+        "renal pelvis mucosa of organ",
+        "renal pelvis mucosa",
+        "renal pelvis mucous membrane",
+        "renal pelvis organ mucosa",
+        "tunica mucosa pelvis renalis"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004775",
+      "label": "outer renal medulla vasa recta",
+      "description": [
+        "A vasa recta that is part of a outer medulla of kidney [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004775",
+      "short_form": "UBERON_0004775",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "kidney outer medulla vasa recta",
+        "kidney outer renal medulla vasa recta",
+        "outer medulla of kidney vasa recta",
+        "outer zone of medulla of kidney vasa recta",
+        "outer zone of renal medulla vasa recta",
+        "vasa recta of outer medulla of kidney",
+        "vasa recta of outer renal medulla",
+        "vasa recta of outer zone of medulla of kidney",
+        "vasa recta of outer zone of renal medulla"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "status": "success",
+  "total_found": 872,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0000178",
+      "label": "blood",
+      "description": [
+        "A fluid that is composed of blood plasma and erythrocytes."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0000178",
+      "short_form": "UBERON_0000178",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "portion of blood",
+        "vertebrate blood"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003508",
+      "label": "pedal digit blood vessel",
+      "description": [
+        "A blood vessel that is part of a toe [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003508",
+      "short_form": "UBERON_0003508",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "blood vessel of digit of foot",
+        "blood vessel of digit of terminal segment of free lower limb",
+        "blood vessel of digitus pedis",
+        "blood vessel of foot digit",
+        "blood vessel of terminal segment of free lower limb digit",
+        "blood vessel of toe",
+        "digit of foot blood vessel",
+        "digit of terminal segment of free lower limb blood vessel",
+        "digitus pedis blood vessel",
+        "foot digit blood vessel",
+        "hind limb digit blood vessel",
+        "terminal segment of free lower limb digit blood vessel",
+        "toe blood vessel"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0002443",
+      "label": "choroidal blood vessel",
+      "description": [
+        "cannot find singular in FMA, using Set class",
+        "A blood vessel that is part of a choroid [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0002443",
+      "short_form": "UBERON_0002443",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "choroid blood vessels set",
+        "choroid blood vessels",
+        "blood vessel of choroid coat",
+        "blood vessel of choroid",
+        "blood vessel of choroidea",
+        "blood vessel of posterior uvea",
+        "choroid blood vessel",
+        "choroid coat blood vessel",
+        "choroidea blood vessel",
+        "posterior uvea blood vessel",
+        "vasa sanguinea choroideae"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0004115",
+      "label": "blood vessel of tympanic cavity",
+      "description": [
+        "A blood vessel that is part of a tympanic cavity [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0004115",
+      "short_form": "UBERON_0004115",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "middle ear blood vessel",
+        "tympanic cavity blood vessel",
+        "anatomical cavity of middle ear blood vessel",
+        "blood vessel of anatomical cavity of middle ear",
+        "blood vessel of cavity of middle ear",
+        "blood vessel of middle ear anatomical cavity",
+        "blood vessel of middle ear cavity",
+        "cavity of middle ear blood vessel",
+        "middle ear anatomical cavity blood vessel",
+        "middle ear cavity blood vessel"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003519",
+      "label": "thoracic cavity blood vessel",
+      "description": [
+        "A blood vessel that is part of a thoracic cavity [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003519",
+      "short_form": "UBERON_0003519",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "blood vessel of cavity of chest",
+        "blood vessel of cavity of thorax",
+        "blood vessel of chest cavity",
+        "blood vessel of pectoral cavity",
+        "blood vessel of thoracic cavity",
+        "cavity of chest blood vessel",
+        "cavity of thorax blood vessel",
+        "chest cavity blood vessel",
+        "pectoral cavity blood vessel"
+      ]
+    }
+  ]
+}

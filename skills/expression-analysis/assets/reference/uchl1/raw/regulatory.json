@@ -1,0 +1,50 @@
+[
+  {
+    "end": 41256710,
+    "seq_region_name": "4",
+    "feature_type": "regulatory",
+    "source": "Ensembl",
+    "extended_end": 41256710,
+    "extended_start": 41256216,
+    "strand": 0,
+    "start": 41256216,
+    "description": "enhancer",
+    "id": "ENSR4_9LD5M"
+  },
+  {
+    "end": 41256955,
+    "feature_type": "regulatory",
+    "seq_region_name": "4",
+    "start": 41256711,
+    "strand": 0,
+    "extended_start": 41256711,
+    "id": "ENSR4_837Q9H",
+    "description": "promoter",
+    "source": "Ensembl",
+    "extended_end": 41256955
+  },
+  {
+    "feature_type": "regulatory",
+    "seq_region_name": "4",
+    "end": 41257370,
+    "id": "ENSR4_5CP2B9",
+    "description": "CTCF_binding_site",
+    "strand": -1,
+    "start": 41257349,
+    "extended_start": 41257349,
+    "extended_end": 41257370,
+    "source": "Ensembl"
+  },
+  {
+    "description": "enhancer",
+    "id": "ENSR4_BB746",
+    "extended_start": 41258534,
+    "strand": 0,
+    "start": 41258534,
+    "extended_end": 41259136,
+    "source": "Ensembl",
+    "seq_region_name": "4",
+    "feature_type": "regulatory",
+    "end": 41259136
+  }
+]

@@ -1,0 +1,99 @@
+{
+  "status": "success",
+  "total_found": 96,
+  "results_count": 5,
+  "pagination": {
+    "start": 0,
+    "rows": 5,
+    "has_more": true
+  },
+  "terms": [
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001890",
+      "label": "forebrain",
+      "description": [
+        "The most anterior region of the brain including both the telencephalon and diencephalon."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001890",
+      "short_form": "UBERON_0001890",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": []
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0005075",
+      "label": "forebrain-midbrain boundary",
+      "description": [
+        "An anatomical boundary that adjacent_to a forebrain and adjacent_to a midbrain."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0005075",
+      "short_form": "UBERON_0005075",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "diencephalic-mesencephalic boundary",
+        "forebrain midbrain boundary",
+        "forebrain-midbrain boundary region"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003556",
+      "label": "forebrain arachnoid mater",
+      "description": [
+        "An arachnoid mater that is part of a forebrain [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003556",
+      "short_form": "UBERON_0003556",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "arachnoid mater of forebrain",
+        "arachnoid mater of neuraxis of forebrain",
+        "arachnoid of forebrain",
+        "forebrain arachnoid mater of neuraxis",
+        "forebrain arachnoid"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0001910",
+      "label": "medial forebrain bundle",
+      "description": [
+        "The Medial forebrain bundle (MFB), is a complex bundle of axons coming from the basal olfactory regions, the periamygdaloid region, and the septal nuclei, and passing to the lateral hypothalamus, with some carrying on into the tegmentum. It contains both ascending and descending fibers. It also represents a part of the mesolimbic pathway, carrying information between the ventral tegmentum and the nucleus accumbens. It is commonly accepted that the MFB is a part of the reward system, involved in the integration of reward and pleasure. Electrical stimulation of the medial forebrain bundle is believed to cause sensations of pleasure. This hypothesis is based upon intracranial self-stimulation (ICSS) studies. Animals will work for MFB ICSS, and humans report that MFB ICSS is intensely pleasurable. This is most likely because the medial forebrain bundle carries information from the ventral tegmental area (VTA) to the nucleus accumbens (nAcc or Acb). The nAcc is a recognized reward center, and activation of the pathway from the VTA to the nAcc is believed to be rewarding, which is why it is sometimes referred to as the hedonic highway. [WP,unvetted]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0001910",
+      "short_form": "UBERON_0001910",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "medial forebrain fasciculus",
+        "telencephalic medial fasciculus"
+      ]
+    },
+    {
+      "iri": "http://purl.obolibrary.org/obo/UBERON_0003548",
+      "label": "forebrain meninges",
+      "description": [
+        "A meninx that is part of a forebrain [Automatically generated definition]."
+      ],
+      "ontology_name": "uberon",
+      "ontology_prefix": "UBERON",
+      "obo_id": "UBERON:0003548",
+      "short_form": "UBERON_0003548",
+      "type": "class",
+      "is_defining_ontology": false,
+      "exact_synonyms": [
+        "forebrain meninx",
+        "meninges of forebrain",
+        "meninx of forebrain"
+      ]
+    }
+  ]
+}
