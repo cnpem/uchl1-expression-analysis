@@ -1,0 +1,6 @@
+# Text files are stored with LF everywhere, so hashes and diffs do not change between Windows and macOS/Linux
+* text=auto eol=lf
+# Bundled reference captures are kept byte for byte (the reproduce stage compares them)
+skills/*/assets/reference/**/raw/** -text
+*.parquet binary
+*.png binary
