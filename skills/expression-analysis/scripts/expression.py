@@ -716,21 +716,9 @@ OPTIONAL_KEYS = []
 
 
 def _key_present(name: str) -> bool:
-    """True if the variable is set; the value is never stored or printed."""
-    if os.environ.get(name):
-        return True
-    env_file = Path.home() / ".env"
-    try:
-        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if line.startswith("export "):
-                line = line[len("export "):]
-            key, sep, value = line.partition("=")
-            if sep and key.strip() == name and value.strip().strip("\"'"):
-                return True
-    except OSError:
-        pass
-    return False
+    """True if the variable is set in the environment, the workspace's .env or ~/.env; the value is never stored
+    or printed."""
+    return deps.key_present(name)
 
 
 SKILL_PURPOSE = {"uv": "to run its scripts", "credentials": "to store the AlphaGenome key without showing it",
@@ -793,16 +781,21 @@ def prerequisite_items() -> list[dict]:
             items.append(_setup_item(
                 f"setup.key:{key}", "AlphaGenome access key",
                 f"The AlphaGenome key ({key}) is not set. It is needed to fetch the predictions. Set it now?",
-                "The key identifies the researcher to the AlphaGenome service; it is stored in ~/.env and never shown.",
-                {"variable": key, "stored in": "~/.env"},
+                "The key identifies the researcher to the AlphaGenome service; it is personal, kept in the workspace's "
+                ".env (ignored by git) or ~/.env, and never shown.",
+                {"variable": key, "stored in": ".env of the workspace (or ~/.env)",
+                 "get one": "https://alphagenome.google/api"},
                 [{"code": "set", "label": "Set the key",
-                  "effect": "The 'credentials' skill stores it in ~/.env without showing it on screen."}, later],
-                "set", "credentials"))
+                  "effect": "The setup skill opens the key page and the .env file for the researcher to paste it."}, later],
+                "set", SETUP_SKILL))
     return items
 
 
 def check(args: argparse.Namespace) -> None:
     items = prerequisite_items()
+    for f in deps.env_unprotected():
+        print(f"Warning: {f} holds keys but git does not ignore it; add '.env' to .gitignore before any commit "
+              "(an AlphaGenome key is personal and must not be shared).", file=sys.stderr)
     for key in OPTIONAL_KEYS:
         if not _key_present(key):
             print(f"Warning: {key} is not set; requests will run at the lower rate limit.", file=sys.stderr)

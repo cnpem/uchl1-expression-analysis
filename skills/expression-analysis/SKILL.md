@@ -69,9 +69,12 @@ with the researcher, one at a time.
    **one at a time** (that dependency's Prerequisites section) and create its file only after they
    approve that notice: the file records that they saw those terms, so one approval never covers
    another skill.
-4. **`ALPHAGENOME_API_KEY`** in `~/.env`, set with the `credentials` skill. The fetch commands find
-   `~/.env` themselves and hand it to the scripts that need it. Do not source, print or copy
-   `~/.env`; `check` only tests whether the key exists.
+4. **`ALPHAGENOME_API_KEY`** in the workspace's `.env` (ignored by git) or in `~/.env`, set by the
+   researcher with the `alphagenome-skills-setup` skill (or the `credentials` skill). The key is
+   personal: the AlphaGenome terms forbid sharing it, even inside the institution. The fetch commands
+   find the file themselves (workspace first, then home) and hand it to the scripts that need it. Do not
+   source, print or copy a `.env`; `check` only tests whether the key exists, and warns when a workspace
+   `.env` is not ignored by git.
 5. **An output folder** chosen by the researcher, outside this skill's folder (the skill folder is
    read-only; the exploration and the study hold the researcher's data and decisions).
 
@@ -83,7 +86,7 @@ the pinned package lists are in `scripts/deps.py`.
 | Skill | Origin | Steps | Used for |
 |---|---|---|---|
 | `uv` | DeepMind | all | running every script with `uv run` |
-| `credentials` | DeepMind | prerequisites | storing `ALPHAGENOME_API_KEY` in `~/.env` |
+| `credentials` | DeepMind | prerequisites | storing `ALPHAGENOME_API_KEY` in `~/.env` (the setup skill uses the workspace `.env`) |
 | `alphagenome-variant-impact-score` | DeepMind | 0, 2, 7, 9 | `gtf` (GENCODE v46 structure), `metadata --tracks` (track catalogue), `region` (AVI of every SNV) |
 | `embl-ebi-ols` | DeepMind | 0, 5, 6 | `search_ols.py` (UBERON/CL/EFO/CLO terms), `get_term.py` (descendants) |
 | `ensembl-database` | DeepMind | 0, 3 | `get-sequence` (reference bases: REF check, start codon) |
@@ -254,7 +257,8 @@ about 20 s each; run them sequentially.
   the researcher; ask with the labels and effects, in their language, and keep the identifiers.
 - **Installing a dependency, or writing a `.licenses/` file, without the researcher's explicit
   approval for that skill.** Ask one skill and one notice at a time.
-- **Printing `~/.env`.** The fetch commands load it; keys never reach the screen or the manifest.
+- **Printing or committing a `.env`.** The fetch commands load it; keys never reach the screen, the manifest
+  or git (a workspace `.env` must be in `.gitignore`).
 
 ## Outputs
 

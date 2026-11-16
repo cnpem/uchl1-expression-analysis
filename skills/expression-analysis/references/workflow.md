@@ -346,7 +346,8 @@ Reproducing the reference (`expression.py reproduce --reference uchl1`): after a
 | `Dependency skill '…' not found` (`fetch`) | the skill is not installed where `check` looks | `expression.py check`; install only with the researcher's approval |
 | `command failed with exit N: …` (`fetch`) | the dependency script failed; its last output follows | read it; network, key or an argument (e.g. an unknown gene symbol) |
 | `FAIL file=… field=… skill=…` / `DependencyOutputError` | a dependency changed its output format | stop; compare with `dependency_outputs.md`; tell the researcher |
-| `ALPHAGENOME_API_KEY is neither in ~/.env …` | no key | the `credentials` skill |
+| `ALPHAGENOME_API_KEY is neither in the workspace .env, ~/.env …` | no key | the `alphagenome-skills-setup` skill (or `credentials`) |
+| `Warning: … .env holds keys but git does not ignore it` | a workspace `.env` could be committed | add `.env` to `.gitignore` now |
 | `QC failed for N variant(s)` (`master`) | raw files disagree | check that steps 3, 9 and 10 used the same window and pull |
 | An OLS or Ensembl fetch that never ends | a stale `polite-http` reservation | the fetch resets the skill's own lock folder; a call made outside the skill uses the system temp folder |
 | `'X' is not an answer to 'K'` (`decide`) | the value is not one of the codes the question offered | record one of the codes it lists (`pending` shows label and code) |

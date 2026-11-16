@@ -9,7 +9,14 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Keys**: the AlphaGenome key can live in the workspace's `.env` as well as in `~/.env`. The workspace
+  file is used first. `fetch` passes the file holding the key to every script that needs it, including
+  the interpretation step. `check` looks in both places and warns when a workspace `.env` is not ignored
+  by git: the AlphaGenome terms make the key personal.
+- The missing-key item of `check --json` points to `alphagenome-skills-setup` and to
+  https://alphagenome.google/api.
 
 ## [0.3.0] - 2026-11-16
 
