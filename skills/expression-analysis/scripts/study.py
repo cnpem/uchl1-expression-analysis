@@ -65,6 +65,19 @@ STUDY_SUBDIRS = ("raw", "processed", "figures")
 MIN_WINDOW = 1000
 DECISION_FIELDS = ("value", "workflow_step", "asked_at", "answered_at", "note")
 OFFERED_FIELDS = ("options", "recommended")  # optional in decisions.yaml, always together
+TRACE_FIELDS = ("value_label", "decided_by", "rule")  # optional in decisions.yaml (absent in older studies)
+DECIDED_BY = ("researcher", "skill")
+# Plain names of the prediction types (Atlas scorers) for texts the researcher reads
+PREDICTION_NAMES = {"RNA_SEQ": "gene expression (RNA-seq)", "RNA_SEQ_ACTIVE": "gene activity (RNA-seq)",
+                    "CAGE": "transcription start (CAGE)", "DNASE": "open chromatin (DNase)",
+                    "ATAC": "open chromatin (ATAC)", "SPLICE_SITES": "splice sites", "SPLICE_SITE_USAGE": "splice-site use",
+                    "SPLICE_JUNCTIONS": "splice junctions", "POLYADENYLATION": "polyadenylation"}
+
+
+def prediction_names(scorers: Any) -> str:
+    """'gene expression (RNA-seq), transcription start (CAGE) and open chromatin (DNase)'."""
+    names = [PREDICTION_NAMES.get(s, s) for s in scorers]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else "none"
 DEFAULT_SATURATION_FLANK_BP = 100  # splicing: bp on each side of every exon-intron boundary scanned
 KEY_PATTERN = re.compile(r"^[a-z_]+\.[a-z0-9_]+(?::\S+)?\Z")  # <area>.<topic>[:<subject>], no whitespace
 _REGION_RE = re.compile(r"^\s*([^:\s]+):(\d+)-(\d+)\s*$")
@@ -309,8 +322,14 @@ class DecisionEntry:
         note: Free text with the question, options and rationale.
         options: The answers the pending question offered, or None when the key was decided
             without a pending question (then decisions.yaml has neither this nor `recommended`).
-        recommended: The answer the pending question recommended (None when it had none, or
+            Each is {code, label} (older studies: the code alone).
+        recommended: The code the pending question recommended (None when it had none, or
             when `options` is None).
+        value_label: The label of the chosen option as it was offered, for the report (None when
+            the answer is not one of the offered options, e.g. a list of CURIEs).
+        decided_by: "researcher" (an answer to a question) or "skill" (a fixed rule the skill applied
+            without asking; `rule` says which).
+        rule: For decided_by "skill", the rule in plain words.
     """
 
     value: Any
@@ -320,6 +339,9 @@ class DecisionEntry:
     note: str
     options: list[Any] | None = None
     recommended: Any = None
+    value_label: str | None = None
+    decided_by: str = "researcher"
+    rule: str | None = None
 
 
 def load_decisions(study_dir: Path) -> dict[str, DecisionEntry]:
@@ -333,15 +355,31 @@ def load_decisions(study_dir: Path) -> dict[str, DecisionEntry]:
     out: dict[str, DecisionEntry] = {}
     for key, entry in raw.items():
         extra = set(entry) - set(DECISION_FIELDS) if isinstance(entry, dict) else set()
+        offered = extra & set(OFFERED_FIELDS)
         if (not isinstance(entry, dict) or not set(DECISION_FIELDS) <= set(entry)
-                or extra not in (set(), set(OFFERED_FIELDS))):
-            raise StudyError(f"{path}: decision {key!r} must have exactly the fields {list(DECISION_FIELDS)}, "
-                             f"optionally with both of {list(OFFERED_FIELDS)}")
-        if extra and not isinstance(entry["options"], list):
+                or not extra <= set(OFFERED_FIELDS) | set(TRACE_FIELDS) or offered not in (set(), set(OFFERED_FIELDS))):
+            raise StudyError(f"{path}: decision {key!r} must have the fields {list(DECISION_FIELDS)}, optionally both "
+                             f"of {list(OFFERED_FIELDS)} and any of {list(TRACE_FIELDS)}")
+        if offered and not isinstance(entry["options"], list):
             raise StudyError(f"{path}: decision {key!r}: options must be a list")
+        if entry.get("decided_by", "researcher") not in DECIDED_BY:
+            raise StudyError(f"{path}: decision {key!r}: decided_by must be one of {list(DECIDED_BY)}")
         body = {f: _text(entry[f]) if f.endswith("_at") else entry[f] for f in DECISION_FIELDS}
         out[str(key)] = DecisionEntry(**body, **{f: entry[f] for f in extra})
     return out
+
+
+def option_codes(options: Any) -> list[str]:
+    """Codes of offered options, in the new ({code, label}) or the old (code only) form."""
+    return [str(o["code"]) if isinstance(o, dict) else str(o) for o in options or []]
+
+
+def option_label(options: Any, code: Any) -> str | None:
+    """Label of the option whose code is `code` (None when absent or when options carry no label)."""
+    for o in options or []:
+        if isinstance(o, dict) and str(o.get("code")) == str(code):
+            return o.get("label")
+    return None
 
 
 def _text(value: Any) -> str:
@@ -356,6 +394,11 @@ def _write_decisions(study_dir: Path, decisions: dict[str, DecisionEntry]) -> No
         if entry.options is None:  # decided without a pending question: no offered fields
             for f in OFFERED_FIELDS:
                 del body[key][f]
+        for f in ("value_label", "rule"):  # optional trace fields stay out when empty (older files unchanged)
+            if body[key][f] is None:
+                del body[key][f]
+        if entry.decided_by == "researcher":
+            del body[key]["decided_by"]
     _atomic_write(study_dir / DECISIONS_FILE, yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=1000))
 
 
@@ -373,26 +416,107 @@ def require(study_dir: Path, key: str, step: int) -> Any:
     return entry.value
 
 
+def sync_rules(study_dir: Path, prefixes: tuple[str, ...], rules: list[dict[str, Any]], step: int) -> None:
+    """Makes the skill's rules under `prefixes` match `rules` ({key, value, rule[, note]}): adds or updates them
+    and removes the ones that no longer apply (e.g. after a recapture), in one read and at most one write.
+    Researcher answers are never touched; an unchanged rule keeps its first timestamps."""
+    study_dir = Path(study_dir)
+    wanted = {r["key"]: r for r in rules}
+    now = _now()
+    with _locked(study_dir):
+        decisions = load_decisions(study_dir)
+        changed = False
+        for k in [k for k, e in decisions.items()
+                  if e.decided_by == "skill" and k.startswith(prefixes) and k not in wanted]:
+            del decisions[k]
+            changed = True
+        for key, r in wanted.items():
+            old = decisions.get(key)
+            if old is not None and old.decided_by == "researcher":
+                continue  # a researcher's answer is never overwritten by a rule
+            note = r.get("note", "")
+            if old is not None and old.value == r["value"] and old.rule == r["rule"] and old.note == note:
+                continue
+            decisions[key] = DecisionEntry(value=r["value"], workflow_step=step, asked_at=now, answered_at=now,
+                                           note=note, decided_by="skill", rule=r["rule"])
+            changed = True
+        if changed:
+            _write_decisions(study_dir, decisions)
+
+
+def record_rule(study_dir: Path, key: str, value: Any, step: int, rule: str, note: str = "") -> None:
+    """Records one choice the skill made by a fixed rule, without asking (decided_by: skill).
+
+    Kept in decisions.yaml next to the researcher's answers so the report and the manifest show every
+    choice that shaped the result. Re-running a stage with the same value keeps the first timestamps.
+    """
+    sync_rules(study_dir, (), [{"key": key, "value": value, "rule": rule, "note": note}], step)
+
+
 # --- pending decisions ----------------------------------------------------------------------
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class Option:
+    """One answer to a question.
+
+    Attributes:
+        code: What is recorded in decisions.yaml and read by the stages (stable; never shown to the
+            researcher).
+        label: The answer in plain words.
+        effect: What happens if it is chosen (counts, what is kept or dropped, what to do next).
+    """
+
+    code: str
+    label: str
+    effect: str = ""
+
+
+def _as_option(o: Any) -> Option:
+    if isinstance(o, Option):
+        return o
+    if isinstance(o, dict):
+        return Option(code=str(o["code"]), label=str(o.get("label") or o["code"]), effect=str(o.get("effect") or ""))
+    return Option(code=str(o), label=str(o))
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class PendingDecision:
     """A question a stage found and the researcher must answer.
 
+    The texts are plain English with no jargon; the agent presents them in the researcher's language
+    (the language of the conversation) and records the answer with the option's code.
+
     Attributes:
         key: Decision key (<area>.<topic>[:<subject>]).
         question: The question, in plain words.
-        options: The accepted answers.
-        recommended: The suggested answer (one of options), or None.
+        options: The accepted answers (Option, or a bare code in older callers).
+        recommended: The code of the suggested answer, or None.
         workflow_step: Workflow step to run to obtain the answer.
+        title: A short name for the question.
+        why: Why the answer matters for the conclusions, in one sentence.
+        identifiers: What the question is about, for traceability (CURIEs, transcript and feature IDs,
+            coordinates, counts); shown next to the names and kept with the answer.
+        agent_note: An instruction for the agent (what to run first, how to present a long list); never
+            part of what the researcher is asked.
     """
 
     key: str
     question: str
-    options: list[str]
+    options: list[Any]
     recommended: str | None
     workflow_step: int
+    title: str = ""
+    why: str = ""
+    identifiers: dict[str, Any] = dataclasses.field(default_factory=dict)
+    agent_note: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "options", [_as_option(o) for o in self.options])
+
+    @property
+    def codes(self) -> list[str]:
+        return [o.code for o in self.options]
 
 
 def _load_pending(study_dir: Path) -> list[dict]:
@@ -405,6 +529,8 @@ def _load_pending(study_dir: Path) -> list[dict]:
         raise StudyError(f"{path}: invalid JSON ({exc})") from exc
     if not isinstance(data, list):
         raise StudyError(f"{path}: expected a list")
+    for item in data:  # older files list bare codes
+        item["options"] = [dataclasses.asdict(_as_option(o)) for o in item.get("options") or []]
     return data
 
 
@@ -412,13 +538,26 @@ def _write_pending(study_dir: Path, items: list[dict]) -> None:
     _atomic_write(study_dir / PENDING_FILE, json.dumps(items, indent=2, ensure_ascii=False) + "\n")
 
 
-def raise_pending(study_dir: Path, items: list[PendingDecision]) -> NoReturn:
+def clear_pending(study_dir: Path, prefixes: tuple[str, ...], keep: tuple[str, ...] = ()) -> None:
+    """Drops pending questions under `prefixes` (a stage's areas) except the keys in `keep`: questions the stage
+    no longer raises (answered elsewhere, made moot by another answer, or now a rule) must not be asked."""
+    study_dir = Path(study_dir)
+    with _locked(study_dir):
+        items = _load_pending(study_dir)
+        left = [p for p in items if not p["key"].startswith(prefixes) or p["key"] in keep]
+        if len(left) != len(items):
+            _write_pending(study_dir, left)
+
+
+def raise_pending(study_dir: Path, items: list[PendingDecision], prefixes: tuple[str, ...] = ()) -> NoReturn:
     """Merges `items` into processed/pending_decisions.json and exits 1.
 
-    Items with a key already pending replace the older entry. Exit message:
+    Items with a key already pending replace the older entry; with `prefixes` (the stage's areas), older
+    entries under them that the stage no longer raises are dropped. Exit message:
     "{n} decision(s) needed: run study.py pending." with n the total pending count.
     """
     study_dir = Path(study_dir)
+    clear_pending(study_dir, prefixes, tuple(i.key for i in items)) if prefixes else None
     with _locked(study_dir):
         merged = {p["key"]: p for p in _load_pending(study_dir)}
         for item in items:
@@ -698,11 +837,39 @@ def _offered(args: argparse.Namespace, pending_entry: dict | None, earlier: Deci
     else an earlier decision's of the same key, else none."""
     if args.option:
         return {"options": list(args.option), "recommended": args.recommended}
-    if pending_entry is not None:  # what the question offered, next to the answer
-        return {"options": list(pending_entry.get("options") or []), "recommended": pending_entry.get("recommended")}
+    if pending_entry is not None:  # what the question offered (code and label), next to the answer
+        return {"options": [{"code": o["code"], "label": o["label"]} for o in pending_entry.get("options") or []],
+                "recommended": pending_entry.get("recommended")}
     if earlier is not None and earlier.options is not None:  # a revised answer to the same question
         return {"options": earlier.options, "recommended": earlier.recommended}
     return {}
+
+
+_ENSEMBL_ID = re.compile(r"^(ENS[A-Z]*\d+)(?:\.\d+)?$")
+
+
+def _match_code(raw: str, parsed: Any, codes: list[str]) -> tuple[bool, Any]:
+    """Whether the answer `raw` is one of `codes`, and the value to record.
+
+    The text is compared before YAML parsing (so `yes`, `no` or `01` stay codes). A code with a `<…>`
+    placeholder (e.g. `fixed:<value>`) takes any text after its prefix. Ensembl IDs match with or without
+    their version and are recorded as offered. Lists and mappings (e.g. CURIEs) are not checked.
+    """
+    if raw in codes:
+        return True, raw
+    for c in codes:
+        if "<" in c and c.endswith(">"):
+            prefix = c[:c.index("<")]
+            if raw.startswith(prefix) and len(raw) > len(prefix):
+                return True, raw
+    m = _ENSEMBL_ID.match(raw)
+    if m:
+        same = [c for c in codes if (mc := _ENSEMBL_ID.match(c)) and mc.group(1) == m.group(1)]
+        if len(same) == 1:
+            return True, same[0]
+    if isinstance(parsed, (list, dict)):
+        return True, parsed
+    return False, parsed
 
 
 def decide(args: argparse.Namespace) -> None:
@@ -732,13 +899,23 @@ def decide(args: argparse.Namespace) -> None:
         unknown = [] if args.option else [k for k in keys if k not in pending and k not in decisions]
         for key in keys:
             previous = pending.get(key)
+            codes = option_codes(previous.get("options")) if previous else []
+            answer = value
+            if codes:
+                ok, answer = _match_code(args.value.strip(), value, codes)
+                if not ok:
+                    listed = "; ".join(f"{o['code']} = {o['label']}" for o in previous["options"])
+                    raise StudyError(f"'{args.value}' is not an answer to '{key}'. Record one of the codes ({listed}). "
+                                     "Nothing was recorded.")
+            offered = _offered(args, previous, decisions.get(key))
             decisions[key] = DecisionEntry(
-                value=value,
+                value=answer,
                 workflow_step=args.step,
                 asked_at=previous["asked_at"] if previous and "asked_at" in previous else now,
                 answered_at=now,
                 note=args.note or "",
-                **_offered(args, previous, decisions.get(key)),
+                value_label=option_label(offered.get("options"), answer),
+                **offered,
             )
         _write_decisions(study_dir, decisions)
         if any(k in pending for k in keys):
@@ -762,17 +939,34 @@ def require_cmd(args: argparse.Namespace) -> None:
 
 def pending(args: argparse.Namespace) -> None:
     items = _load_pending(Path(args.study_dir))
+    if args.json:
+        print(json.dumps(items, indent=2, ensure_ascii=False))
+        return
     if not items:
         print("No pending decisions.")
         return
-    print(f"{len(items)} pending decision(s):")
-    for item in items:
-        print(f"- {item['key']} (Workflow step {item.get('workflow_step')})")
-        print(f"    question: {item.get('question')}")
-        print(f"    options: {', '.join(str(o) for o in item.get('options', []))}")
-        print(f"    recommended: {item.get('recommended')}")
-    print("Record each answer with: study.py decide --study-dir D --key K --value V --step N "
-          "(repeat --key for several keys with the same answer)")
+    print(f"{len(items)} question(s) for the researcher. Ask one at a time (questions of the same kind may be asked "
+          "together), in the researcher's language: the title, the question, why it matters, the names with their "
+          "identifiers, each option's label and what happens, and which one is recommended and why. With more than about "
+          "six options, show the first ones and offer the rest on request. Never show codes or keys; record the answer "
+          "with the code of the chosen option. Follow the 'For the agent' lines before asking.")
+    for n, item in enumerate(items, 1):
+        print(f"\n[{n}] {item.get('title') or item['key']}")
+        print(f"    Question: {item.get('question')}")
+        if item.get("why"):
+            print(f"    Why it matters: {item['why']}")
+        if item.get("identifiers"):
+            print("    About: " + "; ".join(f"{k}: {v}" for k, v in item["identifiers"].items()))
+        if item.get("agent_note"):
+            print(f"    For the agent: {item['agent_note']}")
+        print("    Options:")
+        for o in item["options"]:
+            rec = " (recommended)" if o["code"] == item.get("recommended") else ""
+            effect = f": {o['effect']}" if o.get("effect") else ""
+            print(f"      - {o['label']}{rec}{effect}  [code: {o['code']}]")
+        print(f"    Record (agent): study.py decide --study-dir D --key \"{item['key']}\" --value CODE "
+              f"--step {item.get('workflow_step')} --note \"<the researcher's reason>\"")
+    print("\nSeveral keys with the same answer go in one decide call, one --key each.")
 
 
 def window(args: argparse.Namespace) -> None:
@@ -828,8 +1022,9 @@ def main() -> None:
     p.add_argument("--step", required=True, type=int, help="Workflow step that obtains the answer")
     p.set_defaults(func=require_cmd)
 
-    p = sub.add_parser("pending", help="List open questions")
+    p = sub.add_parser("pending", help="List the open questions for the researcher")
     study_dir_arg(p)
+    p.add_argument("--json", action="store_true", help="Print the questions as JSON (title, why, identifiers, options)")
     p.set_defaults(func=pending)
 
     p = sub.add_parser("window", help="Window sizing")
