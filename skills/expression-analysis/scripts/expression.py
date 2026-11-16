@@ -716,9 +716,12 @@ OPTIONAL_KEYS = []
 
 
 def _key_present(name: str) -> bool:
-    """True if the variable is set in the environment, the workspace's .env or ~/.env; the value is never stored
-    or printed."""
+    """True if the project's .env sets the variable; the value is never stored or printed."""
     return deps.key_present(name)
+
+
+SETUP_INSTALL = ("npx skills add romulorcruz/alphagenome-skills-setup --skill alphagenome-skills-setup "
+                 "--agent <agent> --copy -y")
 
 
 SKILL_PURPOSE = {"uv": "to run its scripts", "credentials": "to store the AlphaGenome key without showing it",
@@ -781,9 +784,9 @@ def prerequisite_items() -> list[dict]:
             items.append(_setup_item(
                 f"setup.key:{key}", "AlphaGenome access key",
                 f"The AlphaGenome key ({key}) is not set. It is needed to fetch the predictions. Set it now?",
-                "The key identifies the researcher to the AlphaGenome service; it is personal, kept in the workspace's "
-                ".env (ignored by git) or ~/.env, and never shown.",
-                {"variable": key, "stored in": ".env of the workspace (or ~/.env)",
+                "The key identifies the researcher to the AlphaGenome service; it is personal, kept in the project's "
+                ".env (ignored by git), and never shown.",
+                {"variable": key, "stored in": ".env of the project",
                  "get one": "https://alphagenome.google/api"},
                 [{"code": "set", "label": "Set the key",
                   "effect": "The setup skill opens the key page and the .env file for the researcher to paste it."}, later],
@@ -809,15 +812,15 @@ def check(args: argparse.Namespace) -> None:
         return
     print(f"{len(items)} prerequisite(s) missing:", file=sys.stderr)
     for it in items:
-        command = it["identifiers"].get("install command")
-        print(f"- {it['title']}: {it['question']}" + (f"\n  Install command (not executed): {command}" if command else ""),
-              file=sys.stderr)
+        print(f"- {it['title']}", file=sys.stderr)
     if deps.find_skill(SETUP_SKILL) is not None:
-        print(f"Next: use the skill '{SETUP_SKILL}' to go through these with the researcher, one at a time "
-              "(`check --json` lists them as questions).", file=sys.stderr)
+        print(f"Next: hand the setup to the skill '{SETUP_SKILL}' (it asks the researcher item by item and installs "
+              "only what they approve). Do not install anything from this skill.", file=sys.stderr)
     else:
-        print("Next: go through each item with the researcher, one at a time, in their language (`check --json` lists them "
-              "as questions); install or accept only what they approve.", file=sys.stderr)
+        print(f"Next: the skill '{SETUP_SKILL}' installs these with the researcher's approval, and it is not installed. "
+              f"Ask the researcher whether to install it (repository private for now: they need GitHub access), then: "
+              f"{SETUP_INSTALL} (with <agent> the id of their agent app, e.g. claude-code, opencode, antigravity). Do not "
+              "install the dependency skills from this skill.", file=sys.stderr)
     sys.exit(1)
 
 

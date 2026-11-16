@@ -77,14 +77,10 @@ uv run SKILL/scripts/expression.py check
 uv run SKILL/scripts/expression.py explore --gene MYGENE --tissue "<words of the researcher>" --tissue "<another>" --out OUT
 ```
 
-- `check` exit 1 lists each missing item; `check --json` gives them as questions in the same shape as
-  `study.py pending --json` (title, question, why, identifiers, options with label and effect,
-  recommended) plus `handled_by`, the skill that resolves it. If the `alphagenome-skills-setup` skill is
-  installed (`setup_skill_installed`), hand the setup to it. Otherwise go through the items one at a
-  time, in the researcher's language: for a **skill**, its origin and install command; for a
-  **licence notice**, that dependency's `SKILL.md` Prerequisites, creating that one `.licenses/` file
-  only after their explicit OK; for the **key**, the `credentials` skill; for **uv**, the `uv` skill.
-  Run `check` again until it passes.
+- `check` exit 1 lists what is missing and hands it to the `alphagenome-skills-setup` skill, which asks
+  the researcher item by item (skills, terms of use, the key in the project's `.env`) and installs only
+  what they approve. If that skill is not installed, `check` prints how to install it; ask first. Install
+  nothing from this skill. Run `check` again until it passes.
 - `explore` asks nothing and writes `OUT/exploration/` (see `SKILL.md` Outputs). Options:
   `--scorers` (default `RNA_SEQ CAGE DNASE ATAC`), `--flank-bp` (Regulatory Build search around the
   gene, default 2000, the study default), `--floor` (relative activity below which the gene reads as
@@ -243,7 +239,7 @@ uv run SKILL/scripts/expression.py fetch scores --study-dir D
   `max(1000, window length)` (the script refuses wider windows otherwise).
 - `scores` writes `raw/scores_{S}.tsv` for each scorer kept by `cohorts`, with every kept CURIE of
   both cohorts, `--gene` only for gene-centric scorers (`RNA_SEQ`, `RNA_SEQ_ACTIVE`,
-  `POLYADENYLATION`, `SPLICE_*`), and the key from `~/.env` (the K-Dense script reads only the
+  `POLYADENYLATION`, `SPLICE_*`), and the key from the project's `.env` (the K-Dense script reads only the
   environment; the fetch passes the file to `uv`, so the key never reaches a command line).
 - Capture both together: scores of another window or pull do not line up with the AVI table.
 
@@ -346,7 +342,7 @@ Reproducing the reference (`expression.py reproduce --reference uchl1`): after a
 | `Dependency skill '…' not found` (`fetch`) | the skill is not installed where `check` looks | `expression.py check`; install only with the researcher's approval |
 | `command failed with exit N: …` (`fetch`) | the dependency script failed; its last output follows | read it; network, key or an argument (e.g. an unknown gene symbol) |
 | `FAIL file=… field=… skill=…` / `DependencyOutputError` | a dependency changed its output format | stop; compare with `dependency_outputs.md`; tell the researcher |
-| `ALPHAGENOME_API_KEY is neither in the workspace .env, ~/.env …` | no key | the `alphagenome-skills-setup` skill (or `credentials`) |
+| `ALPHAGENOME_API_KEY is not set in the project's .env` | no key in the project | the `alphagenome-skills-setup` skill |
 | `Warning: … .env holds keys but git does not ignore it` | a workspace `.env` could be committed | add `.env` to `.gitignore` now |
 | `QC failed for N variant(s)` (`master`) | raw files disagree | check that steps 3, 9 and 10 used the same window and pull |
 | An OLS or Ensembl fetch that never ends | a stale `polite-http` reservation | the fetch resets the skill's own lock folder; a call made outside the skill uses the system temp folder |

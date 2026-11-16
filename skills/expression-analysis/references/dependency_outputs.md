@@ -43,8 +43,8 @@ client (`alphagenome.atlas`) and `alphagenome.data.genome` still work, so `alpha
 `atlas_query.py` and `alphagenome_atlas_links.py` run; `interpret_splicing.py` (and every model-API
 script) needs `uv run --with "alphagenome<2" …` (resolved 0.11.0).
 
-**Keys.** The key lives in the workspace's `.env` or in `~/.env` (`deps.env_file()` picks the first that sets
-it). The DeepMind scripts load `~/.env` themselves; the fetch also passes the chosen file with `--env-file`. The
+**Keys.** The key lives only in the project's `.env` (`deps.env_file()`); the fetch passes that file with
+`--env-file` to every script that needs it (the DeepMind scripts would otherwise look in `~/.env`). The
 K-Dense scripts read only the
 environment, so the fetch runs them as `uv run --env-file <home>/.env …` with the path expanded in
 Python and written with `/` (uv drops the backslashes of a Windows path given to `--env-file`). uv

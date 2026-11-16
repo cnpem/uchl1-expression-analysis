@@ -101,15 +101,14 @@ def _atlas_query_argv(*args: str) -> list[str]:
     env = deps.env_file()
     pre = ["--env-file", env.as_posix()] if env else []  # uv drops backslashes from this path on Windows
     if not deps.key_present("ALPHAGENOME_API_KEY"):
-        raise FetchError("ALPHAGENOME_API_KEY is neither in the workspace .env, ~/.env nor the environment; set it "
-                         "with the alphagenome-skills-setup skill (or the 'credentials' skill); expression.py check "
-                         "names what is missing.")
+        raise FetchError("ALPHAGENOME_API_KEY is not set in the project's .env; the researcher sets it with the "
+                         "alphagenome-skills-setup skill (expression.py check names what is missing).")
     return ["uv", "run", *pre, *deps.uv_with(deps.ATLAS_QUERY_PINS), str(deps.skill_script(*ATLAS_QUERY)), *args]
 
 
 def _env_args() -> list[str]:
-    """`--env-file <the .env holding the key>` for uv, so scripts that read only the environment (K-Dense) or only
-    ~/.env (DeepMind) get the key from the workspace's .env too; the value never appears in the command."""
+    """`--env-file <the project's .env>` for uv: the key reaches the scripts from the project's .env only (K-Dense
+    reads the environment; DeepMind would otherwise look in ~/.env); the value never appears in the command."""
     env = deps.env_file()
     return ["--env-file", env.as_posix()] if env else []  # uv drops backslashes from this path on Windows
 

@@ -53,28 +53,26 @@ dependency output fails validation.
 
 ## Prerequisites
 
-`expression.py check` tests all of them; `check --json` lists what is missing as questions. When the
-`alphagenome-skills-setup` skill is installed, hand the setup to it; otherwise follow the items below
-with the researcher, one at a time.
+The **`alphagenome-skills-setup`** skill installs and configures everything this skill needs, with the
+researcher's approval for each item; this skill installs nothing and asks nothing about installation.
+Run `expression.py check`. When it reports something missing, hand the setup to that skill. If it is not
+installed, `check` prints how to install it; ask the researcher first (the repository is private for now).
+Do not install dependency skills, accept terms of use or handle keys from this skill: doing it twice,
+from two skills, asks the researcher the same questions twice.
 
-1. **`uv`** on PATH (the `uv` skill). Every script runs with `uv run`, which installs its pinned
-   PEP 723 dependencies into a cached environment, so nothing is installed into the system Python.
-2. **The dependency skills** of the next section. `expression.py check` looks for them next to
-   this skill, in `.claude/skills/`, `.agents/skills/`, `~/.claude/skills/` and
-   `~/.agents/skills/`.
-3. **Licence notices.** `embl-ebi-ols`, `ensembl-database` and
-   `alphagenome-single-variant-analysis` ask for a notice file in `.licenses/` after the researcher
-   has been shown the terms of use. `check` looks in the working directory and in the workspace of
-   each installed skill, and lists the missing ones. Go through each notice with the researcher
-   **one at a time** (that dependency's Prerequisites section) and create its file only after they
-   approve that notice: the file records that they saw those terms, so one approval never covers
-   another skill.
-4. **`ALPHAGENOME_API_KEY`** in the workspace's `.env` (ignored by git) or in `~/.env`, set by the
-   researcher with the `alphagenome-skills-setup` skill (or the `credentials` skill). The key is
-   personal: the AlphaGenome terms forbid sharing it, even inside the institution. The fetch commands
-   find the file themselves (workspace first, then home) and hand it to the scripts that need it. Do not
-   source, print or copy a `.env`; `check` only tests whether the key exists, and warns when a workspace
-   `.env` is not ignored by git.
+What `check` tests:
+
+1. **`uv`** on PATH. Every script runs with `uv run`, which installs its pinned PEP 723 dependencies into a
+   cached environment, so nothing is installed into the system Python.
+2. **The dependency skills** of the next section, looked for next to this skill, in the workspace's
+   `.claude/skills/` and `.agents/skills/`, and in `~/.claude/skills/` and `~/.agents/skills/`.
+3. **Terms of use** of `embl-ebi-ols`, `ensembl-database` and `alphagenome-single-variant-analysis`,
+   recorded in the workspace's `.licenses/` once the researcher accepted them.
+4. **`ALPHAGENOME_API_KEY` in the project's `.env`**, the only place the key is read from (not `~/.env`,
+   not environment variables), so each study runs with its own project's key. The key is personal (the
+   AlphaGenome terms forbid sharing it, even inside the institution), so `.env` must be in `.gitignore`;
+   `check` warns when it is not. The fetch commands hand that file to the scripts that need it. Do not
+   source, print or copy a `.env`.
 5. **An output folder** chosen by the researcher, outside this skill's folder (the skill folder is
    read-only; the exploration and the study hold the researcher's data and decisions).
 
@@ -86,7 +84,7 @@ the pinned package lists are in `scripts/deps.py`.
 | Skill | Origin | Steps | Used for |
 |---|---|---|---|
 | `uv` | DeepMind | all | running every script with `uv run` |
-| `credentials` | DeepMind | prerequisites | storing `ALPHAGENOME_API_KEY` in `~/.env` (the setup skill uses the workspace `.env`) |
+| `credentials` | DeepMind | prerequisites | required by the DeepMind skills; the key itself is set by `alphagenome-skills-setup` in the project's `.env` |
 | `alphagenome-variant-impact-score` | DeepMind | 0, 2, 7, 9 | `gtf` (GENCODE v46 structure), `metadata --tracks` (track catalogue), `region` (AVI of every SNV) |
 | `embl-ebi-ols` | DeepMind | 0, 5, 6 | `search_ols.py` (UBERON/CL/EFO/CLO terms), `get_term.py` (descendants) |
 | `ensembl-database` | DeepMind | 0, 3 | `get-sequence` (reference bases: REF check, start codon) |
@@ -94,11 +92,9 @@ the pinned package lists are in `scripts/deps.py`.
 | `alphagenome-single-variant-analysis` | DeepMind | 13 | `interpret_splicing.py`, `visualize_variant_effects.py` on the top variants |
 | `alphagenome-atlas-website-links` | DeepMind | 13 | `table --input` (Atlas deep links for the top variants) |
 
-**Installation is the researcher's decision.** Installing a skill brings third-party code onto
-their machine and, for several of these, terms of use. So no script of this skill installs
-anything: `expression.py check` prints each missing skill with its origin and its install command
-and stops. Show that list to the researcher and ask about one skill at a time; an approval covers
-only the skill it names.
+**Installation belongs to `alphagenome-skills-setup`.** Installing a skill brings third-party code and,
+for several of these, terms of use; that skill asks the researcher about each one. No script of this
+skill installs anything.
 
 ## Quick Start
 
@@ -133,7 +129,7 @@ recording command to run.
 
 | Command | Does |
 |---|---|
-| `expression.py check [--json]` | Checks `uv`, dependency skills, licence notices, `ALPHAGENOME_API_KEY`; prints install commands, runs none; `--json` lists them as questions for the setup |
+| `expression.py check [--json]` | Checks `uv`, dependency skills, terms of use, `ALPHAGENOME_API_KEY` in the project's `.env`; names what is missing and hands it to `alphagenome-skills-setup`; installs nothing |
 | `expression.py explore --gene G --out OUT --tissue T…` | Step 0: read-only exploration → `OUT/exploration/summary.md` (Portuguese), `exploration.json`, `raw/`, `atlas/`, `manifest.json` |
 | `study.py init --from-exploration OUT --study-dir D …` | Step 1: `study.yaml` from the chosen window, CURIEs, labels and scorers; copies the exploration captures into `raw/` with their manifest steps |
 | `expression.py fetch <kind> --study-dir D [--dry-run]` | Steps 2-13 captures: `gtf`, `regulatory`, `sequence`, `ols`, `ols-term`, `tracks [--catalogue]`, `avi`, `scores`, `links`, `interpret` |
@@ -169,8 +165,7 @@ recommended, chosen, reason, identifiers); the rules the skill applied (`decided
 chr…"); and the choices you made that no stage raised (e.g. a
 search text or a scorer list), so the researcher can tell the three apart.
 
-0. **Exploration.** `expression.py check` (anything missing: the setup skill if installed, else one item
-   at a time with the researcher).
+0. **Exploration.** `expression.py check`; anything missing goes to `alphagenome-skills-setup`.
    Ask the researcher only for the gene and the tissues or cell types in their own words, then
    `expression.py explore`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
@@ -211,7 +206,7 @@ Copy this checklist into the conversation and tick it as you go:
 
 ```
 expression-analysis progress:
-- [ ] Step 0: check passes (setup skill, or items asked one at a time); explore run; summary.md shown
+- [ ] Step 0: check passes (anything missing set up by alphagenome-skills-setup); explore run; summary.md shown
 - [ ] Step 1: window, target, control, labels, scorers chosen by the researcher; init --from-exploration; cohort decisions recorded
 - [ ] Step 4: locus run; locus.* answered by the researcher; Figure 1 shown
 - [ ] Steps 6-8: fetch tracks; cohorts run; cohort.* answered (study.yaml updated on replace)
@@ -255,10 +250,10 @@ about 20 s each; run them sequentially.
   `study.py decide`, which also clears the pending question and keeps the timestamps.
 - **Showing codes instead of the question.** `keep_full_unit`, `drop_curie` or `abort` mean nothing to
   the researcher; ask with the labels and effects, in their language, and keep the identifiers.
-- **Installing a dependency, or writing a `.licenses/` file, without the researcher's explicit
-  approval for that skill.** Ask one skill and one notice at a time.
-- **Printing or committing a `.env`.** The fetch commands load it; keys never reach the screen, the manifest
-  or git (a workspace `.env` must be in `.gitignore`).
+- **Installing a dependency, writing a `.licenses/` file or handling a key from this skill.** That is
+  `alphagenome-skills-setup`'s job; doing it here repeats its questions.
+- **Printing or committing a `.env`, or putting the key elsewhere.** The key lives only in the project's
+  `.env`, listed in `.gitignore`; the fetch commands load it and it never reaches the screen, the manifest or git.
 
 ## Outputs
 

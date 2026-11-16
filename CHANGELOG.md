@@ -11,12 +11,15 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Changed
 
-- **Keys**: the AlphaGenome key can live in the workspace's `.env` as well as in `~/.env`. The workspace
-  file is used first. `fetch` passes the file holding the key to every script that needs it, including
-  the interpretation step. `check` looks in both places and warns when a workspace `.env` is not ignored
-  by git: the AlphaGenome terms make the key personal.
-- The missing-key item of `check --json` points to `alphagenome-skills-setup` and to
-  https://alphagenome.google/api.
+- **Keys**: the AlphaGenome key is read only from the project's `.env`, not from `~/.env` or environment
+  variables, so each study runs with the key of its own project.
+  - `fetch` passes that file to every script that needs it, the interpretation step included.
+  - `check` warns when the project's `.env` is not ignored by git: the AlphaGenome terms make the key
+    personal.
+- **Installation belongs to `alphagenome-skills-setup`**. `check` names what is missing and hands it to
+  that skill, or says how to install it. It no longer prints install commands for each dependency, and
+  SKILL.md no longer has its own install and terms procedure. This avoids two skills asking the
+  researcher the same questions.
 
 ## [0.3.0] - 2026-11-16
 
