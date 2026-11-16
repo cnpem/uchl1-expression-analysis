@@ -548,6 +548,15 @@ def _print_hits(path: Path) -> None:
 
 def explore_cmd(args: argparse.Namespace) -> None:
     """Workflow step 0: read-only exploration into <out>/exploration (no study yet)."""
+    if args.activity_only:
+        try:
+            path = core_explore.write_activity(Path(args.out) / "exploration", args.floor)
+        except (core_explore.ExploreError, OSError) as exc:
+            _stage_error(exc)
+        print(f"Wrote {path} (no capture). Show it to the researcher to choose or change the target and control groups.")
+        return
+    if not args.gene:
+        _stage_error(ValueError("--gene is required (except with --activity-only)"))
     try:
         summary = core_explore.run(Path(args.out), args.gene.strip(), args.tissue or [],
                                    tuple(args.scorers), args.flank_bp, args.floor, fetch.invocation(), args.dry_run)
@@ -951,8 +960,11 @@ def main() -> None:
                        description="Gene structure, Regulatory Build, candidate windows, OLS terms per tissue text, Atlas "
                                    "tracks per term x scorer and the gene's predicted activity per tissue "
                                    "(RNA_SEQ_ACTIVE), written to OUT/exploration/ with summary.md (Portuguese).")
-    p.add_argument("--gene", required=True, help="HGNC symbol")
+    p.add_argument("--gene", help="HGNC symbol (required, except with --activity-only)")
     p.add_argument("--out", required=True, help="Folder for the exploration (OUT/exploration/); later the study's parent")
+    p.add_argument("--activity-only", action="store_true",
+                   help="Only (re)write OUT/exploration/activity.md from the captured baseline: every catalogue term with "
+                        "the gene's predicted activity, for choosing or changing the groups. No network")
     p.add_argument("--tissue", action="append", help="A tissue or cell type in the researcher's words (repeatable)")
     p.add_argument("--scorers", nargs="+", default=list(core_explore.DEFAULT_SCORERS), help="Atlas scorers to survey")
     p.add_argument("--flank-bp", type=int, default=core_explore.DEFAULT_FLANK_BP,

@@ -44,6 +44,10 @@ DEFAULT_FLOOR = 0.05  # gene activity below 5% of the gene's highest tissue read
 TSS_HALF_WIDTH = 500
 EXPLORATION_FILE = "exploration.json"
 SUMMARY_FILE = "summary.md"
+ACTIVITY_FILE = "activity.md"
+BASELINE_FILE = "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"
+_KIND_PT = {"tissue": "tecido", "primary_cell": "célula primária", "in_vitro_differentiated_cells": "célula diferenciada in vitro",
+            "cell_line": "linhagem celular", "organoid": "organoide"}
 STUDY_RAW = (re.compile(r"^gtf\.json$"), re.compile(r"^regulatory\.json$"), re.compile(r"^sequence_.+\.txt$"),
              re.compile(r"^ols_search_.+\.json$"), re.compile(r"^ols_term_.+\.json$"),
              re.compile(r"^tracks_[A-Z0-9_]+_catalogue\.parquet$"))
@@ -251,6 +255,42 @@ def baseline_activity(path: Path, floor: float) -> dict[str, Any]:
             "median_relative": float(names["relative"].median() or 0.0)}
 
 
+def write_activity(root: Path, floor: float = 0.05) -> Path:
+    """exploration/activity.md: every term of the Atlas catalogue with the gene's predicted activity, most active
+    first, with its kind of sample, assays, sources and number of measurements. The list to choose (or change)
+    the target and control groups from, without new captures or ad-hoc code."""
+    root = Path(root)
+    df = pl.read_csv(root / BASELINE_FILE, separator="\t", infer_schema_length=10000).filter(pl.col("raw_score").is_not_null())
+    if df.height == 0:
+        raise ExploreError(f"{BASELINE_FILE}: no RNA_SEQ_ACTIVE score returned")
+    t = (df.group_by("ontology_curie")
+         .agg(pl.col("biosample_name").first().alias("name"), pl.col("biosample_type").first().alias("kind"),
+              pl.col("raw_score").mean().alias("activity"), pl.len().alias("tracks"),
+              pl.col("assay_title").drop_nulls().unique().sort().str.join(" + ").alias("assays"),
+              pl.col("data_source").drop_nulls().unique().sort().str.join(", ").alias("sources"))
+         .sort("activity", descending=True))
+    top = float(t["activity"].max() or 0.0)
+    variant = df["variant"][0] if "variant" in df.columns else "?"
+    L = [f"# Atividade prevista do gene em todos os tecidos e células do catálogo ({t.height})", "",
+         f"Atividade do gene sem variante (`RNA_SEQ_ACTIVE` da variante {variant}), média das medições de cada termo, e "
+         f"relativa ao termo mais ativo ({top:.3g}). Abaixo de {_pct(floor)} do máximo, o gene é tratado como **não "
+         "expresso**: ali, mudanças pequenas viram % grandes e instáveis. Use esta lista para escolher, ou trocar depois "
+         "dos resultados, os tecidos do alvo e do controle; um termo novo precisa de captura (passos 7 a 10).", "",
+         "Os valores são a atividade da variante de referência (o maior entre REF e ALT dela); para os tecidos que já estão "
+         "num estudo, `summarize` mostra o REF exato. A diferença é pequena porque a variante de referência quase não muda "
+         "a expressão.", "",
+         "| # | Termo | Nome | Tipo | Atividade | Relativa | Expresso | Ensaios | Fontes | Medições |",
+         "|---|---|---|---|---|---|---|---|---|---|"]
+    for i, r in enumerate(t.iter_rows(named=True), 1):
+        rel = r["activity"] / top if top > 0 else 0.0
+        L.append(f"| {i} | {r['ontology_curie']} | {r['name']} | {_KIND_PT.get(r['kind'], r['kind'] or '—')} | "
+                 f"{r['activity']:.3g} | {_pct(rel)} | {'sim' if rel >= floor else 'não'} | {r['assays'] or '—'} | "
+                 f"{r['sources'] or '—'} | {r['tracks']} |")
+    out = root / ACTIVITY_FILE
+    out.write_text("\n".join(L) + "\n", encoding="utf-8")
+    return out
+
+
 # --------------------------------------------------------------------------- run
 
 
@@ -331,6 +371,7 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
     (root / EXPLORATION_FILE).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     summary = root / SUMMARY_FILE
     summary.write_text(render_summary(data), encoding="utf-8")
+    write_activity(root, floor)
     return summary
 
 
@@ -454,6 +495,8 @@ def render_summary(d: dict[str, Any]) -> str:
              f"atividade do gene ({act['max']:.3g}). Abaixo de {_pct(act['floor'])} do máximo, tratamos o gene como "
              "**não expresso** naquele tecido: lá, o modelo tende a prever variações relativas grandes sobre um sinal "
              "quase nulo, que não devem ser lidas como efeito específico do tecido.\n")
+    L.append(f"A lista completa, com os {len(act['by_curie'])} tecidos e células do catálogo, tipo de amostra, ensaios e "
+             f"fontes, está em `{ACTIVITY_FILE}`.\n")
     L.append("| Tecidos onde o gene é mais ativo | Atividade | Relativa |\n|---|---|---|")
     for c in act["top"]:
         a = act["by_curie"][c]

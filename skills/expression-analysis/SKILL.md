@@ -172,6 +172,11 @@ search text or a scorer list), so the researcher can tell the three apart.
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
    gene's predicted activity per tissue, with a warning where it is below the floor. Do not ask
    for the study's choices before this page is shown, because they depend on it.
+   To change the groups after the results (a redefinition), go back to the exploration:
+   `exploration/activity.md` lists every catalogue term with the gene's activity, kind of sample and assays
+   (`explore --out OUT --activity-only` writes it for an older exploration). Then record the new groups with
+   `decide` and recapture (`references/workflow.md`, *Changing the groups after the results*). Never rank
+   tissues with your own code.
 1. **Study.** Ask the researcher, with the words of the exploration page, which window (by its name
    on the page), which terms form the target and the control groups (with a short name for each group),
    and which kinds of prediction to compare (gene expression is always included). `study.py init --from-exploration`,
@@ -265,6 +270,7 @@ about 20 s each; run them sequentially.
 ```
 OUT/exploration/                     # step 0, before any study
   summary.md                         # Portuguese options page for the researcher
+  activity.md                        # every catalogue term with the gene's predicted activity (choosing groups)
   exploration.json                   # the same options, read by study.py init --from-exploration
   raw/                               # captures with the study's file names (copied into the study)
   atlas/                             # atlas_tracks.tsv (sources, assays), scores_RNA_SEQ_ACTIVE_baseline.tsv
