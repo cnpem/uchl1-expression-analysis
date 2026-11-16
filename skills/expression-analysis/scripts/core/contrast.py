@@ -1,21 +1,17 @@
 """Tier 2 target-vs-control contrasts (Workflow step 12, `expression.py contrast [--propose]`).
 
-The contrast plan states which tracks enter each contrast and how they are aggregated. The agent
-proposes it (`contrast --propose` -> processed/contrasts_proposed.yaml), the researcher approves it
-and it is saved as contrasts.yaml; `contrast` then executes it on the Tier 1 table (read-only):
-each tissue value is the mean (or median) of its selected tracks, and cohort statistics are over
-tissues.
+The contrast plan states which tracks enter each contrast and how they are aggregated. It is the
+fixed triage behind report.md and `reproduce`, not the analysis the researcher steers (that is the
+dashboard, where groups, assays, sources and filters are chosen), so nothing here is asked: when the
+study has no contrasts.yaml, `contrast` generates it from the cohorts and records `contrast.plan` with
+decided_by: skill. A contrasts.yaml already in the study (edited by a maintainer, or an older study) is
+used as it is. `contrast --propose` still writes processed/contrasts_proposed.yaml for a maintainer to
+review. Each tissue value is the mean (or median) of its selected tracks, and cohort statistics are
+over tissues.
 
-Researcher questions (answered with study.py decide, Workflow step 12):
-  contrast.review:mixed_assays:{contrast}          selected tracks mix assay titles:
-                                                   accept | abort
-  contrast.review:mixed_sources:{contrast}         selected tracks mix data sources:
-                                                   accept | abort
-  contrast.review:single_tissue:{contrast}:{role}  a cohort of the contrast has one tissue:
-                                                   accept | abort
-  contrast.plan                                    approval of the plan itself: approved
-`abort` stops the stage so the plan can be edited (e.g. `track_filter`). Without `contrast.plan`
-the stage exits 1 (`study.require`).
+Notes (not questions; written to tissue_contrast_meta.json and the report): a contrast that mixes
+assay titles or data sources, and a group with a single tissue. An `abort` recorded for one of the
+older `contrast.review:*` questions still stops the stage.
 
 Priority metrics (threshold-free), from tissue-level quantiles of the plan's `direction_contrast`
 target tissues and the control tissues of `scope_contrast` (default: the same contrast):
@@ -36,6 +32,7 @@ propose_plan, review_points, apply_plan, top_variants, propose, run, stage_metri
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -46,7 +43,7 @@ import polars as pl
 import yaml
 
 from core import master as core_master
-from study import PendingDecision, load_decisions, load_study, require
+from study import PendingDecision, load_decisions, load_study, record_rule
 
 WORKFLOW_STEP = 12
 GENE_EXPRESSION_SCORER = "RNA_SEQ"
@@ -360,7 +357,8 @@ def propose_plan(registry: pl.DataFrame, master: pl.DataFrame, *, resolution: Ma
 
 
 def review_points(plan: ContrastPlan, registry: Sequence[Mapping[str, Any]]) -> list[PendingDecision]:
-    """Questions about choices embedded in the plan, recomputed from the plan about to run."""
+    """Facts about choices embedded in the plan (mixed assays or sources, one-tissue groups), recomputed from
+    the plan about to run. Reported as notes, not asked."""
     labels = {t["ontology_curie"]: t.get("biosample_name") for t in registry}
     out: list[PendingDecision] = []
     for spec in plan.contrasts:
@@ -372,17 +370,16 @@ def review_points(plan: ContrastPlan, registry: Sequence[Mapping[str, Any]]) -> 
             if len(values) > 1:
                 out.append(PendingDecision(
                     key=f"contrast.review:{kind}:{spec.name}",
-                    question=(f"Contrast {spec.name} ({spec.scorer}) mixes {what} {values}. Accept, or abort and set "
-                              f"`track_filter.{field}` in the plan?"),
-                    options=["accept", "abort"], recommended="accept", workflow_step=WORKFLOW_STEP))
+                    question=f"Contrast {spec.name} ({spec.scorer}) mixes {what}: {', '.join(values)}.",
+                    options=[], recommended=None, workflow_step=WORKFLOW_STEP))
         for role, curies in selected.items():
             if len(curies) == 1:
                 (curie,) = curies
                 out.append(PendingDecision(
                     key=f"contrast.review:single_tissue:{spec.name}:{role}",
                     question=(f"Contrast {spec.name} ({spec.scorer}) has a single {role} tissue "
-                              f"({labels.get(curie)}, {curie}); its {role} mean/max/min are that tissue's value. Accept?"),
-                    options=["accept", "abort"], recommended="accept", workflow_step=WORKFLOW_STEP))
+                              f"({labels.get(curie)}, {curie}); its {role} mean, maximum and minimum are that tissue's value."),
+                    options=[], recommended=None, workflow_step=WORKFLOW_STEP))
     return out
 
 
@@ -534,44 +531,60 @@ def _short(label: str) -> str:
     return _SHORT.get(label, label)
 
 
-def run(study_dir: Path) -> pl.DataFrame:
-    """Executes the approved plan on the Tier 1 table; writes the contrast table, its meta and the top variants.
+def _digest(path: Path) -> str:
+    """sha256 of the plan file, kept with the rule so an edited plan is recorded as such."""
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
-    Exits with 1 (study.require) when `contrast.plan` has no answer.
+
+PLAN_RULE = ("The report's fixed ranking compares target with control for each kind of prediction available in both "
+             "groups; the researcher chooses their own groups and filters in the dashboard.")
+
+
+def run(study_dir: Path) -> pl.DataFrame:
+    """Executes the contrast plan on the Tier 1 table; writes the contrast table, its meta and the top variants.
+
+    Without contrasts.yaml the plan is generated from the cohorts, saved and recorded as a rule
+    (`contrast.plan`, decided_by: skill). An existing contrasts.yaml is used as it is.
 
     Raises:
-        ContrastPending, ContrastError, MasterError, models.DependencyOutputError, study.StudyError.
+        ContrastError, MasterError, models.DependencyOutputError, study.StudyError.
     """
     study_dir = Path(study_dir)
-    approval = require(study_dir, "contrast.plan", WORKFLOW_STEP)
-    if str(approval) not in PLAN_APPROVED:
-        raise ContrastError(f"Decision 'contrast.plan' is {approval!r}; expected 'approved'. Review the plan "
-                            f"(Workflow step {WORKFLOW_STEP}) and record the approval with study.py decide.")
     study = load_study(study_dir)
     plan_path = study_dir / PLAN_FILE
-    if not plan_path.is_file():
-        raise ContrastError(f"{PLAN_FILE} not found in {study_dir}; run expression.py contrast --propose, review the "
-                            f"proposal with the researcher and save it as {PLAN_FILE} (Workflow step {WORKFLOW_STEP}).")
     master, registry, resolution = _need_inputs(study_dir)
+    decisions = load_decisions(study_dir)
+    approval = decisions.get("contrast.plan")
+    if approval is not None and approval.decided_by == "researcher" and str(approval.value) not in PLAN_APPROVED:
+        raise ContrastError(f"Decision 'contrast.plan' is {approval.value!r}; expected 'approved'.")
+    if not plan_path.is_file():
+        if approval is not None and approval.decided_by == "researcher":
+            raise ContrastError(
+                f"{PLAN_FILE} is missing, but the researcher approved a contrast plan earlier ('contrast.plan'); a new "
+                f"plan would carry an approval they never gave. Restore {PLAN_FILE}, or remove 'contrast.plan' from "
+                "decisions.yaml so the plan is generated and recorded as the skill's.")
+        plan, skipped = propose_plan(registry, master, resolution=resolution)
+        labels = {e["curie"]: (e["ols"]["label"] if e.get("ols") else e["curie"]) for e in resolution["curies"]}
+        header = (f"# Contrast Plan for {plan.study_id}, generated by expression.py contrast from the study's cohorts.\n"
+                  + "".join(f"# Not included: {s}: {why}\n" for s, why in skipped.items()))
+        plan_path.write_text(plan.to_yaml(header, labels), encoding="utf-8")
+        record_rule(study_dir, "contrast.plan", "generated", WORKFLOW_STEP, PLAN_RULE, note=_digest(plan_path))
+    elif approval is None or (approval.decided_by == "skill" and approval.note != _digest(plan_path)):
+        record_rule(study_dir, "contrast.plan", "existing", WORKFLOW_STEP,
+                    f"The {PLAN_FILE} in the study (written or edited outside the skill) was used as it is.",
+                    note=_digest(plan_path))
+    approval = load_decisions(study_dir)["contrast.plan"]
     plan = ContrastPlan.from_yaml(plan_path)
     if plan.study_id != study.study_id:
         raise ContrastError(f"{PLAN_FILE} is for study {plan.study_id!r}, not {study.study_id!r}.")
     rows = registry.to_dicts()
     plan.validate_against(rows)
-    decisions = load_decisions(study_dir)
-    pending, answered = [], []
+    notes = []
     for q in review_points(plan, rows):
         entry = decisions.get(q.key)
-        if entry is None:
-            pending.append(q)
-        elif entry.value == "abort":
-            raise ContrastError(f"Aborted by the researcher at '{q.key}'; edit {PLAN_FILE} and run again.")
-        elif entry.value == "accept":
-            answered.append({"key": q.key, "value": entry.value})
-        else:
-            raise ContrastError(f"Decision '{q.key}' is {entry.value!r}; expected accept or abort.")
-    if pending:
-        raise ContrastPending(pending)
+        if entry is not None and entry.value == "abort":
+            raise ContrastError(f"Stopped by the researcher's answer to '{q.key}'; edit {PLAN_FILE} and run again.")
+        notes.append({"key": q.key, "note": q.question})
 
     tier2 = apply_plan(master, plan, registry)
     top = top_variants(tier2, plan, int(study.data["report"]["top_n"]))
@@ -581,7 +594,9 @@ def run(study_dir: Path) -> pl.DataFrame:
     (study_dir / TOP_JSON_FILE).write_text(json.dumps(top.to_dicts(), indent=2) + "\n", encoding="utf-8")
     meta = {
         "rows": tier2.height, "plan_path": PLAN_FILE, "plan": plan.to_dict(),
-        "review_decisions": answered + [{"key": "contrast.plan", "value": str(approval)}],
+        "plan_notes": notes,
+        "plan_decided_by": approval.decided_by,
+        "review_decisions": [{"key": "contrast.plan", "value": str(approval.value)}],
         "target_label": resolution["target_label"], "control_label": resolution["control_label"],
         "predicted_direction": dict(tier2["predicted_direction"].value_counts().iter_rows()),
         "specificity_scope": dict(tier2["specificity_scope"].value_counts().iter_rows()),
