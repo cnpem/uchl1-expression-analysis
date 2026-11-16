@@ -46,6 +46,7 @@ class View:
     saved_at: str
     created_at: str
     skill_version: str
+    created_by: str
     profile: A.Profile
     display: dict[str, Any]
     path: Path
@@ -123,9 +124,17 @@ def _check_display(raw: Any, where: str) -> dict[str, Any]:
     return d
 
 
+CREATED_BY = ("researcher", "agent")
+
+
 def save_view(study_dir: Path, name: str, profile: A.Profile, display: dict[str, Any] | None = None,
-              note: str = "") -> View:
-    """Writes analyses/<slug>.yaml (replacing a view of the same name, keeping its creation date)."""
+              note: str = "", created_by: str = "researcher") -> View:
+    """Writes analyses/<slug>.yaml (replacing a view of the same name, keeping its creation date).
+
+    `created_by` is "researcher" (saved on the dashboard) or "agent" (saved by the agent with
+    `expression.py views --save`, after the researcher agreed); the dashboard and the report show it."""
+    if created_by not in CREATED_BY:
+        raise ViewError(f"created_by must be one of {list(CREATED_BY)}")
     name = name.strip()
     s = slug(name)
     path = Path(study_dir) / VIEWS_DIR / f"{s}.yaml"
@@ -140,7 +149,7 @@ def save_view(study_dir: Path, name: str, profile: A.Profile, display: dict[str,
             pass
     now = _now()
     body = {"name": name, "note": note.strip(), "created_at": created, "saved_at": now,
-            "skill_version": _skill_version(), "profile": raw_profile, "display": disp}
+            "skill_version": _skill_version(), "created_by": created_by, "profile": raw_profile, "display": disp}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# Saved view of the expression-analysis dashboard (choices only; see references/formats.md)\n"
                     + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=1000), encoding="utf-8")
@@ -157,13 +166,14 @@ def load_view(study_dir: Path, name: str) -> View:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
         raise ViewError(f"{path.name}: invalid YAML ({exc})") from None
-    allowed = {"name", "note", "created_at", "saved_at", "skill_version", "profile", "display"}
+    allowed = {"name", "note", "created_at", "saved_at", "skill_version", "created_by", "profile", "display"}
     unknown = sorted(set(raw) - allowed)
     if unknown:
         raise ViewError(f"{path.name}: unknown field(s) {unknown}")
     return View(name=str(raw.get("name") or path.stem), slug=path.stem, note=str(raw.get("note") or ""),
                 saved_at=str(raw.get("saved_at") or ""), created_at=str(raw.get("created_at") or ""),
                 skill_version=str(raw.get("skill_version") or ""),
+                created_by=str(raw.get("created_by") or "researcher"),
                 profile=_check_profile(raw.get("profile"), path.name),
                 display=_check_display(raw.get("display"), path.name), path=path)
 

@@ -17,6 +17,12 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
   parameters: unknown fields or values out of range are refused, and no parameter can be created.
 - **`expression.py views`** lists the saved views; **`summarize --view`** and **`figures --view`** read them,
   so the agent explains and draws exactly what the researcher chose.
+- **`views --save`**: the agent saves an analysis it built as a view (`created_by: agent`, only after the
+  researcher agrees). The researcher opens it on the dashboard, which gains *Atualizar lista* and marks
+  views saved by the agent.
+- **`summarize` prints the reference expression (REF) of each chosen tissue**: its % of the highest REF and
+  what the current floor does to it, and the value that marks a tissue as not expressed (5% of the highest
+  REF, as in the exploration). The floor can now be chosen from the numbers.
 - **`report.md`** has one subsection per drawn view (`figures/dashboard/<view>/`), with name, note,
   choices, result, filter steps and figures. It lists saved views not drawn yet, and warns when a view
   was saved again after its figures were drawn.

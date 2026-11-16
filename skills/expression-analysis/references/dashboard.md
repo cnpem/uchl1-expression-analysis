@@ -11,6 +11,7 @@ opening the dashboard (Workflow step 14). The page is in Portuguese; quote its l
 - [Avançado, field by field](#avançado-field-by-field)
 - [What the page does without saying](#what-the-page-does-without-saying)
 - [Explaining a view: `summarize`](#explaining-a-view-summarize)
+- [Views the agent saves: `views --save`](#views-the-agent-saves-views---save)
 - [Figures for the report: `figures`](#figures-for-the-report-figures)
 - [What each quantity means](#what-each-quantity-means)
 - [Questions researchers ask](#questions-researchers-ask)
@@ -72,7 +73,7 @@ current value does:
 | *Nome do grupo alvo / controle* | the names used in titles, legends, the blue box and the report | to use the researcher's own names; nothing is recomputed |
 | *Tecidos de contexto (só exibidos)* | tissues shown in the per-tissue table, bars and matrix, but not in the target or control means | to compare with a tissue without making it part of a group |
 | *Ensaios que entram* / *Fontes que entram* (empty = all) | which measurements of each tissue count: polyA or total RNA-seq; ENCODE or GTEx | when *De onde vêm as medições* says a tissue's measurements agree poorly, or to compare like with like (only GTEx, only polyA); it also changes the noise |
-| *Usar piso de expressão de referência*, *Piso (REF)*, *O que fazer com o piso* | REF is the gene's predicted expression in the tissue without the variant; below the floor the gene is practically off. *Só avisar* only warns; *Tirar controles abaixo do piso* removes those control tissues; *Não analisar se o alvo estiver abaixo* lets no variant pass while a target tissue is below it (the filter step *piso de expressão no alvo* shows it) | to avoid comparing against a tissue where the gene is silent (large, unstable fold changes); keep *Só avisar* when the question is ectopic activation |
+| *Usar piso de expressão de referência*, *Piso (REF)*, *O que fazer com o piso* | REF is the gene's predicted expression in the tissue without the variant (AlphaGenome's scale; the model's pseudocount is 0.001); below the floor the gene is practically off. `summarize` prints every chosen tissue's REF, its % of the highest REF and what the current floor does to it, so pick the floor from that table. Judge by the % of the highest REF: the exploration calls a tissue below 5% of it "not expressed" (summarize prints that value); 0.01 (ten times the pseudocount) is only the absolute minimum, and tissues well above it can still be practically silent relative to the target (e.g. 0.5% of the highest REF). *Só avisar* only warns; *Tirar controles abaixo do piso* removes those control tissues; *Não analisar se o alvo estiver abaixo* lets no variant pass while a target tissue is below it (the filter step *piso de expressão no alvo* shows it) | to avoid comparing against a tissue where the gene is silent (large, unstable fold changes); keep *Só avisar* when the question is ectopic activation |
 | *Tecidos capturados* (table) | every tissue with predictions in the study: group at capture, number of measurements, REF min and max, where the measurements come from | to find a CURIE, or a tissue to add to a group; a tissue not listed needs a new capture (your job) |
 | *Ruído do estudo* (table) | how much two measurements of the same tissue disagree, by size of change: p95, p99, σ | the reference for the thresholds; σ is the unit of the *acima do ruído* filter |
 | *Tipo de predição* | RNA-seq (expression of the whole gene), CAGE (transcription start), DNase / ATAC (open chromatin around the variant) | to ask about the mechanism near the variant rather than the gene's expression; groups may lose tissues without that prediction |
@@ -103,7 +104,7 @@ Mention these when they matter for what the researcher is looking at:
 
 When the researcher asks about what they see ("why is this variant first?", "is the effect specific?"),
 ask them to save the view (*Visões salvas*) and run `expression.py summarize --study-dir D --view <name>`:
-it reads exactly their choices. `expression.py views --study-dir D` lists the saved views (with the name to
+it reads exactly their choices. `expression.py views --study-dir D` lists the saved views (who saved each, and the name to
 pass to `--view`). Without a saved view, pass the same choices as options (table below). It runs the
 dashboard's computation and prints the headline, the measurements of each tissue, the noise, the filter
 steps and the top variants. Explain from those numbers; never describe values you have not computed.
@@ -130,6 +131,16 @@ differ from the opening view (or have the researcher read them out) and map them
 
 Crop, highlights, colours, the point size, *Quantas mostrar* and *Variantes nos gráficos* change only what
 is drawn, not the numbers.
+
+## Views the agent saves: `views --save`
+
+When you run an analysis the researcher wants to look at on the page (a new combination of choices they
+asked about, a variant group you explained, the comparison with and without a floor), offer to save it as a
+view and, on their yes, run `expression.py views --study-dir D --save "<name>" --note "<what it shows>"`
+with the same choice options as `summarize` (plus `--top-k`, `--show`, `--color-by`, `--highlight`). The
+view is marked `created_by: agent`. Tell them to open *Visões salvas* on the dashboard, click *Atualizar
+lista* and *Abrir*: the page then shows exactly what you described, and `figures --view` can put it in the
+report. Do not save views they did not ask for, and never overwrite one of theirs (pick a new name).
 
 ## Figures for the report: `figures`
 

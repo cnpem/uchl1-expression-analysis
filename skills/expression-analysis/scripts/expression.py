@@ -39,7 +39,8 @@ Subcommands:
              explain what the researcher sees). Writes nothing.
   figures    Workflow step 14: the dashboard's charts for given choices (or a saved view, --view) as PNG
              in figures/dashboard/<view>/, with choices.json; report.md shows each view drawn.
-  views      Workflow step 14: the dashboard's saved views (analyses/*.yaml): list, or --show NAME.
+  views      Workflow step 14: the dashboard's saved views (analyses/*.yaml): list, --print NAME, or
+             --save NAME with choice options (a view the agent saves, after the researcher agreed).
   dashboard  Workflow step 14: opens the analysis dashboard (assets/dashboard.py) on a study directory;
              --export-html writes a static HTML of its opening view instead. --edit (maintainers) opens
              the marimo editor on the skill's file; --legacy opens the previous triage workbench.
@@ -668,9 +669,26 @@ def views_cmd(args: argparse.Namespace) -> None:
     from viz import report_figures
 
     study_dir = Path(args.study_dir)
-    if args.show:
+    if args.save:
+        if args.view:
+            _stage_error(ValueError("--save takes choice options, not --view (to copy a view, open it on the dashboard)"))
+        v = _dashboard_view(args)
+        display = {"show_mode": args.show, "color_by": args.color_by, "highlight": list(args.highlight or [])}
+        prof = v["profile"]
+        if args.top_k:
+            import dataclasses as _dc
+            prof = _dc.replace(prof, top_k=args.top_k)
         try:
-            view = core_views.load_view(study_dir, args.show)
+            view = core_views.save_view(study_dir, args.save, prof, display, args.note or "", created_by="agent")
+        except core_views.ViewError as exc:
+            _stage_error(exc)
+        print(f"Saved the view '{view.name}' ({view.path.relative_to(study_dir).as_posix()}, created_by: agent): "
+              f"{v['kept'].height} variant(s) pass. The researcher opens it on the dashboard: 'Visões salvas', "
+              "'Atualizar lista', then 'Abrir'.")
+        return
+    if args.print:
+        try:
+            view = core_views.load_view(study_dir, args.print)
         except core_views.ViewError as exc:
             _stage_error(exc)
         print(view.path.read_text(encoding="utf-8"))
@@ -685,7 +703,9 @@ def views_cmd(args: argparse.Namespace) -> None:
         rec = drawn.get(view.slug)
         state = ("figures drawn" + (" (view changed after them)" if rec and rec["view"].get("saved_at") != view.saved_at else "")
                  if rec else "no figures yet")
-        print(f"- {view.name} [--view {view.slug}] saved {view.saved_at}; {state}" + (f". {view.note}" if view.note else ""))
+        who = "agent" if view.created_by == "agent" else "researcher"
+        print(f"- {view.name} [--view {view.slug}] saved by the {who} {view.saved_at}; {state}"
+              + (f". {view.note}" if view.note else ""))
 
 
 def summarize_cmd(args: argparse.Namespace) -> None:
@@ -717,6 +737,33 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     if dropped:
         out += [f"Controles abaixo do piso de expressão ({H._n(profile.ref_floor, 3)}), fora do cálculo: "
                 + ", ".join(labels.get(c, c) for c in dropped) + ".", ""]
+    ref = A.ref_by_tissue(data)
+    out += ["## Expressão de referência (REF) e piso", ""]
+    if not ref:
+        out += ["Sem REF neste estudo (não há a variante de referência da exploração em raw/), então o piso não se aplica.", ""]
+    else:
+        top = max(ref.values())
+        floor = profile.ref_floor
+        out += ["REF é a expressão do gene prevista no tecido, sem variante (escala do AlphaGenome; o pseudocount do modelo é "
+                "0,001). Onde o gene está quase desligado, mudanças pequenas viram % grandes e instáveis. Compare os tecidos "
+                "pela coluna '% do maior REF': a exploração chama de 'não expresso' o que fica abaixo de 5% do maior REF "
+                f"(aqui, {H._n(0.05 * top, 3)}); 0,01 (10× o pseudocount) é só o limite absoluto mínimo. O piso (`--ref-floor N`) usa "
+                "o valor de REF: `--floor-applies warn` só avisa, `control` "
+                "tira do cálculo os controles abaixo dele, `target` não deixa passar nada se um tecido do alvo estiver "
+                "abaixo, `both` faz os dois.", "",
+                "| tecido | grupo | REF | % do maior REF | com o piso atual |", "|---|---|---|---|---|"]
+        for role, curies in (("alvo", profile.target), ("controle", profile.control)):
+            for c in curies:
+                r = ref.get(c)
+                if r is None:
+                    out.append(f"| {labels.get(c, c)} | {role} | — | — | sem REF |")
+                    continue
+                state = ("piso desligado" if floor is None else
+                         ("abaixo do piso" + (", fora do cálculo" if role == "controle" and profile.ref_floor_applies in ("control", "both") else
+                                              ", nenhuma variante passa" if role == "alvo" and profile.ref_floor_applies in ("target", "both") else
+                                              ", só aviso")) if r < floor else "acima do piso")
+                out.append(f"| {labels.get(c, c)} | {role} | {H._n(r, 4)} | {H._n(100 * r / top, 1)}% | {state} |")
+        out.append("")
     out += ["## Ruído entre medições do mesmo tecido", ""]
     overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None)
     if overall is None:
@@ -961,9 +1008,20 @@ def main() -> None:
                    help="Without --highlight, highlight the first N that pass, in that order (default 5; 0 = none)")
     p.set_defaults(func=figures_cmd)
 
-    p = sub.add_parser("views", help="Workflow step 14: the dashboard's saved views (list, or --show NAME)")
+    p = sub.add_parser("views", help="Workflow step 14: the dashboard's saved views (list, --print NAME, or --save NAME)",
+                       description="Without options, lists the saved views. --print shows one. --save saves the given "
+                                   "choices as a view the researcher opens on the dashboard (only after they agreed).")
     p.add_argument("--study-dir", required=True, help="Study directory")
-    p.add_argument("--show", help="Print one saved view (its name or file name)")
+    p.add_argument("--print", help="Print one saved view (its name or file name)")
+    p.add_argument("--save", help="Save the choices below as a view with this name (created_by: agent)")
+    p.add_argument("--note", help="With --save: the note shown with the view (what it shows, why)")
+    _choice_args(p)
+    p.add_argument("--top-k", type=int, default=0, help="With --save: 'Quantas mostrar' (0 = all)")
+    p.add_argument("--show", choices=["kept", "all"], default="kept", help="With --save: 'Variantes nos gráficos'")
+    p.add_argument("--color-by", default="genomic_domain",
+                   choices=["genomic_domain", "passa", "sentido", "ensembl_transcript_region", "top_feature"],
+                   help="With --save: 'Cor no gráfico da janela'")
+    p.add_argument("--highlight", action="append", help="With --save: variant ID to highlight (repeatable)")
     p.set_defaults(func=views_cmd)
 
     p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")

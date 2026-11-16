@@ -137,7 +137,7 @@ recording command to run.
 | `expression.py contrast [--propose]` | Step 12: the triage's contrast (plan generated from the groups when absent) → tissue contrast, top variants; `--propose` only writes the plan for a maintainer |
 | `expression.py report` | Step 13: `report.md` (study, decisions, results, skills used, limits, citations) |
 | `expression.py dashboard [--port N] [--export-html P] [--edit] [--legacy]` | Step 14: analysis dashboard (a free port if N is busy; prints the URL), a static HTML export, the marimo editor for maintainers (`--edit`, changes the skill's `assets/dashboard.py`) or the previous workbench (`--legacy`) |
-| `expression.py views --study-dir D [--show NAME]` | The dashboard's saved views (`analyses/*.yaml`): list with the name for `--view`, or one in full |
+| `expression.py views --study-dir D [--print NAME \| --save NAME choices…]` | The dashboard's saved views (`analyses/*.yaml`): list (who saved each, name for `--view`), one in full, or save the agent's analysis as a view the researcher opens on the page |
 | `expression.py summarize --study-dir D [--view NAME \| choices…]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
 | `expression.py figures --study-dir D [--view NAME \| choices… --top-k K --show kept\|all --highlight V…]` | The dashboard's charts for a saved view (or given choices) as PNG in `figures/dashboard/<view>/`, with `choices.json`; `report` shows each view drawn |
 | `expression.py regions [--only NAME]` | Prints the regulatory search region, the window and `max_window` (the fetch commands use them already) |
@@ -200,7 +200,10 @@ search text or a scorer list), so the researcher can tell the three apart.
     (empty = all, ignored filters, display limits). When they ask about what they see, run
     `expression.py summarize` with the same choices and explain from its numbers; do not describe results
     you have not computed; with a view they saved (*Visões salvas*), use `--view <name>` so you read exactly
-    their choices. For each saved view they want in the report, run `expression.py figures --view <name>`,
+    their choices. When you build a new analysis they want to see on the page, offer to save it with
+    `expression.py views --save "<name>" --note "…"` (same choice options) and tell them to open it in
+    *Visões salvas* (*Atualizar lista*, *Abrir*). For each saved view they want in the report, run
+    `expression.py figures --view <name>`,
     then `expression.py report` again, so `report.md` shows each view's figures with its choices and note.
     The page saves only when they click *Salvar*.
 

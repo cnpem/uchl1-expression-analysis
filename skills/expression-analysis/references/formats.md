@@ -112,6 +112,7 @@ among the skill's own parameters.
 | `name`, `note` | the name and note the researcher typed |
 | `created_at`, `saved_at` | first and last save (ISO-8601, UTC); a later save of the same name replaces the view |
 | `skill_version` | the skill version that saved it |
+| `created_by` | `researcher` (saved on the dashboard) or `agent` (saved with `views --save` after the researcher agreed) |
 | `profile` | the analysis choices (`core.analysis.Profile`): `scorer`, `target`, `control`, `shown` (CURIEs), `target_label`, `control_label`, `question` (repression, increase, either), `min_change_pct`, `max_control_pct` (null = off), `min_diff_sigma`, `ref_floor` (null = off), `ref_floor_applies`, `assays`, `sources`, `domains` (empty = all), `one_alt_per_position`, `y_metric`, `top_k` (null = all), `color_by` |
 | `display` | how it is shown: `show_mode` (kept, all), `color_by`, `point_size`, `highlight` (variant IDs) |
 

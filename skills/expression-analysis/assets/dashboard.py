@@ -273,11 +273,14 @@ def _(mo):
 
 
 @app.cell
-def _(V, get_views_tick, mo, set_focus_ids, set_view, set_view_msg, study_dir):
-    get_views_tick()  # re-read the list after a save
+def _(V, get_views_tick, mo, set_focus_ids, set_view, set_view_msg, set_views_tick, study_dir):
+    get_views_tick()  # re-read the list after a save, or when asked (views saved by the agent)
     _views = V.list_views(study_dir)
-    view_pick = mo.ui.dropdown(options={f"{v.name} ({v.saved_at[:10]})": v.slug for v in _views},
-                               label="Visões salvas", value=None)
+    view_pick = mo.ui.dropdown(
+        options={f"{v.name} ({'agente, ' if v.created_by == 'agent' else ''}{v.saved_at[:10]})": v.slug for v in _views},
+        label="Visões salvas", value=None)
+    refresh_button = mo.ui.button(label="Atualizar lista", on_click=lambda _: set_views_tick(lambda n: n + 1),
+                                  tooltip="Mostra visões salvas fora da página, por exemplo pelo agente")
 
     def _open(_):
         if not view_pick.value:
@@ -289,12 +292,13 @@ def _(V, get_views_tick, mo, set_focus_ids, set_view, set_view_msg, study_dir):
             return
         set_view(_v)
         set_focus_ids(list(_v.display["highlight"]))
-        set_view_msg(f"Visão aberta: **{_v.name}**" + (f". {_v.note}" if _v.note else ""))
+        set_view_msg(f"Visão aberta: **{_v.name}**" + (" (criada pelo agente)" if _v.created_by == "agent" else "")
+                     + (f". {_v.note}" if _v.note else ""))
 
     open_button = mo.ui.button(label="Abrir", on_click=_open, disabled=not _views)
     start_button = mo.ui.button(label="Voltar ao início do estudo",
                                 on_click=lambda _: (set_view(None), set_focus_ids([]), set_view_msg("")))
-    return open_button, start_button, view_pick
+    return open_button, refresh_button, start_button, view_pick
 
 
 @app.cell
@@ -324,15 +328,17 @@ def _(V, assays, color_by, data, dataclasses, get_focus_ids, mo, point_size, pro
 
 
 @app.cell
-def _(get_view, get_view_msg, mo, open_button, save_button, start_button, view_name, view_note, view_pick):
+def _(get_view, get_view_msg, mo, open_button, refresh_button, save_button, start_button, view_name, view_note,
+      view_pick):
     _v = get_view()
     mo.accordion({("Visões salvas" + (f": {_v.name}" if _v is not None else "")): mo.vstack([
         mo.md("Uma visão guarda as escolhas desta página (grupos, pergunta, filtros, ordem, quantas mostrar, cor e "
               "variantes destacadas) com um nome, para voltar a ela, pedir ao agente que a explique ou colocá-la no "
               "relatório. Só é salva quando você clica em *Salvar*; fica em `analyses/` na pasta do estudo. Salvar com um "
-              "nome que já existe substitui aquela visão."),
+              "nome que já existe substitui aquela visão. Quando o agente salvar uma análise para você ver, clique em "
+              "*Atualizar lista* e abra a visão (ela aparece marcada como *agente*)."),
         mo.md(get_view_msg() or ""),
-        mo.hstack([view_pick, open_button, start_button], justify="start", gap=1),
+        mo.hstack([view_pick, open_button, refresh_button, start_button], justify="start", gap=1),
         view_name, view_note, save_button,
     ])})
     return
