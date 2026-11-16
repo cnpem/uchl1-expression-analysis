@@ -170,8 +170,10 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
                     [("Direção", k, v) for k, v in sorted(meta["predicted_direction"].items(), key=lambda kv: -kv[1])]
                     + [("Escopo", k, v) for k, v in sorted(meta["specificity_scope"].items(), key=lambda kv: -kv[1])])
     shown = workbench_helpers.default_filter(df)
-    lines += ["", f"Com os filtros padrão do workbench (|quantil| >= {workbench_helpers.DEFAULT_MIN_QUANTILE} em todos os "
-              f"tecidos alvo) restam {shown.height:,} de {df.height:,} SNVs.", "", "SNVs por domínio genômico:", ""]
+    lines += ["", f"Com o filtro fixo da triagem (|quantil| >= {workbench_helpers.DEFAULT_MIN_QUANTILE} em todos os "
+              f"tecidos alvo) restam {shown.height:,} de {df.height:,} SNVs. Estes rótulos e este filtro são uma triagem "
+              "heurística; os grupos, a pergunta e os filtros do estudo são escolhidos pelo pesquisador no dashboard.",
+              "", "SNVs por domínio genômico:", ""]
     counts = dict(df.group_by("genomic_domain").len().rows())
     lines += _table(["Domínio", "SNVs"], [(d, counts[d]) for d in workbench_helpers.domain_options(df)])
     diffs = [c["name"] for c in meta["plan"]["contrasts"]]
@@ -185,8 +187,8 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
             for t in top]
     lines += _table(headers, rows)
     lines += ["", "Δ = média alvo menos média controle do escore bruto previsto (comparável apenas dentro de um scorer). "
-              "A Figura 1 (`figures/fig1_genomic_architecture.html`) mostra a janela; as Figuras 2 a 4 estão no workbench "
-              "(`expression.py dashboard`).", ""]
+              "A Figura 1 (`figures/fig1_genomic_architecture.html`) mostra a janela; os gráficos interativos estão no "
+              "dashboard (`expression.py dashboard`).", ""]
     links = study_dir / ATLAS_LINKS_FILE
     if links.is_file():
         lines += ["### Links do Atlas", "", links.read_text(encoding="utf-8").strip(), ""]
