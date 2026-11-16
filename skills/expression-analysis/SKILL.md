@@ -2,7 +2,7 @@
 name: expression-analysis
 description: "Explores a human gene with AlphaGenome before any study is fixed (gene structure, Regulatory Build, candidate windows with their cost, UBERON/CL/EFO terms with Atlas tracks per tissue, the gene's predicted baseline expression per tissue), then compares the predicted effects of every SNV in the chosen window between target and control tissues or cell types, with a Portuguese report and an interactive dashboard where the researcher picks groups, question and filters. Routes to the DeepMind science skills (GENCODE, OLS, Atlas AVI and track catalogue, Ensembl) and to the K-Dense AlphaGenome Atlas scores. Use it whenever someone asks which variants in a gene change expression in one tissue versus another, whether a gene is expressed in a tissue according to AlphaGenome, which tissues or windows can be studied for a gene, wants a saturation-mutagenesis or promoter/enhancer variant triage, or mentions tissue-specific regulatory effects with AlphaGenome, even without saying 'expression analysis'. Research use only."
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # expression-analysis
@@ -13,9 +13,10 @@ For one human gene (GRCh38), this skill takes every possible SNV of the gene's r
 (by default the promoter/enhancer unit that holds the TSS, through the end of exon 1), collects the
 AlphaGenome Atlas predictions for each of them, and asks: which variants change the predicted
 signal (RNA-seq, CAGE, DNase, ATAC) in the target tissues, and do they do so differently in the
-control tissues? The answer comes as a Tier 1 table (one row per SNV), a Tier 2 tissue contrast,
-a ranked top list with Atlas links, a Portuguese `report.md` and an interactive marimo dashboard in
-which the researcher chooses the groups, the question and every filter on the data already captured.
+control tissues? The researcher answers it in an interactive marimo dashboard, choosing the groups,
+the question and every filter on the data already captured. Behind it: a Tier 1 table (one row per
+SNV), a fixed triage (Tier 2 contrast and ranked top list with Atlas links) and a Portuguese
+`report.md`.
 
 It starts with an **exploration** (`expression.py explore`): cheap, read-only queries that show the
 researcher, in a Portuguese `summary.md`, which windows are possible and what each costs, which
@@ -33,21 +34,28 @@ How the work is split, and why:
   The stages read only the study folder, so a study can be re-run offline and every number traces
   back to a recorded command. You choose the parameters; the script runs and records them, so no
   shell syntax has to be adapted between PowerShell, bash and zsh.
-- **The researcher decides, the agent asks.** When the data leave a choice open (which
-  transcript, a regulatory feature that runs into exon 1, a tissue without Atlas tracks, a
-  contrast that mixes assays), the stage stops with exit 1 and `N decision(s) needed`, and writes
-  the question with its options and a recommendation. Show it to the researcher and record their
-  answer; do not pick one yourself, because these choices change which variants and tissues the
-  conclusions rest on.
+- **The researcher decides, the agent asks.** When the data leave a choice open that changes which
+  variants and tissues the conclusions rest on (which transcript, how far the window goes, a tissue
+  without Atlas measurements), the stage stops with exit 1 and `N decision(s) needed`, and writes the
+  question with its options, their effects and a recommendation. Ask it in the researcher's language
+  and record their answer; do not pick one yourself. Technical checks and choices that do not change
+  the steered analysis are applied by fixed rules and recorded as the skill's (`decided_by: skill`).
+  The identifiers (CURIEs, transcript and region IDs, coordinates) always stay next to the names, so
+  every choice can be traced.
 - **Research use only.** Everything here is a predicted molecular effect used to prioritise
   experiments. It is not a measurement, not a clinical classification and never a diagnosis.
 
 Read `references/workflow.md` for the complete commands and the questions of each step,
 `references/interpretation.md` before reporting results, `references/dashboard.md` before opening the
-dashboard or answering a question about it, and `references/dependency_outputs.md` when a dependency
-output fails validation.
+dashboard or answering a question about it, `references/formats.md` for the fields of the study files
+(exploration, questions, decisions, contrast plan), and `references/dependency_outputs.md` when a
+dependency output fails validation.
 
 ## Prerequisites
+
+`expression.py check` tests all of them; `check --json` lists what is missing as questions. When the
+`alphagenome-skills-setup` skill is installed, hand the setup to it; otherwise follow the items below
+with the researcher, one at a time.
 
 1. **`uv`** on PATH (the `uv` skill). Every script runs with `uv run`, which installs its pinned
    PEP 723 dependencies into a cached environment, so nothing is installed into the system Python.
@@ -122,58 +130,67 @@ recording command to run.
 
 | Command | Does |
 |---|---|
-| `expression.py check` | Checks `uv`, dependency skills, licence notices, `ALPHAGENOME_API_KEY`; prints install commands, runs none |
+| `expression.py check [--json]` | Checks `uv`, dependency skills, licence notices, `ALPHAGENOME_API_KEY`; prints install commands, runs none; `--json` lists them as questions for the setup |
 | `expression.py explore --gene G --out OUT --tissue T…` | Step 0: read-only exploration → `OUT/exploration/summary.md` (Portuguese), `exploration.json`, `raw/`, `atlas/`, `manifest.json` |
 | `study.py init --from-exploration OUT --study-dir D …` | Step 1: `study.yaml` from the chosen window, CURIEs, labels and scorers; copies the exploration captures into `raw/` with their manifest steps |
 | `expression.py fetch <kind> --study-dir D [--dry-run]` | Steps 2-13 captures: `gtf`, `regulatory`, `sequence`, `ols`, `ols-term`, `tracks [--catalogue]`, `avi`, `scores`, `links`, `interpret` |
 | `expression.py locus` / `cohorts` / `variants` / `master` | Steps 4, 8, 11: window and Figure 1; cohorts and track registry; SNV table; Tier 1 table with two QC gates |
-| `expression.py contrast [--propose]` | Step 12: proposes the contrast plan, then runs the approved one → tissue contrast, top variants |
+| `expression.py contrast [--propose]` | Step 12: the triage's contrast (plan generated from the groups when absent) → tissue contrast, top variants; `--propose` only writes the plan for a maintainer |
 | `expression.py report` | Step 13: `report.md` (study, decisions, results, skills used, limits, citations) |
 | `expression.py dashboard [--port N] [--export-html P] [--edit] [--legacy]` | Step 14: analysis dashboard (a free port if N is busy; prints the URL), a static HTML export, the marimo editor for maintainers (`--edit`, changes the skill's `assets/dashboard.py`) or the previous workbench (`--legacy`) |
 | `expression.py summarize --study-dir D [choices…]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
 | `expression.py regions [--only NAME]` | Prints the regulatory search region, the window and `max_window` (the fetch commands use them already) |
 | `expression.py reproduce --reference uchl1 [--until S] [--keep DIR]` | Re-runs the stages on the bundled reference and compares with `expected.json` |
-| `study.py validate / pending / decide / require / window` | Study file, researcher decisions, open questions, `--print-max-window` |
+| `study.py validate / pending [--json] / decide / require / window` | Study file, researcher decisions, open questions, `--print-max-window` |
 | `manifest.py show` | Prints the manifest (`manifest.py add` remains for a step run outside the skill) |
 | `models.py validate --dir D/raw` | Checks every raw file against the fields the dependencies write |
 
 ## Workflow
 
 **Decisions (every stage).** When a stage exits 1 with `N decision(s) needed: run study.py
-pending.`, run `study.py pending --study-dir D`, show each question, its options and the
-recommendation to the researcher, record their answer with
-`study.py decide --study-dir D --key K --value V --step N --note "…"` (one `--key` per key when
-several share an answer), and run the stage again. The recommendation is the stage's suggestion,
-not an answer. For a question you ask yourself (the choices of step 1), pass what you offered with
-`--option` (repeated) and `--recommended`. When the researcher has delegated ("take the
+pending.`, run `study.py pending --study-dir D` (or `--json`) and first do what its "For the agent" lines
+say. Ask one question at a time (or questions of the same kind together), in the researcher's language:
+the title, the question, why it matters, the names with their identifiers, each option's label and
+what happens, and which one is recommended and why. With more than about six options, show the first
+ones and offer the rest on request. Never show codes or keys. Record the answer with the chosen
+option's code: `study.py decide --study-dir D --key K --value CODE --step N --note "…"` (one `--key`
+per key when several share an answer), and run the stage again. The recommendation is the stage's
+suggestion, not an answer. For a question you ask yourself (the choices of step 1), pass what you
+offered with `--option` (repeated) and `--recommended`. When the researcher has delegated ("take the
 recommended options"), record the recommendation and say so in the note.
 
-**Final answer.** List every decision raised (key, options, recommended, chosen, reason) and, in a
-separate list, the choices you made that no stage raised (e.g. a search text or a scorer list), so
-the researcher can tell their decisions from yours.
+**Final answer.** List, in the researcher's language: the decisions they made (question, options,
+recommended, chosen, reason, identifiers); the rules the skill applied (`decided_by: skill` in
+`decisions.yaml`: what was left out and why, summarising many of a kind, e.g. "5 positions left out:
+chr…"); and the choices you made that no stage raised (e.g. a
+search text or a scorer list), so the researcher can tell the three apart.
 
-0. **Exploration.** `expression.py check` (missing skills and licence notices: ask one at a time).
+0. **Exploration.** `expression.py check` (anything missing: the setup skill if installed, else one item
+   at a time with the researcher).
    Ask the researcher only for the gene and the tissues or cell types in their own words, then
    `expression.py explore`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
    gene's predicted activity per tissue, with a warning where it is below the floor. Do not ask
    for the study's choices before this page is shown, because they depend on it.
-1. **Study.** Ask the researcher for the window option, the target and control terms with a short
-   label for each group, and the scorers (RNA_SEQ is required). `study.py init --from-exploration`,
+1. **Study.** Ask the researcher, with the words of the exploration page, which window (by its name
+   on the page), which terms form the target and the control groups (with a short name for each group),
+   and which kinds of prediction to compare (gene expression is always included). `study.py init --from-exploration`,
    then `decide` `cohort.target` and `cohort.control` with the terms offered (`--option`,
    `--recommended`), and `study.py validate`.
 2. **Gene structure** (`fetch gtf`) and 3. **Regulatory Build and sequence** (`fetch regulatory`,
    `fetch sequence`): already copied from the exploration; run them only for a study without one.
-4. **Locus and window.** `expression.py locus`; questions `locus.*`. Show Figure 1.
+4. **Locus and window.** `expression.py locus`; questions `locus.transcript`, `locus.feature_*`,
+   `locus.no_feature_chain` (the rest of the window follows its definition, by rule). Show Figure 1.
 5. **Terms.** Also from the exploration; `fetch ols --query "…"` for a tissue added later.
 6. **Descendants** (`fetch ols-term --curie C`) for a CURIE without tracks or without RNA_SEQ tracks.
 7. **Track catalogue.** `fetch tracks` (every study CURIE × scorer; zero-track pairs are recorded).
-8. **Cohorts.** `expression.py cohorts`; questions `cohort.*`. A `replace:` answer also updates
-   `study.yaml`; then `fetch tracks` for the new CURIE and run `cohorts` again.
+8. **Cohorts.** `expression.py cohorts`; questions `cohort.unserved:*`, `cohort.no_rna_seq:*`. A
+   `replace:` answer also updates `study.yaml`; then `fetch tracks` for the new CURIE and run `cohorts`
+   again. A prediction type without measurements in one group is left out by rule.
 9. **Saturation and AVI** (`fetch avi`) and 10. **Scores per tissue** (`fetch scores`), together.
-11. **Variants and Tier 1.** `expression.py variants`, then `master` (two QC gates).
-12. **Contrast.** `contrast --propose`; review the plan with the researcher; save it as
-    `contrasts.yaml`; decision `contrast.plan`; `contrast` (questions `contrast.review:*`).
+11. **Variants and Tier 1.** `expression.py variants` (positions the Atlas does not match are left out
+    by rule), then `master` (two QC gates).
+12. **Contrast.** `expression.py contrast` (the triage; no question).
 13. **Interpretation and report.** `fetch links`; optionally `fetch interpret` on the top variants
     with a target CURIE the researcher chose; `expression.py report`; read `report.md` back.
 14. **Dashboard.** Read `references/dashboard.md`. `expression.py dashboard` and give the researcher the
@@ -187,16 +204,16 @@ Copy this checklist into the conversation and tick it as you go:
 
 ```
 expression-analysis progress:
-- [ ] Step 0: check passes (skills and licence notices asked one at a time); explore run; summary.md shown
+- [ ] Step 0: check passes (setup skill, or items asked one at a time); explore run; summary.md shown
 - [ ] Step 1: window, target, control, labels, scorers chosen by the researcher; init --from-exploration; cohort decisions recorded
 - [ ] Step 4: locus run; locus.* answered by the researcher; Figure 1 shown
 - [ ] Steps 6-8: fetch tracks; cohorts run; cohort.* answered (study.yaml updated on replace)
 - [ ] Steps 9-10: fetch avi and fetch scores, same window and pull
-- [ ] Step 11: variants and master run; QC gates passed
-- [ ] Step 12: plan reviewed; contrasts.yaml saved; contrast.plan approved; contrast run
+- [ ] Step 11: variants and master run; positions left out by rule noted; QC gates passed
+- [ ] Step 12: contrast run
 - [ ] Step 13: atlas links (and interpretations) fetched; report.md written and read back
 - [ ] Step 14: dashboard opened and explained; questions answered from `summarize` with the same choices
-- [ ] Final answer: researcher decisions and agent choices in separate lists
+- [ ] Final answer: researcher decisions, the skill's rules and agent choices in separate lists
 ```
 
 ## Rate Limiting
@@ -229,6 +246,8 @@ about 20 s each; run them sequentially.
   Phred 20 or a large Δ rank predicted effects; none is a pathogenicity cut-off.
 - **Choosing for the researcher, or editing `decisions.yaml` by hand.** Record answers with
   `study.py decide`, which also clears the pending question and keeps the timestamps.
+- **Showing codes instead of the question.** `keep_full_unit`, `drop_curie` or `abort` mean nothing to
+  the researcher; ask with the labels and effects, in their language, and keep the identifiers.
 - **Installing a dependency, or writing a `.licenses/` file, without the researcher's explicit
   approval for that skill.** Ask one skill and one notice at a time.
 - **Printing `~/.env`.** The fetch commands load it; keys never reach the screen or the manifest.
@@ -244,8 +263,8 @@ OUT/exploration/                     # step 0, before any study
   manifest.json                      # every command, version and output
 <study_dir>/                         # chosen by the researcher, never inside the skill
   study.yaml                         # the request (gene, cohorts, scorers, window policy, top_n)
-  decisions.yaml                     # the researcher's answers, with options, timestamps and notes
-  contrasts.yaml                     # the approved contrast plan (step 12)
+  decisions.yaml                     # the researcher's answers and the skill's rules (references/formats.md)
+  contrasts.yaml                     # the triage's contrast plan (step 12)
   manifest.json                      # provenance: every command, output, version and decision key
   raw/                               # dependency outputs, unedited
   processed/                         # this skill's outputs (locus, registry, master, contrast, top variants)

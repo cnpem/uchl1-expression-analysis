@@ -49,7 +49,8 @@ the target alone: read both.
 
 - **Raw scores** are comparable within a scorer, not across scorers; use quantiles to compare assays.
 - **Track sources** may differ between cohorts (e.g. GTEx regions vs ENCODE tissues, polyA vs total
-  RNA-seq). The plan review points (`contrast.review:*`) record whether the researcher accepted this.
+  RNA-seq). The report notes when a contrast of the triage mixes them (`plan_notes`); in the dashboard
+  the researcher chooses which assays and sources enter.
 - **Window scope:** only the analysed window is mutated; distal enhancers and introns are not.
 - **Transcript:** annotations follow the selected transcript; other transcripts that start inside the
   window are listed in `processed/transcripts_in_window.tsv`.

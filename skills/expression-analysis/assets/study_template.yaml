@@ -14,7 +14,7 @@ window:
 cohorts:
   target:
     label: Target                  # name of the tissue group of interest
-    curies: []                     # UBERON/CL CURIEs, chosen after the OLS search (Workflow step 5)
+    curies: []                     # UBERON/CL CURIEs chosen by the researcher from the exploration (Workflow steps 0-1)
   control:
     label: Control
     curies: []

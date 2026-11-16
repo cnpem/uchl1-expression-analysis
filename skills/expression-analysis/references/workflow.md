@@ -39,6 +39,23 @@ only for a step run outside the skill; give it the command exactly as it ran.
 
 **Researcher decisions.** A stage that meets an open choice writes it to
 `processed/pending_decisions.json` and exits 1 with `N decision(s) needed: run study.py pending.`
+Each question has a title, the question, why it matters, what it is about (names with their
+identifiers: CURIEs, transcript and region IDs, coordinates, counts) and options with a label, the
+effect of choosing it and a code. Present it in the researcher's language (the language of the
+conversation), with the names and identifiers as given, and never show the codes: they are what
+`decide` records and what the stages read. `study.py pending --json` gives the same in JSON.
+`decide` refuses a code the question did not offer (a code such as `fixed:<value>` takes any text after
+its prefix; Ensembl IDs match with or without their version) and records the option's label next to it
+(`value_label`), so `decisions.yaml` and the report show what the researcher saw.
+
+**Rules the skill applies without asking.** Checks the researcher cannot judge, and choices that do not
+change the analysis they steer, are applied by fixed rules and recorded in `decisions.yaml` with
+`decided_by: skill` and the rule in words: the `regulatory_unit` window keeps every regulatory region
+at the start of the gene and all of exon 1, which is how that window is defined (step 4); a prediction
+type without tracks in one group is left out (step 8), positions where the Atlas and the reference sequence disagree are left out (step 11; above
+1% of the window the researcher is asked first), and the triage's contrast plan is generated from the
+groups (step 12). The rules are evaluated again on every run (a recapture that fixes a position brings
+it back) and never overwrite a researcher's answer. Report them to the researcher with the results.
 
 ```bash
 uv run SKILL/scripts/study.py pending --study-dir D
@@ -60,10 +77,14 @@ uv run SKILL/scripts/expression.py check
 uv run SKILL/scripts/expression.py explore --gene MYGENE --tissue "<words of the researcher>" --tissue "<another>" --out OUT
 ```
 
-- `check` exit 1 lists each missing item. For a **skill**, show the skill, its origin and the printed
-  install command and ask about one skill at a time. For a **licence notice**, open that dependency's
-  `SKILL.md` Prerequisites with the researcher and create that one `.licenses/` file only after their
-  explicit OK. For a **key**, the `credentials` skill; for **uv**, the `uv` skill.
+- `check` exit 1 lists each missing item; `check --json` gives them as questions in the same shape as
+  `study.py pending --json` (title, question, why, identifiers, options with label and effect,
+  recommended) plus `handled_by`, the skill that resolves it. If the `alphagenome-skills-setup` skill is
+  installed (`setup_skill_installed`), hand the setup to it. Otherwise go through the items one at a
+  time, in the researcher's language: for a **skill**, its origin and install command; for a
+  **licence notice**, that dependency's `SKILL.md` Prerequisites, creating that one `.licenses/` file
+  only after their explicit OK; for the **key**, the `credentials` skill; for **uv**, the `uv` skill.
+  Run `check` again until it passes.
 - `explore` asks nothing and writes `OUT/exploration/` (see `SKILL.md` Outputs). Options:
   `--scorers` (default `RNA_SEQ CAGE DNASE ATAC`), `--flank-bp` (Regulatory Build search around the
   gene, default 2000, the study default), `--floor` (relative activity below which the gene reads as
@@ -87,8 +108,10 @@ and why each part matters for the choice:
 
 ## Step 1. Study from the exploration
 
-Ask the researcher for: the window option id (summary section 3), the target and control terms
-(section 4) with a short label for each group, and the scorers (RNA_SEQ required). Then:
+Ask the researcher, with the words of the summary page: which window (section 3, by its name; you
+pass its id to `--window`), which terms form the target and the control groups (section 4) with a short
+name for each group, and which kinds of prediction to compare (section 6; gene expression, `RNA_SEQ`,
+is always included). Then:
 
 ```bash
 uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --origin-note "Requested by <researcher> on <date>: <question in one line>"
@@ -131,15 +154,23 @@ uv run SKILL/scripts/expression.py fetch sequence --study-dir D
 uv run SKILL/scripts/expression.py locus --study-dir D
 ```
 
-Questions (answer with the researcher, `--step 4`, then run `locus` again):
+Questions (answer with the researcher, `--step 4`, then run `locus` again). Labels are shortened here;
+`pending` prints them in full with the effect of each option (sizes and variant counts):
 
-| Key | Asks | Options |
+| Key | When | Options (label → code) |
 |---|---|---|
-| `locus.transcript` | 0 or several MANE Select transcripts | a transcript ID |
-| `locus.exon1_overlap:{feature}` | a chained feature runs into exon 1 | `keep_full_unit`, `abort` |
-| `locus.multiple_tss_features` | several features contain or abut the TSS | `union`, `abort` |
-| `locus.feature_overlap:{a}+{b}`, `locus.feature_gap:{a}+{b}` | how to chain neighbouring features | `union` / `bridge_gap`, `abort` |
-| `locus.no_feature_chain` | no feature contains or abuts the TSS | `set_explicit_interval` (then `window.policy: explicit` in `study.yaml`), `abort` |
+| `locus.transcript` | 0 or several MANE Select transcripts | each transcript (type, coding length, where the gene starts) → its ID; "Stop to check the gene" → `abort` |
+| `locus.feature_overlap:{a}+{b}`, `locus.feature_gap:{a}+{b}` | a further region overlaps or lies close upstream | "Include {a} in the window" → `union` / `bridge_gap`; "Leave {a} out" → `exclude_feature` (the window starts at {b}; nothing beyond is asked); stop → `abort` |
+| `locus.no_feature_chain` | no region contains or touches the start of the gene | "Use a window from the exploration page" → `set_explicit_interval` (then set `window.policy: explicit` and `window.explicit_interval` in `study.yaml` to the window they pick); "Pause to choose another window" → `abort` |
+
+"Pause" answers end the stage; to go on, set the window the researcher picks in `study.yaml` and record
+a new answer.
+
+Rules (not asked; `decided_by: skill`): `locus.multiple_tss_features` (several regions at the start of
+the gene are all kept, `union`) and `locus.exon1_overlap:{feature}` (a region that reaches into exon 1:
+the window keeps all of exon 1, `keep_full_unit`). The researcher chose this when choosing the
+`regulatory_unit` window; to change it, choose another window. An answer recorded in an older study
+still applies.
 
 The exploration's summary already names the questions its window option will raise. The success line
 gives the transcript, strand, TSS, window and whether the start codon reads ATG. Open
@@ -180,11 +211,19 @@ with `result=no_tracks`, which is how `cohorts` tells it from a pair never queri
 uv run SKILL/scripts/expression.py cohorts --study-dir D
 ```
 
-| Key | Asks | Options |
+| Key | When | Options (label → code) |
 |---|---|---|
-| `cohort.unserved:{curie}` | the CURIE has no track for any study scorer | `drop_curie`, `replace:{descendant CURIE}` (served descendants listed), `abort` |
-| `cohort.scorer_without_cohort:{scorer}` | a scorer has no track in the target or the control cohort | `drop_scorer`, `abort` |
-| `cohort.no_rna_seq:{role}` | the target or control cohort keeps no `RNA_SEQ` track | `add:{descendant CURIE}` (most `RNA_SEQ` tracks first and recommended), `abort` |
+| `cohort.unserved:{curie}` | a term has no AlphaGenome prediction | "Remove {name} from the group" → `drop_curie` (recommended while the group keeps a term with RNA-seq, otherwise the best replacement is); "Use {more specific term} instead" → `replace:{CURIE}` (terms with predictions, most RNA-seq data first, marked tissue or cell type); "Pause to choose other tissues" → `abort` |
+| `cohort.no_rna_seq:{role}` | no term of a group has an RNA-seq prediction | "Add {more specific term} to the group for gene expression" → `add:{CURIE}` (most RNA-seq data first, recommended); "Pause" → `abort` |
+
+A term chosen as a replacement in one question is not offered again in the others on the next run.
+Questions a stage no longer raises (answered elsewhere, made moot, or now rules) leave `pending` when the
+stage runs again. For the window, the questions about neighbouring regions come one at a time, from the
+start of the gene outwards, since each depends on the answer before it. When
+a question's "For the agent" line asks for `fetch ols-term`, run it and `cohorts` again before asking.
+
+Rule (not asked): `cohort.scorer_without_cohort:{scorer}`, a prediction type without measurements in
+one group is left out (`drop_scorer`, `decided_by: skill`); an `abort` recorded earlier still stops.
 
 Recording `replace:{curie}` also writes the new CURIE into `study.yaml` (a comment at its end keeps the
 original and the decision), so `study.yaml` stays the request the study ran on. After `replace:` or
@@ -215,32 +254,29 @@ uv run SKILL/scripts/expression.py variants --study-dir D
 uv run SKILL/scripts/expression.py master --study-dir D
 ```
 
-`variants` asks `variants.ref_mismatch:{pos}` (the Atlas REF differs from the Ensembl sequence) and
-`variants.missing_in_atlas:{pos}` (SNVs without an AVI row): `exclude_position` or `abort`, with the
-researcher. `master` exits 1 when a QC gate fails and lists the variants in
+`variants` leaves out, by rule, positions where the Atlas REF differs from the Ensembl sequence
+(`variants.ref_mismatch:{pos}`) or where SNVs have no AVI row (`variants.missing_in_atlas:{pos}`), and
+records each with `decided_by: skill`. Above 1% of the window it asks first
+(`variants.exclusion_limit`: "Pause to capture the data again", recommended, → `abort`; "Leave these
+positions out and continue" → `exclude_all`): so many disagreements usually mean the AVI export and
+the sequence describe different windows, so check that first (steps 3 and 9). `master` exits 1 when a QC gate fails and lists the variants in
 `processed/qc_report.json` (`failed_variants`); the usual cause is raw files from different windows
 or pulls. Find the cause rather than continuing, because Tier 2 would inherit it.
 
 ## Step 12. Contrast (Tier 2)
 
 ```bash
-uv run SKILL/scripts/expression.py contrast --study-dir D --propose
-```
-
-It writes `processed/contrasts_proposed.yaml` and prints the review points. Go through the plan with
-the researcher: one contrast per scorer (strand, track filter, target and control CURIEs, tissue
-aggregation) and `priority.direction_contrast`. Save the version they approve, with their edits, as
-`D/contrasts.yaml` (a copy of the proposal when accepted as is), and record the approval:
-
-```bash
-uv run SKILL/scripts/study.py decide --study-dir D --key contrast.plan --value approved --step 12 --note "Plan reviewed with the researcher: <what changed, or accepted as proposed>"
 uv run SKILL/scripts/expression.py contrast --study-dir D
 ```
 
-`decide` warns that `contrast.plan` was not pending: the plan approval is a question you ask, so the
-warning is expected. Review questions `contrast.review:mixed_assays:{contrast}`,
-`contrast.review:mixed_sources:{contrast}` and `contrast.review:single_tissue:{contrast}:{role}` take
-`accept` or `abort` (abort, edit `contrasts.yaml`, e.g. its `track_filter`, and run again).
+The contrast plan feeds the fixed triage of `report.md` and `reproduce`; the analysis the researcher
+steers is the dashboard (step 14), where groups, assays, sources and filters are chosen. So nothing is
+asked here: without `D/contrasts.yaml` the stage generates it from the groups (one contrast per
+prediction type with tracks in both) and records `contrast.plan` with `decided_by: skill`; a
+`contrasts.yaml` already in the study is used as it is. Mixed assays or sources and a group with one
+tissue are written as notes to `processed/tissue_contrast_meta.json` (`plan_notes`) and the report.
+`contrast --propose` writes `processed/contrasts_proposed.yaml` for a maintainer who wants to edit the
+plan (`track_filter`, aggregation) before running it.
 
 ## Step 13. Interpretation and report
 
@@ -303,4 +339,5 @@ Reproducing the reference (`expression.py reproduce --reference uchl1`): after a
 | `ALPHAGENOME_API_KEY is neither in ~/.env …` | no key | the `credentials` skill |
 | `QC failed for N variant(s)` (`master`) | raw files disagree | check that steps 3, 9 and 10 used the same window and pull |
 | An OLS or Ensembl fetch that never ends | a stale `polite-http` reservation | the fetch resets the skill's own lock folder; a call made outside the skill uses the system temp folder |
+| `'X' is not an answer to 'K'` (`decide`) | the value is not one of the codes the question offered | record one of the codes it lists (`pending` shows label and code) |
 | `Reference 'uchl1': … mismatch` (`reproduce`) | a code or data change moved a reference number | read the stage/metric table it prints before changing anything |
