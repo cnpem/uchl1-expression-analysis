@@ -1,6 +1,6 @@
 # expression-analysis
 
-Agent skill for comparing AlphaGenome-predicted regulatory and expression effects across every SNV in a human gene's regulatory window (GRCh38) between target and control tissues or cell types (UBERON/CL), with an interactive marimo workbench.
+Agent skill for comparing AlphaGenome-predicted regulatory and expression effects across every SNV in a human gene's regulatory window (GRCh38) between target and control tissues or cell types (UBERON/CL), with an interactive marimo dashboard in which the researcher chooses the groups, the question and the filters.
 
 > **Research use only.** All outputs are predicted molecular impacts used to prioritise experiments, never measurements, clinical classifications or diagnoses.
 
@@ -38,6 +38,10 @@ uv run skills/expression-analysis/scripts/expression.py dashboard --study-dir /t
 ```
 
 See [`skills/expression-analysis/SKILL.md`](skills/expression-analysis/SKILL.md) and [`skills/expression-analysis/references/workflow.md`](skills/expression-analysis/references/workflow.md) for the complete 14-step workflow.
+
+## Versions
+
+The skill version is `metadata.version` in [`SKILL.md`](skills/expression-analysis/SKILL.md); each study records it in its manifest and report. What changed in each version, and the versioning rules, are in [`CHANGELOG.md`](CHANGELOG.md). Released versions are tagged `vX.Y.Z`.
 
 ## Notes on Reference Data & License
 
