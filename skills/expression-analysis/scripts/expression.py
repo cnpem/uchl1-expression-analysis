@@ -7,27 +7,31 @@
 
 Subcommands:
   check      Verify prerequisites (uv, dependency skills, licence files, API keys).
-             Prints what is missing and the install command; never installs anything.
+             Prints what is missing and the install command; never installs anything. --json
+             lists them as questions for the setup.
   locus      Workflow step 4: transcript, TSS, exon 1 and regulatory window from raw/gtf.json,
              raw/regulatory.json and raw/sequence_*.txt. Writes processed/locus.json,
              processed/transcripts_in_window.tsv and figures/fig1_genomic_architecture.html;
-             open questions go to processed/pending_decisions.json (exit 1).
+             open questions (locus.transcript, locus.feature_*, locus.no_feature_chain) go to
+             processed/pending_decisions.json (exit 1); the rest of the window follows its policy
+             (rules recorded in decisions.yaml).
   cohorts    Workflow step 8: UBERON/CL cohorts matched with the Atlas track catalogue. Writes
              processed/track_registry.tsv, processed/ontology_resolution.json and
-             processed/tissue_cohorts.md; open questions (cohort.unserved:*,
-             cohort.scorer_without_cohort:*) go to processed/pending_decisions.json (exit 1).
+             processed/tissue_cohorts.md; open questions (cohort.unserved:*, cohort.no_rna_seq:*)
+             go to processed/pending_decisions.json (exit 1); a prediction type without tracks in
+             one group is left out by rule.
   variants   Workflow step 11: saturated SNV table of the window (REF from the Ensembl sequence,
-             cross-checked with the AVI export). Writes processed/core_variants.tsv; REF
-             disagreements and SNVs without an AVI row (variants.*) go to
-             processed/pending_decisions.json (exit 1).
+             cross-checked with the AVI export). Writes processed/core_variants.tsv; positions
+             with REF disagreements or SNVs without an AVI row are left out by rule, unless they
+             exceed 1% of the window (question variants.exclusion_limit, exit 1).
   master     Workflow step 11: Tier 1 table (variants + AVI + per-track raw/quantile) with the
              2-gate QC. Writes processed/master.parquet, track_scores_long.parquet, qc_report.json;
              exit 1 when a gate fails.
-  contrast   Workflow step 12: Tier 2 target-vs-control contrasts. --propose writes
-             processed/contrasts_proposed.yaml and lists the review points. Without --propose it
-             needs decision contrast.plan and contrasts.yaml; writes processed/tissue_contrast.parquet,
-             tissue_contrast_meta.json, top_variants.tsv and top_variants.json; open review points
-             (contrast.review:*) go to processed/pending_decisions.json (exit 1).
+  contrast   Workflow step 12: Tier 2 target-vs-control contrasts (the report's fixed triage).
+             Generates contrasts.yaml from the cohorts when absent (rule contrast.plan) and writes
+             processed/tissue_contrast.parquet, tissue_contrast_meta.json, top_variants.tsv and
+             top_variants.json; no question. --propose only writes processed/contrasts_proposed.yaml
+             for a maintainer.
   report     Workflow step 13: writes <study-dir>/report.md (Estudo, Decisoes, Resultados, Skills
              utilizadas, Limitacoes, Citacoes) from processed/*, decisions.yaml and manifest.json.
   summarize  Text summary of the dashboard view for given choices (same computation; for the agent to
@@ -97,7 +101,11 @@ def _record(study_dir: Path, step: str, outputs: list[str], areas: tuple[str, ..
     which researcher decisions the outputs rest on. Called by the CLI only: `reproduce` runs the same
     stages on a copy of the reference and records nothing.
     """
-    keys = [k for k in study.load_decisions(study_dir) if k.startswith(areas)] if areas else []
+    # The researcher's answers under the stage's areas, plus the skill's rules other than per-position exclusions
+    # (those can be hundreds; decisions.yaml and the report list each one)
+    decisions = study.load_decisions(study_dir) if areas else {}
+    keys = [k for k, e in decisions.items() if k.startswith(areas)
+            and not (e.decided_by == "skill" and k.startswith(core_variants.RULE_PREFIXES))]
     present = [o for o in outputs if (study_dir / o).is_file()]
     try:
         manifest.add_step(study_dir, manifest.ManifestStep(
@@ -115,8 +123,9 @@ def run_locus(study_dir: Path) -> None:
     try:
         locus = core_locus.run(study_dir)
         figure = genomic_architecture.write_figure(study_dir, locus)
+        study.clear_pending(study_dir, ("locus.",))
     except core_locus.LocusPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("locus.",))
     except (core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     codon = ("start codon reads ATG" if locus.start_codon_verified
@@ -138,8 +147,9 @@ def run_cohorts(study_dir: Path) -> None:
     """Workflow step 8: resolves the cohorts against the track catalogue and writes the track registry."""
     try:
         resolution = core_cohorts.run(study_dir)
+        study.clear_pending(study_dir, ("cohort.",))
     except core_cohorts.CohortPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("cohort.",))
     except (core_cohorts.CohortError, core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     metrics = core_cohorts.stage_metrics(study_dir)
@@ -162,8 +172,9 @@ def run_variants(study_dir: Path) -> None:
     """Workflow step 11: enumerates the SNVs of the window and writes core_variants.tsv."""
     try:
         df = core_variants.run(study_dir)
+        study.clear_pending(study_dir, ("variants.",))
     except core_variants.VariantsPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("variants.",))
     except (core_variants.VariantsError, core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     print(f"Variants: {df.height} SNV(s) at {df['position'].n_unique()} position(s). Wrote {core_variants.CORE_VARIANTS_FILE}")
@@ -200,11 +211,12 @@ def master_cmd(args: argparse.Namespace) -> None:
 
 
 def run_contrast(study_dir: Path) -> None:
-    """Workflow step 12: executes the approved contrast plan (needs decision contrast.plan)."""
+    """Workflow step 12: runs the contrast plan of the triage (generated from the cohorts when the study has none)."""
     try:
         df = core_contrast.run(study_dir)
+        study.clear_pending(study_dir, ("contrast.",))
     except core_contrast.ContrastPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("contrast.",))
     except (core_contrast.ContrastError, core_master.MasterError, core_cohorts.CohortError, models.DependencyOutputError,
             study.StudyError) as exc:
         _stage_error(exc)
@@ -227,7 +239,7 @@ def contrast_cmd(args: argparse.Namespace) -> None:
     print(f"Proposed plan: {', '.join(c.name for c in plan.contrasts)}; priority from {plan.priority.direction_contrast}. "
           f"Wrote {path.relative_to(study_dir)}")
     for q in points:
-        print(f"  review: {q.key}: {q.question}")
+        print(f"  note: {q.question}")
     _record(study_dir, "12-contrast-propose", [path.relative_to(study_dir).as_posix()])
 
 
@@ -660,51 +672,99 @@ def _key_present(name: str) -> bool:
     return False
 
 
-def check(args: argparse.Namespace) -> None:
-    errors: list[str] = []
-    warnings: list[str] = []
-    installed: dict[str, Path] = {}
+SKILL_PURPOSE = {"uv": "to run its scripts", "credentials": "to store the AlphaGenome key without showing it",
+                 "alphagenome-single-variant-analysis": "to interpret the top variants",
+                 "alphagenome-atlas-website-links": "to link the top variants to the AlphaGenome Atlas"}
+SETUP_SKILL = "alphagenome-skills-setup"  # prepares the environment step by step, with the researcher's approval
 
+
+def _setup_item(key: str, title: str, question: str, why: str, identifiers: dict, options: list[dict],
+                recommended: str | None, handled_by: str) -> dict:
+    """One missing prerequisite in the shape of a study question (study.py pending --json), so the agent and the
+    setup skill present it like any other question: in the researcher's language, labels and effects, no codes."""
+    return {"key": key, "title": title, "question": question, "why": why, "identifiers": identifiers,
+            "options": options, "recommended": recommended, "handled_by": handled_by}
+
+
+def prerequisite_items() -> list[dict]:
+    """What is missing for this skill to run, one item per prerequisite (empty when all is in place)."""
+    items: list[dict] = []
+    installed: dict[str, Path] = {}
+    later = {"code": "later", "label": "Not now", "effect": "Nothing is installed; the analysis cannot run until this is in place."}
     if shutil.which("uv") is None:
-        errors.append(
-            "Missing prerequisite: 'uv' is not on PATH. "
-            "Install it with the 'uv' skill (see below) or from https://docs.astral.sh/uv/."
-        )
+        items.append(_setup_item(
+            "setup.uv", "Install uv (runs the analysis scripts)",
+            "uv is not installed. It runs every script of the analysis in its own environment with fixed package "
+            "versions, without changing the computer's Python. Install it?",
+            "Without uv no script of the analysis can run.", {"program": "uv", "source": "https://docs.astral.sh/uv/"},
+            [{"code": "install", "label": "Install uv", "effect": "The 'uv' skill installs it for this user account."},
+             later], "install", "uv"))
     for name, (origin, command) in DEPENDENCIES.items():
         found = deps.find_skill(name)
         if found is None:
-            errors.append(
-                f"Missing dependency skill '{name}' (origin: {origin}).\n"
-                f"  Install command (not executed): {command}"
-            )
+            items.append(_setup_item(
+                f"setup.skill:{name}", f"Install the skill {name}",
+                f"The analysis uses the skill {name} ({origin}) {SKILL_PURPOSE.get(name, 'to fetch part of its data')}. "
+                "Install it in this project?",
+                "Installing a skill brings third-party code and, for some, terms of use; each one is approved on its own.",
+                {"skill": name, "origin": origin, "install command": command},
+                [{"code": "install", "label": f"Install {name}", "effect": f"Runs: {command}"}, later],
+                "install", SETUP_SKILL))
         else:
             installed[name] = found
-
     searched = ", ".join(str(d) for d in deps.licence_dirs(installed))
     for filename, owner in deps.missing_licences(installed):
-        errors.append(
-            f"Missing licence file '.licenses/{filename}' required by skill '{owner}' (looked in {searched}). "
-            f"Follow the Prerequisites section of '{owner}' with the researcher, one notice at a time."
-        )
-
+        items.append(_setup_item(
+            f"setup.licence:{owner}", f"Terms of use of {owner}",
+            f"The skill {owner} has terms of use that must be accepted before it is used. The agent shows them to you "
+            "now. Do you accept them?",
+            "The notice file records that these terms were seen and accepted; one acceptance never covers another skill.",
+            {"skill": owner, "notice file": f".licenses/{filename}"},
+            [{"code": "accept", "label": "I have read and accept the terms",
+              "effect": f"The agent creates .licenses/{filename} recording the acceptance."},
+             {"code": "decline", "label": "I do not accept",
+              "effect": f"Nothing is recorded; the steps that use {owner} cannot run."}],
+            None, SETUP_SKILL))
+        items[-1]["agent_note"] = (f"Show the terms from the Prerequisites section of {owner}'s SKILL.md before asking "
+                                   f"(looked for the notice in: {searched}).")
     for key in REQUIRED_KEYS:
         if not _key_present(key):
-            errors.append(
-                f"Missing API key {key}. Set it with the 'credentials' skill "
-                "(stored in ~/.env) or export it in the environment."
-            )
+            items.append(_setup_item(
+                f"setup.key:{key}", "AlphaGenome access key",
+                f"The AlphaGenome key ({key}) is not set. It is needed to fetch the predictions. Set it now?",
+                "The key identifies the researcher to the AlphaGenome service; it is stored in ~/.env and never shown.",
+                {"variable": key, "stored in": "~/.env"},
+                [{"code": "set", "label": "Set the key",
+                  "effect": "The 'credentials' skill stores it in ~/.env without showing it on screen."}, later],
+                "set", "credentials"))
+    return items
+
+
+def check(args: argparse.Namespace) -> None:
+    items = prerequisite_items()
     for key in OPTIONAL_KEYS:
         if not _key_present(key):
-            warnings.append(f"Warning: {key} is not set; requests will run at the lower rate limit.")
-
-    for w in warnings:
-        print(w, file=sys.stderr)
-    if errors:
-        print(f"{len(errors)} prerequisite(s) missing:", file=sys.stderr)
-        for e in errors:
-            print(f"- {e}", file=sys.stderr)
-        sys.exit(1)
-    print("All prerequisites satisfied")
+            print(f"Warning: {key} is not set; requests will run at the lower rate limit.", file=sys.stderr)
+    if args.json:
+        print(json.dumps({"ready": not items, "setup_skill": SETUP_SKILL,
+                          "setup_skill_installed": deps.find_skill(SETUP_SKILL) is not None, "items": items},
+                         indent=2, ensure_ascii=False))
+        sys.exit(1 if items else 0)
+    if not items:
+        print("All prerequisites satisfied")
+        return
+    print(f"{len(items)} prerequisite(s) missing:", file=sys.stderr)
+    for it in items:
+        command = it["identifiers"].get("install command")
+        print(f"- {it['title']}: {it['question']}" + (f"\n  Install command (not executed): {command}" if command else ""),
+              file=sys.stderr)
+    if deps.find_skill(SETUP_SKILL) is not None:
+        print(f"Next: use the skill '{SETUP_SKILL}' to go through these with the researcher, one at a time "
+              "(`check --json` lists them as questions).", file=sys.stderr)
+    else:
+        print("Next: go through each item with the researcher, one at a time, in their language (`check --json` lists them "
+              "as questions); install or accept only what they approve.", file=sys.stderr)
+    sys.exit(1)
 
 
 def reproduce(args: argparse.Namespace) -> None:
@@ -801,6 +861,8 @@ def main() -> None:
     p.set_defaults(func=summarize_cmd)
 
     p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")
+    p.add_argument("--json", action="store_true",
+                   help="Print the missing prerequisites as questions (same shape as study.py pending --json)")
     p.set_defaults(func=check)
 
     p = sub.add_parser("locus", help="Workflow step 4: locus, TSS and regulatory window")
