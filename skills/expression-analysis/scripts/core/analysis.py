@@ -93,7 +93,7 @@ class Profile:
     question: str = "either"           # repression | increase | either
     min_change_pct: float = 0.0        # smallest % change in every target tissue, in the question's direction
     max_control_pct: float | None = None  # largest % change allowed in any control tissue, either way; None = off
-    min_diff_sigma: float = 0.0        # |diff| / noise sigma; 0 = off
+    min_diff_sigma: float = 0.0        # diff / noise sigma in the question's direction (abs for "either"); 0 = off
     ref_floor: float | None = None     # reference expression floor (RNA_SEQ REF); None = off
     ref_floor_applies: str = "warn"    # warn | control | target | both
     domains: list[str] = dataclasses.field(default_factory=list)     # empty = all
@@ -369,7 +369,15 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
         elif noise is None:
             steps.append(("alvo − controle acima do ruído: ignorado (sem medida de ruído)", df.height))
         else:
-            step(f"alvo − controle ≥ {p.min_diff_sigma:g} σ do ruído", pl.col("diff_sigma").abs() >= p.min_diff_sigma)
+            # in the question's direction: an increase must be target above control, a repression target below
+            # control; "either" accepts both. A variant that raises the target cannot pass a repression question
+            s = p.min_diff_sigma
+            if p.question == "increase":
+                step(f"alvo − controle ≥ {s:g} σ do ruído (alvo acima)", pl.col("diff_sigma") >= s)
+            elif p.question == "repression":
+                step(f"alvo − controle ≥ {s:g} σ do ruído (alvo abaixo)", pl.col("diff_sigma") <= -s)
+            else:
+                step(f"alvo − controle ≥ {s:g} σ do ruído (nos dois sentidos)", pl.col("diff_sigma").abs() >= s)
     metric = p.y_metric if p.y_metric in df.columns else "target_mean"
     if p.one_alt_per_position:
         df = df.sort(pl.col(metric).abs(), descending=True, nulls_last=True).unique("position", keep="first", maintain_order=True)

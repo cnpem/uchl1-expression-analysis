@@ -223,6 +223,21 @@ expression-analysis progress:
 - [ ] Final answer: researcher decisions, the skill's rules and agent choices in separate lists
 ```
 
+## Scope
+
+The skill answers one question: which variants of the window the model predicts to change the gene's
+expression in the target tissues and not in the control. Questions beyond it, such as which
+transcription factor or motif a variant touches, the mechanism, or what the literature says, are out of
+scope. When the researcher asks one:
+
+- Say first that it is outside the skill: nothing in the study checks it, and the answer is the agent's,
+  not the model's.
+- Work outside the study folder (e.g. `OUT/extra/<topic>/`), never in `D/`: the stages, the manifest and
+  `report.md` must describe only what the skill ran.
+- Record what was done there (`README.md`: question, sources, commands, coordinates and strand checked,
+  what is uncertain), cite every source you actually opened, and never generalise beyond it.
+- Never propose experiments, assays or validations; describe what the predictions and sources say.
+
 ## Rate Limiting
 
 `regulatory_features.py` paces its own Ensembl requests (15/s, file lock in
@@ -251,6 +266,8 @@ about 20 s each; run them sequentially.
   `summarize` with the same choices and quote it, and use the wording of `references/dashboard.md`.
 - **Presenting a filter as a clinical threshold.** A minimum % change, a multiple of the noise, AVI
   Phred 20 or a large Δ rank predicted effects; none is a pathogenicity cut-off.
+- **Writing your own scripts in the study folder.** Ad-hoc code in `D/` is not in the manifest and is
+  mistaken for the skill's output; use the commands here, and keep out-of-scope work outside `D/` (*Scope*).
 - **Choosing for the researcher, or editing `decisions.yaml` by hand.** Record answers with
   `study.py decide`, which also clears the pending question and keeps the timestamps.
 - **Showing codes instead of the question.** `keep_full_unit`, `drop_curie` or `abort` mean nothing to

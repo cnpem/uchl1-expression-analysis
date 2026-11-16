@@ -54,6 +54,7 @@ A mapping from key to entry:
 | `value_label` | when the value is one of the options | the label the researcher saw |
 | `decided_by` | only for rules | `skill`: applied by a fixed rule, without asking (absent = the researcher) |
 | `rule` | only for rules | the rule and what it affected, in words |
+| `previous` | only after a redefinition | earlier answers to the same key, oldest first: `value`, `value_label`, `answered_at`, `note`, `options`, `recommended` as they were; `decide` appends the old entry when the value changes |
 
 Rules in use: `locus.multiple_tss_features` (`union`), `locus.exon1_overlap:{feature}`
 (`keep_full_unit`), `cohort.scorer_without_cohort:{scorer}` (`drop_scorer`), `variants.ref_mismatch:{pos}` and
