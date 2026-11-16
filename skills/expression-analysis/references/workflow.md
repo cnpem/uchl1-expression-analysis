@@ -302,6 +302,8 @@ uv run SKILL/scripts/expression.py report --study-dir D
 uv run SKILL/scripts/expression.py dashboard --study-dir D
 uv run SKILL/scripts/expression.py summarize --study-dir D --question repression --top 10
 uv run SKILL/scripts/expression.py dashboard --study-dir D --export-html D/figures/dashboard.html
+uv run SKILL/scripts/expression.py figures --study-dir D --question repression --target CL:AAAAAAA --control UBERON:BBBBBBB --top-k 100 --show all
+uv run SKILL/scripts/expression.py report --study-dir D
 ```
 
 `dashboard` serves on port 2718, or on a free port when 2718 is taken, and prints the URL to give the
@@ -317,7 +319,13 @@ the same choices (`--target`/`--control` CURIEs, `--question`, `--min-change-pct
 `--y-metric`, `--scorer`): it runs the dashboard's
 computation and prints the headline, where each tissue's measurements come from, the noise between
 measurements of the same tissue, the filter steps and the top variants. `references/dashboard.md`
-describes every part of the page in the words the page uses.
+describes every part of the page in the words the page uses, what to say when presenting it, and each
+field of *Avançado*.
+
+When the researcher settles on a view, `figures` (same choices, plus `--top-k`, `--show`, `--color-by`,
+`--highlight`) draws it as PNG in `figures/dashboard/` with `choices.json`, and `report` run again adds
+the section *Análise do pesquisador (dashboard)* to `report.md`: the choices, the result, the filter steps
+and the figures. A new `figures` run replaces the previous view.
 
 The export is the opening view (the study's groups, no filter), not what the researcher chose on the page.
 `--edit` is for maintainers: it opens the marimo editor on the skill's own `assets/dashboard.py`, so

@@ -248,7 +248,7 @@ def build_unified_lollipop_canvas(
                           scale=alt.Scale(domain=list(DIRECTION_COLORS), range=list(DIRECTION_COLORS.values())))
     elif color_col == "genomic_domain":
         domains, colors = domain_color_scale(data["genomic_domain"].unique(maintain_order=True).to_list())
-        color = alt.Color("genomic_domain:N", title="Genomic domain", scale=alt.Scale(domain=domains, range=colors))
+        color = alt.Color("genomic_domain:N", title=color_title or "Genomic domain", scale=alt.Scale(domain=domains, range=colors))
     else:
         color = alt.Color(f"{color_col}:N", title=color_title or color_col.replace("_", " ").capitalize())
     if faded is not None and faded[0] in data.columns:

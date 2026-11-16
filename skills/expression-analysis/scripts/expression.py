@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml==6.0.3", "matplotlib==3.11.2", "polars==1.31.0", "pyarrow==26.0.1", "pandas==3.1.1", "altair==6.3.0"]
+# dependencies = ["pyyaml==6.0.3", "matplotlib==3.11.2", "polars==1.31.0", "pyarrow==26.0.1", "pandas==3.1.1", "altair==6.3.0", "vl-convert-python==1.9.0.post1"]
 # ///
 """CLI for the expression-analysis skill.
 
@@ -32,10 +32,13 @@ Subcommands:
              processed/tissue_contrast.parquet, tissue_contrast_meta.json, top_variants.tsv and
              top_variants.json; no question. --propose only writes processed/contrasts_proposed.yaml
              for a maintainer.
-  report     Workflow step 13: writes <study-dir>/report.md (Estudo, Decisoes, Resultados, Skills
-             utilizadas, Limitacoes, Citacoes) from processed/*, decisions.yaml and manifest.json.
+  report     Workflow step 13: writes <study-dir>/report.md (Estudo, Decisoes, Analise do pesquisador,
+             Resultados da triagem, Skills utilizadas, Limitacoes, Citacoes) from processed/*,
+             figures/dashboard/, decisions.yaml and manifest.json.
   summarize  Text summary of the dashboard view for given choices (same computation; for the agent to
              explain what the researcher sees). Writes nothing.
+  figures    Workflow step 14: the dashboard's charts for given choices as PNG in figures/dashboard/,
+             with choices.json; report.md then shows them with the choices behind them.
   dashboard  Workflow step 14: opens the analysis dashboard (assets/dashboard.py) on a study directory;
              --export-html writes a static HTML of its opening view instead. --edit (maintainers) opens
              the marimo editor on the skill's file; --legacy opens the previous triage workbench.
@@ -555,18 +558,34 @@ def explore_cmd(args: argparse.Namespace) -> None:
               "--from-exploration.")
 
 
-def summarize_cmd(args: argparse.Namespace) -> None:
-    """Text summary of the dashboard view for the same choices (the agent reads it to explain the dashboard).
+def _choice_args(p: argparse.ArgumentParser) -> None:
+    """The dashboard's analysis choices as options (summarize and figures)."""
+    p.add_argument("--scorer", default="RNA_SEQ", help="RNA_SEQ (gene expression; default), CAGE, DNASE or ATAC")
+    p.add_argument("--target", action="append", help="Target CURIE (repeatable; default: the study's target tissues)")
+    p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
+    p.add_argument("--target-label", help="Name of the target group (default: study.yaml)")
+    p.add_argument("--control-label", help="Name of the control group (default: study.yaml)")
+    p.add_argument("--question", choices=["repression", "increase", "either"], default="either", help="Direction in the target")
+    p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
+    p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
+    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control above this many noise sigmas (0 = off)")
+    p.add_argument("--assay", action="append", help="Assay titles kept (repeatable; default all)")
+    p.add_argument("--source", action="append", help="Data sources kept, e.g. encode, gtex (repeatable; default all)")
+    p.add_argument("--domain", action="append", help="Genomic domains kept (repeatable; default all)")
+    p.add_argument("--one-alt", action="store_true", help="Keep one alternative per position (the largest effect)")
+    p.add_argument("--ref-floor", type=float, help="Reference expression floor (RNA_SEQ REF; default: off)")
+    p.add_argument("--floor-applies", choices=["warn", "control", "target", "both"], default="warn",
+                   help="What the floor does: warn (default), drop controls below it, skip a target below it, or both")
+    p.add_argument("--y-metric", default="target_mean",
+                   choices=["target_mean", "target_toward", "control_mean", "diff", "diff_sigma", "avi_phred"],
+                   help="Order of the list (the dashboard's 'Ordenar por')")
 
-    Same computation as assets/dashboard.py (core.analysis); defaults are the dashboard's opening view:
-    the study's target and control tissues, any direction, no filter. Writes nothing.
-    """
+
+def _dashboard_view(args: argparse.Namespace) -> dict:
+    """The dashboard's computation for the choices in `args` (shared by summarize and figures)."""
     import dataclasses
 
-    import polars as pl
-
     from core import analysis as A
-    from viz import dashboard_helpers as H
 
     study_dir = Path(args.study_dir)
     try:
@@ -576,10 +595,8 @@ def summarize_cmd(args: argparse.Namespace) -> None:
         _stage_error(exc)
     reg = data.registry
     cohorts = config.data.get("cohorts", {})
-    scorer = args.scorer
-    toward = args.question != "either"
     profile = A.Profile(
-        scorer=scorer,
+        scorer=args.scorer,
         target=args.target or sorted(set(reg.filter(reg["cohort"] == "target")["ontology_curie"].to_list())),
         control=args.control or sorted(set(reg.filter(reg["cohort"] == "control")["ontology_curie"].to_list())),
         target_label=args.target_label or cohorts.get("target", {}).get("label") or "Alvo",
@@ -587,11 +604,9 @@ def summarize_cmd(args: argparse.Namespace) -> None:
         assays=args.assay or [], sources=args.source or [], question=args.question,
         min_change_pct=args.min_change_pct, max_control_pct=args.max_control_pct,
         min_diff_sigma=args.min_sigma, ref_floor=args.ref_floor, ref_floor_applies=args.floor_applies,
-        domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric, top_k=None)
-    tissues = A.tissue_table(data, scorer)
-    labels = {r["ontology_curie"]: r["tissue"] for r in tissues.iter_rows(named=True)}
-    desc = H.describe_tissues(data, scorer)
-    noise = A.noise_model(data, scorer, profile.assays or None, profile.sources or None)
+        domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric,
+        top_k=getattr(args, "top_k", None) or None, color_by=getattr(args, "color_by", "genomic_domain"))
+    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None)
     # Same order of operations as the dashboard: controls below the expression floor leave before computing
     used = profile
     if profile.ref_floor is not None and profile.ref_floor_applies in ("control", "both"):
@@ -599,6 +614,52 @@ def summarize_cmd(args: argparse.Namespace) -> None:
         used = dataclasses.replace(profile, control=[c for c in profile.control if flags.get(c) != "below floor"])
     effects = A.compute(data, used, noise)
     kept, steps = A.apply(effects, data, used, noise)
+    tissues = A.tissue_table(data, profile.scorer)
+    labels = {r["ontology_curie"]: r["tissue"] for r in tissues.iter_rows(named=True)}
+    return {"study_dir": study_dir, "data": data, "config": config, "profile": profile, "used": used, "noise": noise,
+            "effects": effects, "kept": kept, "steps": steps, "labels": labels}
+
+
+def figures_cmd(args: argparse.Namespace) -> None:
+    """Draws the dashboard's charts for the given choices into figures/dashboard/ for report.md."""
+    from viz import report_figures
+
+    v = _dashboard_view(args)
+    study_dir, kept = v["study_dir"], v["kept"]
+    highlight = list(args.highlight or [])
+    if not highlight and args.auto_highlight:
+        highlight = kept.head(args.auto_highlight)["variant_id"].to_list()
+    locus = core_locus.load_locus(study_dir)
+    try:
+        rec = report_figures.write_figures(
+            study_dir, v["data"], v["profile"], v["effects"], kept, v["steps"], show_mode=args.show,
+            color_col=args.color_by, highlight=highlight, labels=v["labels"],
+            window=(locus.window.start, locus.window.end), command=fetch.invocation())
+    except (OSError, ValueError) as exc:
+        _stage_error(exc)
+    print(f"Figures: {', '.join(rec['figures']) or 'none'} for {kept.height} variant(s) that pass "
+          f"({rec['n_shown']} shown). Wrote {report_figures.CHOICES_FILE}; run expression.py report to include them.")
+    _record(study_dir, "14-figures", [*rec["figures"].values(), report_figures.CHOICES_FILE])
+
+
+def summarize_cmd(args: argparse.Namespace) -> None:
+    """Text summary of the dashboard view for the same choices (the agent reads it to explain the dashboard).
+
+    Same computation as assets/dashboard.py (core.analysis); defaults are the dashboard's opening view:
+    the study's target and control tissues, any direction, no filter. Writes nothing.
+    """
+    import polars as pl
+
+    from core import analysis as A
+    from viz import dashboard_helpers as H
+
+    v = _dashboard_view(args)
+    data, config, profile, noise = v["data"], v["config"], v["profile"], v["noise"]
+    effects, kept, steps, labels = v["effects"], v["kept"], v["steps"], v["labels"]
+    used = v["used"]
+    scorer = profile.scorer
+    toward = args.question != "either"
+    desc = H.describe_tissues(data, scorer)
     what = A.SCALES.get(scorer, (None, "o sinal previsto"))[1]
     out = [f"# {config.gene_symbol}: resumo da visão do dashboard ({scorer}; % d{what})", "",
            H.headline(kept, effects, profile, labels, A.ref_by_tissue(data)), "", "## Grupos e medições", ""]
@@ -838,27 +899,25 @@ def main() -> None:
                        description="Same computation as the dashboard. Defaults: the study's target and control tissues, any "
                                    "direction, no filter. Writes nothing; prints Markdown.")
     p.add_argument("--study-dir", required=True, help="Study directory")
-    p.add_argument("--scorer", default="RNA_SEQ", help="RNA_SEQ (gene expression; default), CAGE, DNASE or ATAC")
-    p.add_argument("--target", action="append", help="Target CURIE (repeatable; default: the study's target tissues)")
-    p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
-    p.add_argument("--target-label", help="Name of the target group (default: study.yaml)")
-    p.add_argument("--control-label", help="Name of the control group (default: study.yaml)")
-    p.add_argument("--question", choices=["repression", "increase", "either"], default="either", help="Direction in the target")
-    p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
-    p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
-    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control above this many noise sigmas (0 = off)")
-    p.add_argument("--assay", action="append", help="Assay titles kept (repeatable; default all)")
-    p.add_argument("--source", action="append", help="Data sources kept, e.g. encode, gtex (repeatable; default all)")
-    p.add_argument("--domain", action="append", help="Genomic domains kept (repeatable; default all)")
-    p.add_argument("--one-alt", action="store_true", help="Keep one alternative per position (the largest effect)")
-    p.add_argument("--ref-floor", type=float, help="Reference expression floor (RNA_SEQ REF; default: off)")
-    p.add_argument("--floor-applies", choices=["warn", "control", "target", "both"], default="warn",
-                   help="What the floor does: warn (default), drop controls below it, skip a target below it, or both")
-    p.add_argument("--y-metric", default="target_mean",
-                   choices=["target_mean", "target_toward", "control_mean", "diff", "diff_sigma", "avi_phred"],
-                   help="Order of the list (the dashboard's 'Ordenar por')")
+    _choice_args(p)
     p.add_argument("--top", type=int, default=10, help="Variants listed (default 10)")
     p.set_defaults(func=summarize_cmd)
+
+    p = sub.add_parser("figures", help="Workflow step 14: the dashboard's charts for given choices, as PNG for report.md",
+                       description="Same choices as summarize (and the dashboard), plus how to show them. Writes "
+                                   "figures/dashboard/*.png and choices.json; expression.py report then includes them.")
+    p.add_argument("--study-dir", required=True, help="Study directory")
+    _choice_args(p)
+    p.add_argument("--top-k", type=int, default=0, help="'Quantas mostrar': draw only the first K in that order (0 = all)")
+    p.add_argument("--show", choices=["kept", "all"], default="kept",
+                   help="'Variantes nos gráficos': only those that pass (default) or all, the rest in grey")
+    p.add_argument("--color-by", default="genomic_domain",
+                   choices=["genomic_domain", "passa", "sentido", "ensembl_transcript_region", "top_feature"],
+                   help="'Cor no gráfico da janela' (default genomic_domain)")
+    p.add_argument("--highlight", action="append", help="Variant ID to highlight (repeatable), as in the dashboard")
+    p.add_argument("--auto-highlight", type=int, default=5,
+                   help="Without --highlight, highlight the first N that pass, in that order (default 5; 0 = none)")
+    p.set_defaults(func=figures_cmd)
 
     p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")
     p.add_argument("--json", action="store_true",

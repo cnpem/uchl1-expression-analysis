@@ -139,6 +139,7 @@ recording command to run.
 | `expression.py report` | Step 13: `report.md` (study, decisions, results, skills used, limits, citations) |
 | `expression.py dashboard [--port N] [--export-html P] [--edit] [--legacy]` | Step 14: analysis dashboard (a free port if N is busy; prints the URL), a static HTML export, the marimo editor for maintainers (`--edit`, changes the skill's `assets/dashboard.py`) or the previous workbench (`--legacy`) |
 | `expression.py summarize --study-dir D [choices…]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
+| `expression.py figures --study-dir D [choices…] [--top-k K] [--show kept\|all] [--highlight V…]` | The dashboard's charts for those choices as PNG in `figures/dashboard/`, with `choices.json`; `report` then shows them |
 | `expression.py regions [--only NAME]` | Prints the regulatory search region, the window and `max_window` (the fetch commands use them already) |
 | `expression.py reproduce --reference uchl1 [--until S] [--keep DIR]` | Re-runs the stages on the bundled reference and compares with `expected.json` |
 | `study.py validate / pending [--json] / decide / require / window` | Study file, researcher decisions, open questions, `--print-max-window` |
@@ -194,11 +195,14 @@ search text or a scorer list), so the researcher can tell the three apart.
 13. **Interpretation and report.** `fetch links`; optionally `fetch interpret` on the top variants
     with a target CURIE the researcher chose; `expression.py report`; read `report.md` back.
 14. **Dashboard.** Read `references/dashboard.md`. `expression.py dashboard` and give the researcher the
-    link (tell them to reload the page if you restart it). Explain the three visible choices (what they
-    look for, target tissues, control tissues) and where filters and advanced options are. When they ask
-    about what they see, run `expression.py summarize` with the same choices and explain from its numbers;
-    do not describe results you have not computed. The dashboard saves nothing: if the researcher wants a
-    view kept, write its choices in your answer (or the `summarize` output) for them.
+    link (tell them to reload the page if you restart it), with the short presentation of that file: the
+    three choices, the row of how to show, where filters and *Avançado* are. When they open *Avançado* or
+    ask about a field, explain it with the field table there, including what the page does without saying
+    (empty = all, ignored filters, display limits). When they ask about what they see, run
+    `expression.py summarize` with the same choices and explain from its numbers; do not describe results
+    you have not computed. When they settle on a view, run `expression.py figures` with its choices, then
+    `expression.py report` again, so `report.md` shows that view's figures with the choices behind them;
+    the dashboard itself saves nothing.
 
 Copy this checklist into the conversation and tick it as you go:
 
@@ -212,7 +216,7 @@ expression-analysis progress:
 - [ ] Step 11: variants and master run; positions left out by rule noted; QC gates passed
 - [ ] Step 12: contrast run
 - [ ] Step 13: atlas links (and interpretations) fetched; report.md written and read back
-- [ ] Step 14: dashboard opened and explained; questions answered from `summarize` with the same choices
+- [ ] Step 14: dashboard opened and presented (choices, how to show, filters, Avançado); questions answered from `summarize`; the researcher's view drawn with `figures` and `report` run again
 - [ ] Final answer: researcher decisions, the skill's rules and agent choices in separate lists
 ```
 
@@ -268,7 +272,8 @@ OUT/exploration/                     # step 0, before any study
   manifest.json                      # provenance: every command, output, version and decision key
   raw/                               # dependency outputs, unedited
   processed/                         # this skill's outputs (locus, registry, master, contrast, top variants)
-  figures/                           # fig1_genomic_architecture.html, dashboard.html (export), variants/ (step 13)
+  figures/                           # fig1_genomic_architecture.html, dashboard.html (export), variants/ (step 13),
+                                     # dashboard/ (step 14: the researcher's view as PNG + choices.json, shown in report.md)
   report.md                          # Portuguese report
 ```
 

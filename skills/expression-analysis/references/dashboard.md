@@ -6,8 +6,12 @@ opening the dashboard (Workflow step 14). The page is in Portuguese; quote its l
 ## Contents
 
 - [What the page is for](#what-the-page-is-for)
+- [Presenting it: what to say first](#presenting-it-what-to-say-first)
 - [Layout, top to bottom](#layout-top-to-bottom)
+- [Avançado, field by field](#avançado-field-by-field)
+- [What the page does without saying](#what-the-page-does-without-saying)
 - [Explaining a view: `summarize`](#explaining-a-view-summarize)
+- [Figures for the report: `figures`](#figures-for-the-report-figures)
 - [What each quantity means](#what-each-quantity-means)
 - [Questions researchers ask](#questions-researchers-ask)
 - [Limits to say out loud](#limits-to-say-out-loud)
@@ -22,6 +26,21 @@ the code. The page saves no analysis: the only files it touches are its marimo s
 (`D/.workbench/`) and one `14-dashboard` step in `manifest.json` when the session ends (the export adds
 the HTML). The dashboard never calls the network: a tissue that was not captured needs a new capture
 (Workflow steps 7-10), which is your job, not the page's.
+
+## Presenting it: what to say first
+
+Say it in the researcher's language, in a few short lines, when you give the link:
+
+1. The page opens with the study's groups and no filter: every single-base change of the window is
+   there, and the blue box gives the result of the current choices.
+2. Three choices drive everything: what they look for (decrease, increase, any change), the target
+   tissues and the control tissues. Change one and the whole page follows.
+3. The row below changes only how results are shown: the order (*Ordenar por*), how many are drawn
+   (*Quantas mostrar*, 0 = all) and whether the variants that do not pass appear in grey.
+4. Thresholds are in *Filtrar resultados*, all off; technical settings are in *Avançado* (offer to
+   explain them when they open it, with the next section).
+5. Clicking a variant (in a chart or the table) highlights it everywhere and shows its measurements.
+6. When they settle on a view, tell you its choices: you will draw it for the report (`figures`).
 
 ## Layout, top to bottom
 
@@ -40,13 +59,50 @@ the HTML). The dashboard never calls the network: a tissue that was not captured
 | *Avançado* (closed) | group names, context tissues, which measurements enter, the expression floor, the captured tissues table, the noise table, the prediction type | technical refinements, not for a first look |
 | *Comparar todos os tecidos* (closed) | variant × tissue matrix | red = increase, blue = decrease |
 
+## Avançado, field by field
+
+These are closed by default because they change the comparison itself, not just its display. When
+the researcher opens *Avançado* or asks about one, explain the field with this, and say what its
+current value does:
+
+| Field | What it does | When to change it |
+|---|---|---|
+| *Nome do grupo alvo / controle* | the names used in titles, legends, the blue box and the report | to use the researcher's own names; nothing is recomputed |
+| *Tecidos de contexto (só exibidos)* | tissues shown in the per-tissue table, bars and matrix, but not in the target or control means | to compare with a tissue without making it part of a group |
+| *Ensaios que entram* / *Fontes que entram* (empty = all) | which measurements of each tissue count: polyA or total RNA-seq; ENCODE or GTEx | when *De onde vêm as medições* says a tissue's measurements agree poorly, or to compare like with like (only GTEx, only polyA); it also changes the noise |
+| *Usar piso de expressão de referência*, *Piso (REF)*, *O que fazer com o piso* | REF is the gene's predicted expression in the tissue without the variant; below the floor the gene is practically off. *Só avisar* only warns; *Tirar controles abaixo do piso* removes those control tissues; *Não analisar se o alvo estiver abaixo* lets no variant pass while a target tissue is below it (the filter step *piso de expressão no alvo* shows it) | to avoid comparing against a tissue where the gene is silent (large, unstable fold changes); keep *Só avisar* when the question is ectopic activation |
+| *Tecidos capturados* (table) | every tissue with predictions in the study: group at capture, number of measurements, REF min and max, where the measurements come from | to find a CURIE, or a tissue to add to a group; a tissue not listed needs a new capture (your job) |
+| *Ruído do estudo* (table) | how much two measurements of the same tissue disagree, by size of change: p95, p99, σ | the reference for the thresholds; σ is the unit of the *acima do ruído* filter |
+| *Tipo de predição* | RNA-seq (expression of the whole gene), CAGE (transcription start), DNase / ATAC (open chromatin around the variant) | to ask about the mechanism near the variant rather than the gene's expression; groups may lose tissues without that prediction |
+
+## What the page does without saying
+
+Mention these when they matter for what the researcher is looking at:
+
+- An empty selection means all (regions, assays, sources).
+- *Mudança mínima* applies to **every** target tissue in the direction asked; *mudança máxima no
+  controle* applies to every control tissue in both directions.
+- A filter that cannot apply is listed as *ignorado* in the filter steps, with the reason (no control
+  tissue, no tissue with two measurements for the noise).
+- *Quantas mostrar* and *Variantes nos gráficos* do not change the counts: the blue box and the filter
+  steps always count every variant that passes.
+- *Ordenar por* "no sentido procurado, no tecido do alvo que menos muda" ranks variants that move all
+  target tissues; "diferença em unidades de ruído" ranks those whose target − control difference is
+  largest compared with the disagreement between measurements.
+- *Uma alternativa por posição* keeps, at each position, the base change with the largest value in the
+  current order.
+- *Recortar* limits the window for the scatter and the table too; *Janela inteira* undoes it.
+- A tissue with one measurement has no noise of its own; the pooled noise of the study is used.
+- The dashboard saves nothing; reloading the page returns to the opening view.
+
 ## Explaining a view: `summarize`
 
 When the researcher asks about what they see ("why is this variant first?", "is the effect specific?"),
 run `expression.py summarize --study-dir D` with the same choices they set. It runs the dashboard's
 computation and prints the headline, the measurements of each tissue, the noise, the filter steps and
 the top variants. Explain from those numbers; never describe values you have not computed. If they want
-a view kept, write its choices in your answer: the dashboard saves nothing.
+a view kept, draw it for the report with `figures` (next section) and write its choices in your answer:
+the dashboard saves nothing.
 
 You cannot read the page's state, so ask for the choices that differ from the opening view (or have
 the researcher read them out) and map them:
@@ -70,6 +126,18 @@ the researcher read them out) and map them:
 
 Crop, highlights, colours, the point size, *Quantas mostrar* and *Variantes nos gráficos* change only what
 is drawn, not the numbers.
+
+## Figures for the report: `figures`
+
+When the researcher settles on a view (or asks for figures for the report), run `expression.py figures
+--study-dir D` with the same choices as `summarize` plus how it is shown: `--top-k` (*Quantas mostrar*),
+`--show kept|all` (*Variantes nos gráficos*), `--color-by` (*Cor no gráfico da janela*) and `--highlight
+VARIANT` for each highlighted variant (without it, the first five that pass are highlighted). It draws the
+page's charts as PNG in `figures/dashboard/` (window, target × control, highlighted variants, variants ×
+tissues) and writes `figures/dashboard/choices.json`. Then run `expression.py report` again: `report.md`
+gets a section *Análise do pesquisador (dashboard)* with the choices, the blue box, the filter steps and
+the figures with captions. Read that section back to the researcher. One view at a time: a new `figures`
+run replaces the previous one; the report warns when the figures are older than the variant table.
 
 ## What each quantity means
 

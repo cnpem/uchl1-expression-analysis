@@ -142,9 +142,7 @@ def _(H, assays, base, data, labels, mo, sources):
                                    value={"control": "Tirar controles abaixo do piso", "target": "Não analisar se o alvo estiver abaixo",
                                           "both": "Os dois"}.get(base.ref_floor_applies, "Só avisar"), label="O que fazer com o piso")
     one_alt = mo.ui.switch(value=base.one_alt_per_position, label="Uma alternativa por posição")
-    _ymetric = {"Mudança no alvo": "target_mean", "Mudança no sentido procurado, no tecido do alvo que menos muda": "target_toward",
-                "Mudança no controle": "control_mean", "Diferença alvo − controle": "diff",
-                "Diferença em unidades de ruído": "diff_sigma", "AVI Phred (impacto geral, sem tecido)": "avi_phred"}
+    _ymetric = H.Y_METRICS
     y_metric = mo.ui.dropdown(options=_ymetric, value=next((k for k, v in _ymetric.items() if v == base.y_metric), "Mudança no alvo"),
                               label="Ordenar por")
     _colors = H.color_options()
@@ -189,10 +187,7 @@ def _(A, H, data, dataclasses, pl, profile, show_mode):
     metric = profile.y_metric if profile.y_metric in effects.columns else "target_mean"
     # What the charts and the table show: the variants that pass (or all, the rest in grey), the first K in the
     # order chosen. K limits what is shown; the headline and the filter steps still count every variant that passes.
-    _pool = H.add_display_columns(kept if show_mode.value == "kept" else effects, kept["variant_id"].to_list())
-    if show_mode.value == "all" and profile.domains:
-        _pool = _pool.filter(pl.col("genomic_domain").is_in(profile.domains))
-    shown_df = A.first_k(_pool, metric, profile.top_k)
+    shown_df = H.display_frame(effects, kept, profile, show_mode.value)
     return effects, flags, kept, metric, noise, shown_df, steps
 
 
@@ -346,40 +341,12 @@ def _(canvas, full_domain, get_crop, get_crop_mode, get_focus_ids, select_varian
 @app.cell
 def _(A, H, VariantCanvas, alt, chart_spec, color_by, get_crop, get_focus_ids, mo, pl, point_size, profile, save_buttons,
       shown_df, study_cfg):
-    from viz.design_system import domain_color_scale
     _lo, _hi = get_crop()
-    _df = shown_df.filter(pl.col("position").is_between(_lo, _hi) & pl.col("target_mean").is_not_null()
-                          & pl.col("control_mean").is_not_null())
-    _df = _df.with_columns(pl.col("variant_id").is_in(list(get_focus_ids())).alias("destacada"))
-    _ccol = color_by.value
-    _p = _df.select(list(dict.fromkeys(["variant_id", "position", "genomic_domain", "target_mean", "control_mean", "passa",
-                                        "destacada", _ccol]))).to_pandas()
-    # Same colours as the window chart, so a colour means the same thing in both
-    _dom, _rng = H.fixed_colors(_ccol)
-    if _dom is None and _ccol == "genomic_domain":
-        _dom, _rng = domain_color_scale(_df["genomic_domain"].unique(maintain_order=True).to_list())
-    _color = alt.Color(f"{_ccol}:N", title=color_by.selected_key,
-                       scale=alt.Scale(domain=_dom, range=_rng) if _dom is not None else alt.Undefined)
-    _lim = float(max(_df["target_mean"].abs().max() or 0.01, _df["control_mean"].abs().max() or 0.01)) * 1.05
-    _sc = alt.Scale(domain=[-_lim, _lim])
-    _u = A.UNIT.get(profile.scorer, "log")
-    _x = alt.X("target_mean:Q", title=f"Mudança no {profile.target_label} ({_u})", scale=_sc)
-    _y = alt.Y("control_mean:Q", title=f"Mudança no {profile.control_label} ({_u})", scale=_sc)
-    _base = alt.Chart(_p)
-    _zoom = alt.selection_interval(bind="scales", encodings=["x", "y"], name="zoom_xy")
-    _pts = _base.mark_circle(size=point_size.value, cursor="pointer", clip=True).encode(
-        x=_x, y=_y, color=_color,
-        opacity=alt.condition(alt.datum.passa == "passa", alt.value(0.9), alt.value(0.18)),
-        tooltip=[alt.Tooltip("variant_id:N", title="Variante"), alt.Tooltip("genomic_domain:N", title="Região"),
-                 alt.Tooltip("passa:N", title="Filtros"),
-                 alt.Tooltip("target_mean:Q", title=f"Mudança no {profile.target_label}", format=".4f"),
-                 alt.Tooltip("control_mean:Q", title=f"Mudança no {profile.control_label}", format=".4f")]).add_params(_zoom)
-    _ring = _base.transform_filter(alt.datum.destacada).mark_point(size=300, color="#e11d48", strokeDash=[4, 3], strokeWidth=2, clip=True).encode(x=_x, y=_y)
-    _diag = alt.Chart(alt.Data(values=[{"x": -_lim, "y": -_lim}, {"x": _lim, "y": _lim}])).mark_line(
-        strokeDash=[4, 4], color="#a8a29e", clip=True).encode(x=alt.X("x:Q", scale=_sc), y=alt.Y("y:Q", scale=_sc))
-    _h = alt.Chart(alt.Data(values=[{"v": 0}])).mark_rule(color="#d6d3d1", clip=True).encode(y=alt.Y("v:Q", scale=_sc))
-    _v = alt.Chart(alt.Data(values=[{"v": 0}])).mark_rule(color="#d6d3d1", clip=True).encode(x=alt.X("v:Q", scale=_sc))
-    _schart = alt.layer(_diag, _h, _v, _pts, _ring).properties(width=560, height=440)
+    _schart = H.target_control_scatter(shown_df.filter(pl.col("position").is_between(_lo, _hi)), profile, color_by.value,
+                                       color_by.selected_key, point_size=point_size.value, focus_ids=list(get_focus_ids()))
+    if _schart is None:
+        _schart = alt.Chart(alt.Data(values=[{"t": "Nenhuma variante com valores no alvo e no controle."}])).mark_text().encode(
+            text="t:N").properties(width=560, height=60)
     scatter = mo.ui.anywidget(VariantCanvas(spec=chart_spec(_schart),
                                             selected=list(get_focus_ids()), crop=[],
                                             file_name=f"{study_cfg.data['study_id']}_alvo_x_controle"))
