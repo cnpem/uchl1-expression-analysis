@@ -102,6 +102,25 @@ and why each part matters for the choice:
 | 6. Scorers | which recommended terms each scorer serves | a scorer without tracks in one group is dropped later |
 | 7. Limits | SNVs only (indels through the model API, `score_variants.py` of the `alphagenome` skill), window scope | what the study cannot answer |
 
+### Changing the groups after the results
+
+When the researcher wants other target or control tissues (for example, controls where the gene is also
+expressed), that is a redefinition of the study, and it follows the same path as the definition. Choose from
+the exploration, never from ad-hoc code:
+
+1. Show `OUT/exploration/activity.md`. It lists every catalogue term with the gene's predicted activity
+   (relative to the most active), kind of sample, assays, sources and number of measurements. Without it (an
+   older exploration), run `expression.py explore --out OUT --activity-only`; it captures nothing. For
+   tissues the researcher names in their own words, run `explore` again with those `--tissue` texts: it
+   reuses the captures and only searches the new terms.
+2. Discuss the choice with the researcher. Prefer terms where the gene is expressed. Keep the kinds of
+   sample and the assays balanced with the target. Say what the new comparison asks, which may differ from
+   the original question.
+3. Record it: `study.py decide --key cohort.control` (or `cohort.target`) with the new list, the terms
+   offered (`--option`) and the recommended one, and a note saying why the study was redefined. Then
+   `fetch tracks`, `cohorts`, `fetch scores`, `variants`, `master`, `contrast`, `report`, as in steps 7-13.
+   Tissues taken out of a group can stay visible as context tissues on the dashboard.
+
 ## Step 1. Study from the exploration
 
 Ask the researcher, with the words of the summary page: which window (section 3, by its name; you

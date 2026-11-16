@@ -9,6 +9,16 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+### Added
+
+- **`exploration/activity.md`**: every term of the Atlas catalogue with the gene's predicted activity (and
+  relative to the most active), kind of sample, assays, sources and number of measurements, written by
+  `explore`; `explore --out OUT --activity-only` writes it for an existing exploration without new captures.
+  `summary.md` points to it.
+- **Changing the groups after the results** is documented as a redefinition that follows the study's
+  definition. The agent chooses from `activity.md` with the researcher, records the change with `decide`
+  and recaptures; it no longer ranks tissues with its own code.
+
 ### Changed
 
 - **Keys**: the AlphaGenome key is read only from the project's `.env`, not from `~/.env` or environment
