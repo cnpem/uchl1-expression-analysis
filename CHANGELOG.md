@@ -24,13 +24,16 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 - **Changing the groups after the results** is documented as a redefinition that follows the study's
   definition. The agent chooses from `activity.md` with the researcher, records the change with `decide`
   and recaptures; it no longer ranks tissues with its own code.
+- **`summarize` prints the reference expression (REF) of each chosen tissue**: its % of the highest REF and
+  what the current floor does to it, and the value that marks a tissue as not expressed (5% of the highest
+  REF, as in the exploration). The floor can now be chosen from the numbers.
 
 ### Changed
 
 - **The noise filter follows the question** (*Alvo − controle acima do ruído*, `--min-sigma`): with
   repression the target must be below the control, with increase above, with either both ways. Before, a
   variant that raised the target could pass a repression question.
-- A redefinition of the groups ends by saving the analysis as a view, with the researcher's OK
+- A redefinition of the groups ends with `figures` and `report` run again on the redefined analysis
   (`references/workflow.md`).
 
 - **Keys**: the AlphaGenome key is read only from the project's `.env`, not from `~/.env` or environment

@@ -122,11 +122,9 @@ the exploration, never from ad-hoc code:
    Tissues taken out of a group can stay visible as context tissues on the dashboard. `decide` keeps the
    earlier answer in `previous` (value, note, date, options), and `report.md` lists it under
    *Redefinições*; never edit `decisions.yaml` to replace an answer.
-4. Close it as a saved view. Ask the researcher whether to keep the redefined analysis, with a name and
-   a short note (what changed and why). On their OK, save it on the dashboard (*Visões salvas*) or with
-   `expression.py views --study-dir D --save "<name>" --note "<why>"` plus the choices; then
-   `figures --view "<name>"` and `report` again. The original analysis stays reproducible (open it from
-   *Voltar ao início do estudo*, or keep it as its own view), and the report shows both.
+4. Close it in the report. When the researcher settles on the redefined analysis, run `figures` with its
+   choices and `report` again, and read back *Redefinições* and the dashboard section: what changed, why,
+   and what the new comparison shows.
 
 ## Step 1. Study from the exploration
 

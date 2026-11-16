@@ -680,6 +680,33 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     if dropped:
         out += [f"Controles abaixo do piso de expressão ({H._n(profile.ref_floor, 3)}), fora do cálculo: "
                 + ", ".join(labels.get(c, c) for c in dropped) + ".", ""]
+    ref = A.ref_by_tissue(data)
+    out += ["## Expressão de referência (REF) e piso", ""]
+    if not ref:
+        out += ["Sem REF neste estudo (não há a variante de referência da exploração em raw/), então o piso não se aplica.", ""]
+    else:
+        top = max(ref.values())
+        floor = profile.ref_floor
+        out += ["REF é a expressão do gene prevista no tecido, sem variante (escala do AlphaGenome; o pseudocount do modelo é "
+                "0,001). Onde o gene está quase desligado, mudanças pequenas viram % grandes e instáveis. Compare os tecidos "
+                "pela coluna '% do maior REF': a exploração chama de 'não expresso' o que fica abaixo de 5% do maior REF "
+                f"(aqui, {H._n(0.05 * top, 3)}); 0,01 (10× o pseudocount) é só o limite absoluto mínimo. O piso (`--ref-floor N`) usa "
+                "o valor de REF: `--floor-applies warn` só avisa, `control` "
+                "tira do cálculo os controles abaixo dele, `target` não deixa passar nada se um tecido do alvo estiver "
+                "abaixo, `both` faz os dois.", "",
+                "| tecido | grupo | REF | % do maior REF | com o piso atual |", "|---|---|---|---|---|"]
+        for role, curies in (("alvo", profile.target), ("controle", profile.control)):
+            for c in curies:
+                r = ref.get(c)
+                if r is None:
+                    out.append(f"| {labels.get(c, c)} | {role} | — | — | sem REF |")
+                    continue
+                state = ("piso desligado" if floor is None else
+                         ("abaixo do piso" + (", fora do cálculo" if role == "controle" and profile.ref_floor_applies in ("control", "both") else
+                                              ", nenhuma variante passa" if role == "alvo" and profile.ref_floor_applies in ("target", "both") else
+                                              ", só aviso")) if r < floor else "acima do piso")
+                out.append(f"| {labels.get(c, c)} | {role} | {H._n(r, 4)} | {H._n(100 * r / top, 1)}% | {state} |")
+        out.append("")
     out += ["## Ruído entre medições do mesmo tecido", ""]
     overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None)
     if overall is None:
