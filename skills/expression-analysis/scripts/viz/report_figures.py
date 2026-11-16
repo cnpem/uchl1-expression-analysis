@@ -5,11 +5,12 @@ The dashboard saves nothing. When the researcher settles on a view, the agent pa
 (dashboard_helpers, workbench_helpers) as static PNG files. `report.md` then shows them with the choices
 that produced them, so every figure in the report can be redrawn and checked in the dashboard.
 
-Outputs (figures/dashboard/): janela.png (variants along the window), alvo_x_controle.png (target vs
-control), variantes.png (per-measurement bars of the highlighted variants), matriz.png (variants x
-tissues) and choices.json (the choices, the headline, the filter steps and the files).
+Outputs (figures/dashboard/<view>/, one folder per saved view, `sem-nome` without one): janela.png
+(variants along the window), alvo_x_controle.png (target vs control), variantes.png (per-measurement bars
+of the highlighted variants), matriz.png (variants x tissues) and choices.json (the view's name and note,
+the choices, the headline, the filter steps and the files).
 
-Library: FIG_DIR, CHOICES_FILE, write_figures, load_choices, describe_choices.
+Library: FIG_DIR, CHOICES_FILE, write_figures, load_choices, load_all, describe_choices.
 """
 
 from __future__ import annotations
@@ -26,7 +27,8 @@ from viz import dashboard_helpers as H
 from viz.workbench_helpers import build_unified_lollipop_canvas
 
 FIG_DIR = "figures/dashboard"
-CHOICES_FILE = f"{FIG_DIR}/choices.json"
+CHOICES_FILE = f"{FIG_DIR}/choices.json"  # older layout (one view, no name); still read
+UNNAMED = "sem-nome"
 QUESTION_PT = {"repression": "diminui no alvo", "increase": "aumenta no alvo", "either": "qualquer mudança"}
 SHOW_PT = {"kept": "só as que passam nos filtros", "all": "todas (as que não passam em cinza)"}
 
@@ -42,9 +44,12 @@ def _png(chart: Any, path: Path, width: int = 1100) -> None:
 
 def write_figures(study_dir: Path, data: A.StudyData, profile: A.Profile, effects: pl.DataFrame, kept: pl.DataFrame,
                   steps: Sequence[tuple[str, int]], *, show_mode: str, color_col: str, highlight: Sequence[str],
-                  labels: Mapping[str, str], window: tuple[int, int], command: str) -> dict[str, Any]:
-    """Draws the dashboard's charts for these choices into figures/dashboard/ and writes choices.json."""
-    out = Path(study_dir) / FIG_DIR
+                  labels: Mapping[str, str], window: tuple[int, int], command: str,
+                  view_name: str | None = None, view_slug: str | None = None, view_note: str = "",
+                  view_saved_at: str = "") -> dict[str, Any]:
+    """Draws the dashboard's charts for these choices into figures/dashboard/<view>/ and writes choices.json."""
+    folder = f"{FIG_DIR}/{view_slug or UNNAMED}"
+    out = Path(study_dir) / folder
     out.mkdir(parents=True, exist_ok=True)
     metric = profile.y_metric if profile.y_metric in effects.columns else "target_mean"
     metric_label = next((k for k, v in H.Y_METRICS.items() if v == metric), metric)
@@ -63,26 +68,28 @@ def write_figures(study_dir: Path, data: A.StudyData, profile: A.Profile, effect
             x_title="Posição no cromossomo (GRCh38)", lang="pt", head_size=70, faded=("passa", "não passa"),
             extra_tooltip=[("top_feature", "Modalidade AVI", None), ("passa", "Filtros", None)])
         _png(lolli, out / "janela.png")
-        files["janela"] = f"{FIG_DIR}/janela.png"
+        files["janela"] = f"{folder}/janela.png"
         scatter = H.target_control_scatter(shown, profile, color_col, color_label, focus_ids=picked, zoom=False)
         if scatter is not None:
             _png(scatter, out / "alvo_x_controle.png", width=560)
-            files["alvo_x_controle"] = f"{FIG_DIR}/alvo_x_controle.png"
+            files["alvo_x_controle"] = f"{folder}/alvo_x_controle.png"
     if picked:
         long = H.track_effects(data, profile, picked, dict(labels))
         if long.height:
             _png(H.variant_tissue_bars(long, profile), out / "variantes.png", width=900)
-            files["variantes"] = f"{FIG_DIR}/variantes.png"
+            files["variantes"] = f"{folder}/variantes.png"
     if kept.height:
         matrix, _meta = H.tissue_matrix(kept, profile, dict(labels), max_rows=40, order_by="metric", metric_col=metric,
                                         picked=picked)
         _png(matrix, out / "matriz.png")
-        files["matriz"] = f"{FIG_DIR}/matriz.png"
+        files["matriz"] = f"{folder}/matriz.png"
     for name in ("janela", "alvo_x_controle", "variantes", "matriz"):  # a previous run's figure would mislead
         if name not in files and (out / f"{name}.png").is_file():
             (out / f"{name}.png").unlink()
 
     record = {
+        "view": {"name": view_name or "sem nome", "slug": view_slug or UNNAMED, "note": view_note,
+                 "saved_at": view_saved_at},
         "command": command,
         "profile": dataclasses.asdict(profile),
         "display": {"show_mode": show_mode, "color_by": color_col, "highlight": picked, "metric_label": metric_label},
@@ -92,8 +99,22 @@ def write_figures(study_dir: Path, data: A.StudyData, profile: A.Profile, effect
         "n_shown": shown.height,
         "figures": files,
     }
-    (Path(study_dir) / CHOICES_FILE).write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (out / "choices.json").write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    record["choices_file"] = f"{folder}/choices.json"
     return record
+
+
+def load_all(study_dir: Path) -> list[dict[str, Any]]:
+    """Every drawn view (figures/dashboard/*/choices.json, plus the older single choices.json), by name."""
+    out = []
+    root = Path(study_dir) / FIG_DIR
+    paths = sorted(root.glob("*/choices.json")) + ([root / "choices.json"] if (root / "choices.json").is_file() else [])
+    for path in paths:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec.setdefault("view", {"name": "sem nome", "slug": UNNAMED, "note": "", "saved_at": ""})
+        rec["choices_file"] = path.relative_to(study_dir).as_posix()
+        out.append(rec)
+    return sorted(out, key=lambda r: r["view"]["name"].lower())
 
 
 def load_choices(study_dir: Path) -> dict[str, Any] | None:

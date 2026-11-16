@@ -22,9 +22,9 @@ It answers one question about the study's window: **which variants change the pr
 target tissues, and is the change their own or shared with the control?** It opens on the study's own
 groups with every filter off, so the researcher sees the data before choosing anything (asking for
 thresholds first makes them choose blind). Every choice is a control on the page; nothing is fixed in
-the code. The page saves no analysis: the only files it touches are its marimo session folder
-(`D/.workbench/`) and one `14-dashboard` step in `manifest.json` when the session ends (the export adds
-the HTML). The dashboard never calls the network: a tissue that was not captured needs a new capture
+the code. The page saves a view only when the researcher asks (*Visões salvas*, *Salvar esta visão*), as
+`analyses/<name>.yaml`; otherwise the only files it touches are its marimo session folder (`D/.workbench/`)
+and one `14-dashboard` step in `manifest.json` when the session ends (the export adds the HTML). The dashboard never calls the network: a tissue that was not captured needs a new capture
 (Workflow steps 7-10), which is your job, not the page's.
 
 ## Presenting it: what to say first
@@ -40,7 +40,8 @@ Say it in the researcher's language, in a few short lines, when you give the lin
 4. Thresholds are in *Filtrar resultados*, all off; technical settings are in *Avançado* (offer to
    explain them when they open it, with the next section).
 5. Clicking a variant (in a chart or the table) highlights it everywhere and shows its measurements.
-6. When they settle on a view, tell you its choices: you will draw it for the report (`figures`).
+6. When they reach a view worth keeping, save it in *Visões salvas* with a name and a short note: you can
+   then explain it exactly and put it in the report.
 
 ## Layout, top to bottom
 
@@ -51,6 +52,7 @@ Say it in the researcher's language, in a few short lines, when you give the lin
 | How to show (row below) | *Ordenar por* (order of the table, which variants *Quantas mostrar* keeps, height in the window chart), *Quantas mostrar* (0 = all; otherwise only the first N in that order are drawn and listed), *Variantes nos gráficos* (only those that pass, or all with the rest in grey) | change what is drawn and in which order; the headline and the filter steps still count every variant that passes |
 | *De onde vêm as medições* | for each chosen tissue, its measurements (GTEx or ENCODE, tissue or cell type, polyA or total RNA-seq) and how well they agree in this gene | tissues whose measurements agree poorly are unstable comparisons |
 | Headline (blue box) | how many variants pass, the ones that change the target most (% in target and in control), a warning when the gene is predicted to be almost off in a target tissue | read it first; it states the result of the current choices |
+| *Visões salvas* (closed) | open a saved view (all its choices, colour and highlights come back), go back to the study's start, or save the current choices with a name and a note | suggest saving when they reach a view they want to keep, explain or put in the report |
 | *Ao longo da janela* | one stem per variant at its position; height = change in the target (or what *Ordenar por* chose); colour, point size and *Uma alternativa por posição* are next to it | click to highlight; wheel zooms, drag pans, double-click resets; *Recortar* limits the window for the other parts; *Salvar PNG/SVG* below |
 | *O efeito é próprio do alvo?* | each variant as a point: change in target (x) vs control (y) | on the dashed diagonal = shared; near the horizontal zero line = own to the target; opposite quadrants = opposite directions |
 | *Variantes* | table in % per group and per tissue | tick rows to highlight |
@@ -93,19 +95,21 @@ Mention these when they matter for what the researcher is looking at:
   current order.
 - *Recortar* limits the window for the scatter and the table too; *Janela inteira* undoes it.
 - A tissue with one measurement has no noise of its own; the pooled noise of the study is used.
-- The dashboard saves nothing; reloading the page returns to the opening view.
+- Nothing is saved unless they click *Salvar esta visão*; reloading the page returns to the opening view,
+  and *Visões salvas* brings a saved one back. Saving with an existing name replaces that view. A view saves
+  "all" (empty) when every assay, source or region is selected.
 
 ## Explaining a view: `summarize`
 
 When the researcher asks about what they see ("why is this variant first?", "is the effect specific?"),
-run `expression.py summarize --study-dir D` with the same choices they set. It runs the dashboard's
-computation and prints the headline, the measurements of each tissue, the noise, the filter steps and
-the top variants. Explain from those numbers; never describe values you have not computed. If they want
-a view kept, draw it for the report with `figures` (next section) and write its choices in your answer:
-the dashboard saves nothing.
+ask them to save the view (*Visões salvas*) and run `expression.py summarize --study-dir D --view <name>`:
+it reads exactly their choices. `expression.py views --study-dir D` lists the saved views (with the name to
+pass to `--view`). Without a saved view, pass the same choices as options (table below). It runs the
+dashboard's computation and prints the headline, the measurements of each tissue, the noise, the filter
+steps and the top variants. Explain from those numbers; never describe values you have not computed.
 
-You cannot read the page's state, so ask for the choices that differ from the opening view (or have
-the researcher read them out) and map them:
+You cannot read the page's state while it is unsaved. Without a saved view, ask for the choices that
+differ from the opening view (or have the researcher read them out) and map them:
 
 | On the page | `summarize` option |
 |---|---|
@@ -129,15 +133,15 @@ is drawn, not the numbers.
 
 ## Figures for the report: `figures`
 
-When the researcher settles on a view (or asks for figures for the report), run `expression.py figures
---study-dir D` with the same choices as `summarize` plus how it is shown: `--top-k` (*Quantas mostrar*),
-`--show kept|all` (*Variantes nos gráficos*), `--color-by` (*Cor no gráfico da janela*) and `--highlight
-VARIANT` for each highlighted variant (without it, the first five that pass are highlighted). It draws the
-page's charts as PNG in `figures/dashboard/` (window, target × control, highlighted variants, variants ×
-tissues) and writes `figures/dashboard/choices.json`. Then run `expression.py report` again: `report.md`
-gets a section *Análise do pesquisador (dashboard)* with the choices, the blue box, the filter steps and
-the figures with captions. Read that section back to the researcher. One view at a time: a new `figures`
-run replaces the previous one; the report warns when the figures are older than the variant table.
+For each saved view the researcher wants in the report, run `expression.py figures --study-dir D --view
+<name>`: it draws the page's charts as PNG in `figures/dashboard/<name>/` (window, target × control,
+highlighted variants, variants × tissues) with the view's colour, highlights and *Variantes nos gráficos*,
+and writes `choices.json` there. Then run `expression.py report` again: `report.md` gets one subsection per
+drawn view in *Análise do pesquisador (dashboard)*, with its name, the researcher's note, the choices, the
+blue box, the filter steps and the figures with captions, and lists the saved views not drawn yet. Read
+it back to the researcher. The report warns when a view's figures are older than the variant table, or
+than a later save of that view. Without a saved view, `figures` takes the same options as `summarize`
+(plus `--top-k`, `--show`, `--color-by`, `--highlight`) and draws into `figures/dashboard/sem-nome/`.
 
 ## What each quantity means
 

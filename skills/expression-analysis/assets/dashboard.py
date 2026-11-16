@@ -36,6 +36,7 @@ def _():
     import study as study_mod
     from core import analysis as A
     from core import locus as core_locus
+    from core import views as V
     from viz import dashboard_helpers as H
     from viz.genomic_architecture import figure_svg
     from viz.variant_canvas import VariantCanvas, chart_spec
@@ -68,29 +69,45 @@ def _():
             mo.download(data=lambda: vlc.vegalite_to_svg(_spec()).encode("utf-8"), filename=f"{name}.svg",
                         mimetype="image/svg+xml", label="Salvar SVG"),
         ], justify="start")
-    return (A, H, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
+    return (A, H, V, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
             data, dataclasses, figure_svg, full_domain, locus, mo, pl, ref_tissue, save_buttons, study_cfg, study_dir)
 
 
 @app.cell
-def _(A, data, mo):
+def _(mo):
+    # The saved view opened on the page (None: the study's own groups, no filter); see core/views.py
+    get_view, set_view = mo.state(None)
+    get_views_tick, set_views_tick = mo.state(0)
+    get_view_msg, set_view_msg = mo.state("")
+    return get_view, get_view_msg, get_views_tick, set_view, set_view_msg, set_views_tick
+
+
+@app.cell
+def _(A, data, get_view, mo):
     # Advanced: scorer (shown in the "Avançado" section; read here because it sets the tissues and tracks)
     scorers = sorted(set(data.registry["scorer"].to_list()))
-    scorer_pick = mo.ui.dropdown(options=scorers, value="RNA_SEQ" if "RNA_SEQ" in scorers else scorers[0],
+    _v = get_view()
+    _want = _v.profile.scorer if _v is not None else "RNA_SEQ"
+    scorer_pick = mo.ui.dropdown(options=scorers, value=_want if _want in scorers else scorers[0],
                                  label="Tipo de predição")
     return (scorer_pick,)
 
 
 @app.cell
-def _(A, data, study_cfg):
-    # Starting point: the study's own groups, no filter
-    _reg = data.registry
-    _coh = study_cfg.data.get("cohorts", {})
-    base = A.Profile(target=sorted(set(_reg.filter(_reg["cohort"] == "target")["ontology_curie"].to_list())),
-                     control=sorted(set(_reg.filter(_reg["cohort"] == "control")["ontology_curie"].to_list())),
-                     target_label=_coh.get("target", {}).get("label") or "Alvo",
-                     control_label=_coh.get("control", {}).get("label") or "Controle")
-    return (base,)
+def _(A, V, data, get_view, study_cfg):
+    # Starting point: the opened saved view, else the study's own groups with no filter
+    _v = get_view()
+    if _v is not None:
+        base, display_base = _v.profile, dict(_v.display)
+    else:
+        _reg = data.registry
+        _coh = study_cfg.data.get("cohorts", {})
+        base = A.Profile(target=sorted(set(_reg.filter(_reg["cohort"] == "target")["ontology_curie"].to_list())),
+                         control=sorted(set(_reg.filter(_reg["cohort"] == "control")["ontology_curie"].to_list())),
+                         target_label=_coh.get("target", {}).get("label") or "Alvo",
+                         control_label=_coh.get("control", {}).get("label") or "Controle")
+        display_base = dict(V.DISPLAY_DEFAULTS)
+    return base, display_base
 
 
 @app.cell
@@ -106,7 +123,7 @@ def _(A, H, data, scorer_pick):
 
 
 @app.cell
-def _(H, assays, base, data, labels, mo, sources):
+def _(H, assays, base, data, display_base, labels, mo, sources):
     _opts = {v: k for k, v in labels.items()}
     _pick = lambda xs: [labels[x] for x in xs if x in labels]
     # --- the three main choices
@@ -149,7 +166,8 @@ def _(H, assays, base, data, labels, mo, sources):
     color_by = mo.ui.dropdown(options=_colors, value=next((k for k, v in _colors.items() if v == base.color_by), "Domínio genômico"),
                               label="Cor no gráfico da janela")
     show_mode = mo.ui.dropdown(options={"Só as que passam nos filtros": "kept", "Todas (as que não passam em cinza)": "all"},
-                               value="Só as que passam nos filtros", label="Variantes nos gráficos")
+                               value="Todas (as que não passam em cinza)" if display_base["show_mode"] == "all"
+                               else "Só as que passam nos filtros", label="Variantes nos gráficos")
     top_k = mo.ui.number(start=0, stop=data.master.height, step=1, value=base.top_k or 0,
                          label="Quantas mostrar (0 = todas)")
     return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, max_control_pct, min_sigma,
@@ -203,7 +221,9 @@ def _(A, data, locus, mo, scorer_pick):
               "(todas as trocas de uma base) · predições do AlphaGenome, uso somente em pesquisa."),
         mo.accordion({"Como usar": mo.md(
             "A página já abre com o resultado para os grupos do estudo, sem filtros. Mude as três escolhas logo abaixo e veja o "
-            "resultado se atualizar. Filtros e opções avançadas ficam nos blocos mais abaixo, que se abrem quando você quiser.\n\n"
+            "resultado se atualizar. Filtros e opções avançadas ficam nos blocos mais abaixo, que se abrem quando você quiser. "
+            "Quando chegar a uma visão que queira guardar, salve-a em *Visões salvas*, com um nome: você volta a ela depois, "
+            "e o agente pode explicá-la e colocá-la no relatório.\n\n"
             f"As mudanças são em **% d{_what}** (por exemplo −20% = a variante reduz em um quinto). "
             "O tipo de predição muda em *Avançado*: RNA-seq mede a expressão do gene inteiro; CAGE, DNase e ATAC medem o "
             "sinal local em volta da variante.")}),
@@ -246,6 +266,79 @@ def _(H, effects, kept, labels, mo, profile, ref_tissue):
 
 
 @app.cell
+def _(mo):
+    view_name = mo.ui.text(label="Nome da visão", placeholder="ex.: repressão no timo, sem fígado", full_width=True)
+    view_note = mo.ui.text_area(label="Nota (opcional): o que esta visão mostra ou por que foi escolhida", full_width=True)
+    return view_name, view_note
+
+
+@app.cell
+def _(V, get_views_tick, mo, set_focus_ids, set_view, set_view_msg, study_dir):
+    get_views_tick()  # re-read the list after a save
+    _views = V.list_views(study_dir)
+    view_pick = mo.ui.dropdown(options={f"{v.name} ({v.saved_at[:10]})": v.slug for v in _views},
+                               label="Visões salvas", value=None)
+
+    def _open(_):
+        if not view_pick.value:
+            return
+        try:
+            _v = V.load_view(study_dir, view_pick.value)
+        except V.ViewError as exc:
+            set_view_msg(f"Não foi possível abrir: {exc}")
+            return
+        set_view(_v)
+        set_focus_ids(list(_v.display["highlight"]))
+        set_view_msg(f"Visão aberta: **{_v.name}**" + (f". {_v.note}" if _v.note else ""))
+
+    open_button = mo.ui.button(label="Abrir", on_click=_open, disabled=not _views)
+    start_button = mo.ui.button(label="Voltar ao início do estudo",
+                                on_click=lambda _: (set_view(None), set_focus_ids([]), set_view_msg("")))
+    return open_button, start_button, view_pick
+
+
+@app.cell
+def _(V, assays, color_by, data, dataclasses, get_focus_ids, mo, point_size, profile, set_view_msg, set_views_tick,
+      show_mode, sources, study_dir, view_name, view_note):
+    def _save(_):
+        # a selection of every option is saved as empty (= all), so the view still means "all" if the study changes
+        _all_domains = set(data.master["genomic_domain"].unique().to_list())
+        _p = dataclasses.replace(
+            profile, assays=[] if set(profile.assays) >= set(assays) else profile.assays,
+            sources=[] if set(profile.sources) >= set(sources) else profile.sources,
+            domains=[] if set(profile.domains) >= _all_domains else profile.domains)
+        try:
+            _v = V.save_view(study_dir, view_name.value, _p,
+                             {"show_mode": show_mode.value, "color_by": color_by.value,
+                              "point_size": int(point_size.value), "highlight": list(get_focus_ids())},
+                             view_note.value)
+        except V.ViewError as exc:
+            set_view_msg(f"Não foi possível salvar: {exc}")
+            return
+        set_view_msg(f"Visão salva em `{_v.path.relative_to(study_dir).as_posix()}`: **{_v.name}**.")
+        set_views_tick(lambda n: n + 1)
+
+    save_button = mo.ui.button(label="Salvar esta visão", kind="success", on_click=_save,
+                               disabled=not view_name.value.strip())
+    return (save_button,)
+
+
+@app.cell
+def _(get_view, get_view_msg, mo, open_button, save_button, start_button, view_name, view_note, view_pick):
+    _v = get_view()
+    mo.accordion({("Visões salvas" + (f": {_v.name}" if _v is not None else "")): mo.vstack([
+        mo.md("Uma visão guarda as escolhas desta página (grupos, pergunta, filtros, ordem, quantas mostrar, cor e "
+              "variantes destacadas) com um nome, para voltar a ela, pedir ao agente que a explique ou colocá-la no "
+              "relatório. Só é salva quando você clica em *Salvar*; fica em `analyses/` na pasta do estudo. Salvar com um "
+              "nome que já existe substitui aquela visão."),
+        mo.md(get_view_msg() or ""),
+        mo.hstack([view_pick, open_button, start_button], justify="start", gap=1),
+        view_name, view_note, save_button,
+    ])})
+    return
+
+
+@app.cell
 def _(center_crop_on_positions, data, full_domain, mo, pl):
     get_focus_ids, set_focus_ids = mo.state([])
     get_crop, set_crop = mo.state(tuple(full_domain), allow_self_loops=True)
@@ -276,8 +369,9 @@ def _(full_domain, get_crop, get_crop_mode, get_focus_ids, mo, set_crop, set_cro
 
 
 @app.cell
-def _(mo):
-    point_size = mo.ui.slider(start=5, stop=120, step=5, value=40, label="Tamanho dos pontos", show_value=True)
+def _(display_base, mo):
+    point_size = mo.ui.slider(start=5, stop=120, step=5, value=min(120, max(5, 5 * round(display_base["point_size"] / 5))),
+                              label="Tamanho dos pontos", show_value=True)
     return (point_size,)
 
 

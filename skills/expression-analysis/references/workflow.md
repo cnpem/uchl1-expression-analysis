@@ -298,7 +298,9 @@ uv run SKILL/scripts/expression.py report --study-dir D
 uv run SKILL/scripts/expression.py dashboard --study-dir D
 uv run SKILL/scripts/expression.py summarize --study-dir D --question repression --top 10
 uv run SKILL/scripts/expression.py dashboard --study-dir D --export-html D/figures/dashboard.html
-uv run SKILL/scripts/expression.py figures --study-dir D --question repression --target CL:AAAAAAA --control UBERON:BBBBBBB --top-k 100 --show all
+uv run SKILL/scripts/expression.py views --study-dir D
+uv run SKILL/scripts/expression.py summarize --study-dir D --view "<saved view name>"
+uv run SKILL/scripts/expression.py figures --study-dir D --view "<saved view name>"
 uv run SKILL/scripts/expression.py report --study-dir D
 ```
 
@@ -309,8 +311,9 @@ is printed: two pages opened while it starts can break the first session (a matp
 server output; reload the page). If you restart it, tell the
 researcher to reload the page: an old page is refused by the new server ("Unauthorized").
 
-The dashboard writes nothing to the study. To explain what the researcher sees, run `summarize` with
-the same choices (`--target`/`--control` CURIEs, `--question`, `--min-change-pct`, `--max-control-pct`,
+The dashboard writes to the study only when the researcher saves a view (*Visões salvas*), as
+`analyses/<name>.yaml`; `views` lists them. To explain what the researcher sees, run `summarize --view <name>`
+on their saved view, or `summarize` with the same choices (`--target`/`--control` CURIEs, `--question`, `--min-change-pct`, `--max-control-pct`,
 `--min-sigma`, `--ref-floor`, `--floor-applies`, `--assay`, `--source`, `--domain`, `--one-alt`,
 `--y-metric`, `--scorer`): it runs the dashboard's
 computation and prints the headline, where each tissue's measurements come from, the noise between
@@ -318,10 +321,10 @@ measurements of the same tissue, the filter steps and the top variants. `referen
 describes every part of the page in the words the page uses, what to say when presenting it, and each
 field of *Avançado*.
 
-When the researcher settles on a view, `figures` (same choices, plus `--top-k`, `--show`, `--color-by`,
-`--highlight`) draws it as PNG in `figures/dashboard/` with `choices.json`, and `report` run again adds
-the section *Análise do pesquisador (dashboard)* to `report.md`: the choices, the result, the filter steps
-and the figures. A new `figures` run replaces the previous view.
+For each saved view wanted in the report, `figures --view <name>` draws it as PNG in
+`figures/dashboard/<name>/` with `choices.json`, and `report` run again adds one subsection per view to
+*Análise do pesquisador (dashboard)*: the name and note, the choices, the result, the filter steps and the
+figures. Views hold only choices among the skill's parameters; a file with anything else is refused.
 
 The export is the opening view (the study's groups, no filter), not what the researcher chose on the page.
 `--edit` is for maintainers: it opens the marimo editor on the skill's own `assets/dashboard.py`, so

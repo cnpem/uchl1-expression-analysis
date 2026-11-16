@@ -12,6 +12,7 @@ for a maintainer, `contrasts.yaml`.
 - [Answers and rules: `decisions.yaml`](#answers-and-rules-decisionsyaml)
 - [Exploration: `exploration/exploration.json`](#exploration-explorationexplorationjson)
 - [Contrast plan: `contrasts.yaml`](#contrast-plan-contrastsyaml)
+- [Saved views: `analyses/<name>.yaml`](#saved-views-analysesnameyaml)
 
 ## Questions: `processed/pending_decisions.json`
 
@@ -98,3 +99,22 @@ priority:
   direction_contrast: rna_seq # the contrast that orders the top list
   scope_contrast: rna_seq     # optional; default the direction contrast
 ```
+
+## Saved views: `analyses/<name>.yaml`
+
+Written by the dashboard when the researcher clicks *Salvar esta visão* (the file name is the view's name in
+lower-case ASCII with hyphens), read by the dashboard (*Visões salvas*), `summarize --view`, `figures --view`
+and `report`. `core/views.py` refuses unknown fields and values out of range, so a view can only hold choices
+among the skill's own parameters.
+
+| Field | Meaning |
+|---|---|
+| `name`, `note` | the name and note the researcher typed |
+| `created_at`, `saved_at` | first and last save (ISO-8601, UTC); a later save of the same name replaces the view |
+| `skill_version` | the skill version that saved it |
+| `profile` | the analysis choices (`core.analysis.Profile`): `scorer`, `target`, `control`, `shown` (CURIEs), `target_label`, `control_label`, `question` (repression, increase, either), `min_change_pct`, `max_control_pct` (null = off), `min_diff_sigma`, `ref_floor` (null = off), `ref_floor_applies`, `assays`, `sources`, `domains` (empty = all), `one_alt_per_position`, `y_metric`, `top_k` (null = all), `color_by` |
+| `display` | how it is shown: `show_mode` (kept, all), `color_by`, `point_size`, `highlight` (variant IDs) |
+
+`figures --view <name>` writes `figures/dashboard/<name>/choices.json`: the view's name, slug, note and
+`saved_at`, the command, the profile and display used, the headline, the filter steps, the number of
+variants shown and the figure files.

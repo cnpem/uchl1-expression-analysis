@@ -190,32 +190,53 @@ FIGURE_TEXT = {
 
 
 def _section_dashboard(study_dir: Path) -> list[str]:
-    """The researcher's view of the dashboard, drawn by `expression.py figures` with the choices behind it."""
+    """The researcher's views of the dashboard: each one drawn by `expression.py figures`, with the choices behind
+    it; saved views not drawn yet are listed."""
+    from core import views as core_views
     from viz import report_figures
 
-    rec = report_figures.load_choices(study_dir)
+    drawn = report_figures.load_all(study_dir)
+    saved = {v.slug: v for v in core_views.list_views(study_dir)}
     lines = ["## Análise do pesquisador (dashboard)", ""]
-    if rec is None:
-        return lines + ["Nenhuma visão do dashboard foi registrada para o relatório. Com as escolhas do pesquisador, "
-                        "`expression.py figures --study-dir D …` desenha os gráficos do dashboard em `figures/dashboard/`; "
-                        "depois, `expression.py report` os inclui aqui.", ""]
+    if not drawn:
+        lines += ["Nenhuma visão do dashboard foi desenhada para o relatório. O pesquisador salva a visão no dashboard "
+                  "(*Visões salvas*); `expression.py figures --study-dir D --view <nome>` desenha os gráficos dela e "
+                  "`expression.py report` os inclui aqui.", ""]
+    else:
+        lines += ["Cada visão abaixo foi salva pelo pesquisador no dashboard (ou escolhida com ele) e desenhada com as mesmas "
+                  "contas e gráficos da página. Para conferir uma visão, abra o dashboard (`expression.py dashboard`) e, em "
+                  "*Visões salvas*, abra a visão com o mesmo nome.", ""]
     master = study_dir / core_master.MASTER_FILE
-    if master.is_file() and master.stat().st_mtime > (study_dir / report_figures.CHOICES_FILE).stat().st_mtime:
-        lines += ["> **Atenção**: as figuras abaixo são anteriores à última tabela de variantes (`master.parquet`); "
-                  "gere-as de novo com o comando abaixo antes de usar este relatório.", ""]
-    lines += ["As figuras desta seção foram desenhadas com as mesmas contas e gráficos do dashboard, para as escolhas "
-              "abaixo. Para conferir qualquer uma, abra o dashboard (`expression.py dashboard`) e faça as mesmas escolhas.",
-              "", *report_figures.describe_choices(rec), "", "**Resultado com essas escolhas**", "", rec["headline"], "",
-              "Variantes em cada etapa dos filtros:", ""]
-    lines += _table(["Etapa", "Variantes"], [(s, n) for s, n in rec["steps"]])
     n = 0
-    for name, (title, caption) in FIGURE_TEXT.items():
-        path = rec["figures"].get(name)
-        if not path or not (study_dir / path).is_file():
-            continue
-        n += 1
-        lines += ["", f"**Figura D{n}. {title}{"" if title.endswith("?") else "."}** {caption}", "", f"![Figura D{n}: {title}]({path})"]
-    lines += ["", f"Comando que gerou as figuras: `{rec['command']}`", ""]
+    for rec in drawn:
+        v = rec["view"]
+        lines += [f"### Visão: {v['name']}", ""]
+        if v.get("note"):
+            lines += [f"Nota do pesquisador: {v['note']}", ""]
+        choices = study_dir / rec["choices_file"]
+        warn = []
+        if master.is_file() and master.stat().st_mtime > choices.stat().st_mtime:
+            warn.append("as figuras são anteriores à última tabela de variantes (`master.parquet`)")
+        cur = saved.get(v.get("slug"))
+        if cur is not None and v.get("saved_at") and cur.saved_at != v["saved_at"]:
+            warn.append("a visão foi salva de novo depois das figuras")
+        if warn:
+            lines += [f"> **Atenção**: {'; '.join(warn)}. Gere as figuras de novo com o comando abaixo antes de usar este "
+                      "relatório.", ""]
+        lines += [*report_figures.describe_choices(rec), "", "**Resultado com essas escolhas**", "", rec["headline"], "",
+                  "Variantes em cada etapa dos filtros:", ""]
+        lines += _table(["Etapa", "Variantes"], [(s, k) for s, k in rec["steps"]])
+        for name, (title, caption) in FIGURE_TEXT.items():
+            path = rec["figures"].get(name)
+            if not path or not (study_dir / path).is_file():
+                continue
+            n += 1
+            lines += ["", f"**Figura D{n}. {title}{'' if title.endswith('?') else '.'}** {caption}", "",
+                      f"![Figura D{n}: {title}]({path})"]
+        lines += ["", f"Comando que gerou as figuras: `{rec['command']}`", ""]
+    pending = [s for slug, s in saved.items() if slug not in {r["view"].get("slug") for r in drawn}]
+    if pending:
+        lines += ["Visões salvas ainda sem figuras: " + "; ".join(f"*{s.name}* (`--view {s.slug}`)" for s in pending) + ".", ""]
     return lines
 
 

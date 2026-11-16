@@ -9,6 +9,18 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+### Added
+
+- **Saved views of the dashboard** (`analyses/<name>.yaml`, `core/views.py`). In *Visões salvas*, the
+  researcher saves the current choices with a name and a note, opens a saved view (choices, colour and
+  highlights come back), or returns to the study's start. A view holds only choices among the skill's
+  parameters: unknown fields or values out of range are refused, and no parameter can be created.
+- **`expression.py views`** lists the saved views; **`summarize --view`** and **`figures --view`** read them,
+  so the agent explains and draws exactly what the researcher chose.
+- **`report.md`** has one subsection per drawn view (`figures/dashboard/<view>/`), with name, note,
+  choices, result, filter steps and figures. It lists saved views not drawn yet, and warns when a view
+  was saved again after its figures were drawn.
+
 ### Changed
 
 - **Keys**: the AlphaGenome key is read only from the project's `.env`, not from `~/.env` or environment

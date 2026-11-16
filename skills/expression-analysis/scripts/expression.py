@@ -37,8 +37,9 @@ Subcommands:
              figures/dashboard/, decisions.yaml and manifest.json.
   summarize  Text summary of the dashboard view for given choices (same computation; for the agent to
              explain what the researcher sees). Writes nothing.
-  figures    Workflow step 14: the dashboard's charts for given choices as PNG in figures/dashboard/,
-             with choices.json; report.md then shows them with the choices behind them.
+  figures    Workflow step 14: the dashboard's charts for given choices (or a saved view, --view) as PNG
+             in figures/dashboard/<view>/, with choices.json; report.md shows each view drawn.
+  views      Workflow step 14: the dashboard's saved views (analyses/*.yaml): list, or --show NAME.
   dashboard  Workflow step 14: opens the analysis dashboard (assets/dashboard.py) on a study directory;
              --export-html writes a static HTML of its opening view instead. --edit (maintainers) opens
              the marimo editor on the skill's file; --legacy opens the previous triage workbench.
@@ -560,6 +561,8 @@ def explore_cmd(args: argparse.Namespace) -> None:
 
 def _choice_args(p: argparse.ArgumentParser) -> None:
     """The dashboard's analysis choices as options (summarize and figures)."""
+    p.add_argument("--view", help="A saved view of the dashboard (its name or file name in analyses/); its choices "
+                                  "replace the options below")
     p.add_argument("--scorer", default="RNA_SEQ", help="RNA_SEQ (gene expression; default), CAGE, DNASE or ATAC")
     p.add_argument("--target", action="append", help="Target CURIE (repeatable; default: the study's target tissues)")
     p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
@@ -595,7 +598,17 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
         _stage_error(exc)
     reg = data.registry
     cohorts = config.data.get("cohorts", {})
-    profile = A.Profile(
+    view = None
+    if getattr(args, "view", None):
+        from core import views as core_views
+
+        try:
+            view = core_views.load_view(study_dir, args.view)
+        except core_views.ViewError as exc:
+            _stage_error(exc)
+        print(f"Using the saved view '{view.name}' ({view.path.relative_to(study_dir).as_posix()}); its choices replace "
+              "the choice options.", file=sys.stderr)
+    profile = view.profile if view is not None else A.Profile(
         scorer=args.scorer,
         target=args.target or sorted(set(reg.filter(reg["cohort"] == "target")["ontology_curie"].to_list())),
         control=args.control or sorted(set(reg.filter(reg["cohort"] == "control")["ontology_curie"].to_list())),
@@ -617,6 +630,7 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
     tissues = A.tissue_table(data, profile.scorer)
     labels = {r["ontology_curie"]: r["tissue"] for r in tissues.iter_rows(named=True)}
     return {"study_dir": study_dir, "data": data, "config": config, "profile": profile, "used": used, "noise": noise,
+            "view": view,
             "effects": effects, "kept": kept, "steps": steps, "labels": labels}
 
 
@@ -625,21 +639,53 @@ def figures_cmd(args: argparse.Namespace) -> None:
     from viz import report_figures
 
     v = _dashboard_view(args)
-    study_dir, kept = v["study_dir"], v["kept"]
+    study_dir, kept, view = v["study_dir"], v["kept"], v["view"]
+    show, color = args.show, args.color_by
     highlight = list(args.highlight or [])
+    if view is not None:  # how the view is shown comes with it
+        show, color = view.display["show_mode"], view.display["color_by"]
+        highlight = highlight or list(view.display["highlight"])
     if not highlight and args.auto_highlight:
         highlight = kept.head(args.auto_highlight)["variant_id"].to_list()
     locus = core_locus.load_locus(study_dir)
     try:
         rec = report_figures.write_figures(
-            study_dir, v["data"], v["profile"], v["effects"], kept, v["steps"], show_mode=args.show,
-            color_col=args.color_by, highlight=highlight, labels=v["labels"],
-            window=(locus.window.start, locus.window.end), command=fetch.invocation())
+            study_dir, v["data"], v["profile"], v["effects"], kept, v["steps"], show_mode=show,
+            color_col=color, highlight=highlight, labels=v["labels"],
+            window=(locus.window.start, locus.window.end), command=fetch.invocation(),
+            view_name=view.name if view else None, view_slug=view.slug if view else None,
+            view_note=view.note if view else "", view_saved_at=view.saved_at if view else "")
     except (OSError, ValueError) as exc:
         _stage_error(exc)
-    print(f"Figures: {', '.join(rec['figures']) or 'none'} for {kept.height} variant(s) that pass "
-          f"({rec['n_shown']} shown). Wrote {report_figures.CHOICES_FILE}; run expression.py report to include them.")
-    _record(study_dir, "14-figures", [*rec["figures"].values(), report_figures.CHOICES_FILE])
+    print(f"Figures of '{rec['view']['name']}': {', '.join(rec['figures']) or 'none'} for {kept.height} variant(s) "
+          f"that pass ({rec['n_shown']} shown). Wrote {rec['choices_file']}; run expression.py report to include them.")
+    _record(study_dir, "14-figures", [*rec["figures"].values(), rec["choices_file"]])
+
+
+def views_cmd(args: argparse.Namespace) -> None:
+    """Lists the saved views of the dashboard, or shows one (its file)."""
+    from core import views as core_views
+    from viz import report_figures
+
+    study_dir = Path(args.study_dir)
+    if args.show:
+        try:
+            view = core_views.load_view(study_dir, args.show)
+        except core_views.ViewError as exc:
+            _stage_error(exc)
+        print(view.path.read_text(encoding="utf-8"))
+        return
+    views = core_views.list_views(study_dir)
+    drawn = {r["view"]["slug"]: r for r in report_figures.load_all(study_dir)}
+    if not views:
+        print("No saved views. The researcher saves one in the dashboard ('Visões salvas').")
+        return
+    print(f"{len(views)} saved view(s) in {core_views.VIEWS_DIR}/:")
+    for view in views:
+        rec = drawn.get(view.slug)
+        state = ("figures drawn" + (" (view changed after them)" if rec and rec["view"].get("saved_at") != view.saved_at else "")
+                 if rec else "no figures yet")
+        print(f"- {view.name} [--view {view.slug}] saved {view.saved_at}; {state}" + (f". {view.note}" if view.note else ""))
 
 
 def summarize_cmd(args: argparse.Namespace) -> None:
@@ -914,6 +960,11 @@ def main() -> None:
     p.add_argument("--auto-highlight", type=int, default=5,
                    help="Without --highlight, highlight the first N that pass, in that order (default 5; 0 = none)")
     p.set_defaults(func=figures_cmd)
+
+    p = sub.add_parser("views", help="Workflow step 14: the dashboard's saved views (list, or --show NAME)")
+    p.add_argument("--study-dir", required=True, help="Study directory")
+    p.add_argument("--show", help="Print one saved view (its name or file name)")
+    p.set_defaults(func=views_cmd)
 
     p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")
     p.add_argument("--json", action="store_true",
