@@ -1,9 +1,10 @@
 """Research report of a study (Workflow step 13, `expression.py report`).
 
-Writes <study-dir>/report.md in Portuguese with six sections: Estudo, Decisões, Resultados,
-Skills utilizadas, Limitações and Citações. Everything comes from files of the study directory:
-study.yaml, decisions.yaml, manifest.json, processed/* and, when present, raw/atlas_links.md and
-raw/interpret_*.txt (both optional: the report includes them only if the researcher produced them).
+Writes <study-dir>/report.md in Portuguese with seven sections: Estudo, Decisões, Análise do
+pesquisador (dashboard), Resultados da triagem fixa, Skills utilizadas, Limitações and Citações.
+Everything comes from files of the study directory: study.yaml, decisions.yaml, manifest.json,
+processed/*, figures/dashboard/ (the researcher's view drawn by `expression.py figures`) and, when
+present, raw/atlas_links.md and raw/interpret_*.txt (optional: included only if produced).
 The skills listed are the ones recorded in manifest.json, so the report names what was actually
 used. Nothing here is specific to one gene. Research use only: the report describes predicted
 molecular impact and never a diagnosis.
@@ -171,12 +172,59 @@ def _section_decisions(study_dir: Path, meta: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+FIGURE_TEXT = {
+    "janela": ("Variantes ao longo da janela",
+               "Uma haste por variante, na sua posição; a altura é a medida escolhida em *Ordenar por*. As que não passam "
+               "nas escolhas ficam em cinza (com *Variantes nos gráficos: todas*); as destacadas têm um anel vermelho."),
+    "alvo_x_controle": ("O efeito é próprio do alvo?",
+                        "Cada ponto é uma variante: mudança no alvo (horizontal) contra o controle (vertical). Sobre a "
+                        "diagonal tracejada o efeito é igual nos dois grupos; perto da linha horizontal do zero e longe do "
+                        "centro, é próprio do alvo; em quadrantes opostos, os grupos mudam em sentidos contrários."),
+    "variantes": ("Variantes destacadas, medição por medição",
+                  "Uma barra por medição (ensaio e fonte) de cada tecido. Barras do mesmo tecido que discordam muito "
+                  "indicam um tecido instável para a comparação."),
+    "matriz": ("Variantes × tecidos",
+               "As primeiras variantes que passam (linhas, na ordem escolhida) em cada tecido (colunas): vermelho aumenta, "
+               "azul diminui."),
+}
+
+
+def _section_dashboard(study_dir: Path) -> list[str]:
+    """The researcher's view of the dashboard, drawn by `expression.py figures` with the choices behind it."""
+    from viz import report_figures
+
+    rec = report_figures.load_choices(study_dir)
+    lines = ["## Análise do pesquisador (dashboard)", ""]
+    if rec is None:
+        return lines + ["Nenhuma visão do dashboard foi registrada para o relatório. Com as escolhas do pesquisador, "
+                        "`expression.py figures --study-dir D …` desenha os gráficos do dashboard em `figures/dashboard/`; "
+                        "depois, `expression.py report` os inclui aqui.", ""]
+    master = study_dir / core_master.MASTER_FILE
+    if master.is_file() and master.stat().st_mtime > (study_dir / report_figures.CHOICES_FILE).stat().st_mtime:
+        lines += ["> **Atenção**: as figuras abaixo são anteriores à última tabela de variantes (`master.parquet`); "
+                  "gere-as de novo com o comando abaixo antes de usar este relatório.", ""]
+    lines += ["As figuras desta seção foram desenhadas com as mesmas contas e gráficos do dashboard, para as escolhas "
+              "abaixo. Para conferir qualquer uma, abra o dashboard (`expression.py dashboard`) e faça as mesmas escolhas.",
+              "", *report_figures.describe_choices(rec), "", "**Resultado com essas escolhas**", "", rec["headline"], "",
+              "Variantes em cada etapa dos filtros:", ""]
+    lines += _table(["Etapa", "Variantes"], [(s, n) for s, n in rec["steps"]])
+    n = 0
+    for name, (title, caption) in FIGURE_TEXT.items():
+        path = rec["figures"].get(name)
+        if not path or not (study_dir / path).is_file():
+            continue
+        n += 1
+        lines += ["", f"**Figura D{n}. {title}{"" if title.endswith("?") else "."}** {caption}", "", f"![Figura D{n}: {title}]({path})"]
+    lines += ["", f"Comando que gerou as figuras: `{rec['command']}`", ""]
+    return lines
+
+
 def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: Mapping[str, Any],
                      df: pl.DataFrame, top: list[dict[str, Any]]) -> list[str]:
     from viz import workbench_helpers
 
     gates = qc["gates"]
-    lines = ["## Resultados", "",
+    lines = ["## Resultados da triagem fixa", "",
              f"Tier 1 (`master.parquet`): {qc['rows']:,} SNVs, {qc['n_long_scores']:,} pontuações por trilha; QC "
              f"{'aprovado' if qc['overall_qc_passed'] else 'REPROVADO'} (porta 1: {'ok' if gates[0]['passed'] else 'falhou'}, "
              f"porta 2: {'ok' if gates[1]['passed'] else 'falhou'}).",
@@ -296,6 +344,7 @@ def render_report(study_dir: Path) -> str:
              "> Uso em pesquisa apenas. Predições de impacto molecular, não diagnóstico.", ""]
     lines += _section_study(study, locus, resolution, manifest)
     lines += _section_decisions(study_dir, meta)
+    lines += _section_dashboard(study_dir)
     lines += _section_results(study_dir, study, meta, qc, df, top)
     lines += _section_skills(manifest)
     lines += _section_limits(resolution, meta)

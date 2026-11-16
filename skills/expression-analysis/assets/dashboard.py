@@ -142,17 +142,16 @@ def _(H, assays, base, data, labels, mo, sources):
                                    value={"control": "Tirar controles abaixo do piso", "target": "Não analisar se o alvo estiver abaixo",
                                           "both": "Os dois"}.get(base.ref_floor_applies, "Só avisar"), label="O que fazer com o piso")
     one_alt = mo.ui.switch(value=base.one_alt_per_position, label="Uma alternativa por posição")
-    _ymetric = {"Mudança no alvo": "target_mean", "Mudança no sentido procurado, no tecido do alvo que menos muda": "target_toward",
-                "Mudança no controle": "control_mean", "Diferença alvo − controle": "diff",
-                "Diferença em unidades de ruído": "diff_sigma", "AVI Phred (impacto geral, sem tecido)": "avi_phred"}
+    _ymetric = H.Y_METRICS
     y_metric = mo.ui.dropdown(options=_ymetric, value=next((k for k, v in _ymetric.items() if v == base.y_metric), "Mudança no alvo"),
-                              label="Altura no gráfico da janela e ordem da tabela")
+                              label="Ordenar por")
     _colors = H.color_options()
     color_by = mo.ui.dropdown(options=_colors, value=next((k for k, v in _colors.items() if v == base.color_by), "Domínio genômico"),
                               label="Cor no gráfico da janela")
     show_mode = mo.ui.dropdown(options={"Só as que passam nos filtros": "kept", "Todas (as que não passam em cinza)": "all"},
                                value="Só as que passam nos filtros", label="Variantes nos gráficos")
-    top_k = mo.ui.number(start=0, stop=100000, step=10, value=base.top_k or 0, label="Mostrar só as K primeiras (0 = todas)")
+    top_k = mo.ui.number(start=0, stop=data.master.height, step=1, value=base.top_k or 0,
+                         label="Quantas mostrar (0 = todas)")
     return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, max_control_pct, min_sigma,
             min_target_pct, one_alt, question, ref_floor, show_mode, shown_pick, source_pick, target_name, target_pick, top_k,
             use_floor, use_max_control, y_metric)
@@ -186,9 +185,9 @@ def _(A, H, data, dataclasses, pl, profile, show_mode):
     kept, steps = A.apply(effects, data, _p, noise)
     flags = A.expression_flags(data, profile)
     metric = profile.y_metric if profile.y_metric in effects.columns else "target_mean"
-    shown_df = H.add_display_columns(kept if show_mode.value == "kept" else effects, kept["variant_id"].to_list())
-    if show_mode.value == "all" and profile.domains:
-        shown_df = shown_df.filter(pl.col("genomic_domain").is_in(profile.domains))
+    # What the charts and the table show: the variants that pass (or all, the rest in grey), the first K in the
+    # order chosen. K limits what is shown; the headline and the filter steps still count every variant that passes.
+    shown_df = H.display_frame(effects, kept, profile, show_mode.value)
     return effects, flags, kept, metric, noise, shown_df, steps
 
 
@@ -213,17 +212,25 @@ def _(A, data, locus, mo, scorer_pick):
 
 
 @app.cell
-def _(control_pick, descriptions, mo, question, target_pick):
+def _(control_pick, descriptions, mo, question, show_mode, target_pick, top_k, y_metric):
     _desc = lambda xs: "  \n".join(f"- {descriptions.get(c, '')}" for c in xs if descriptions.get(c))
     mo.vstack([
         question,
         mo.hstack([target_pick, control_pick], justify="start", gap=2),
+        mo.hstack([y_metric, top_k, show_mode], justify="start", gap=2),
         mo.accordion({"De onde vêm as medições destes tecidos": mo.md(
             "**Alvo**  \n" + (_desc(target_pick.value) or "nenhum tecido escolhido")
             + "\n\n**Controle**  \n" + (_desc(control_pick.value) or "nenhum tecido escolhido")
             + "\n\nGTEx e ENCODE são os projetos que mediram a expressão usada para treinar o modelo: GTEx mede tecidos de adultos "
             "(mistura de tipos celulares); ENCODE inclui tipos celulares isolados, linhagens e alguns tecidos. polyA mede sobretudo "
-            "mRNA maduro; total inclui RNA ainda não processado.")}),
+            "mRNA maduro; total inclui RNA ainda não processado."),
+                      "Como mostrar": mo.md(
+            "**Ordenar por** define a ordem da tabela, quais entram em *Quantas mostrar* e a altura de cada haste no "
+            "gráfico da janela. *Mudança no alvo* é a média dos tecidos do alvo; *no sentido procurado, no tecido que "
+            "menos muda* favorece variantes que mudam todos os tecidos do alvo; *diferença alvo − controle* favorece "
+            "efeitos próprios do alvo. **Quantas mostrar** desenha e lista só as N primeiras nessa ordem (0 = todas); o resumo "
+            "e as etapas dos filtros continuam contando todas as que passam. **Variantes nos gráficos**: com *Todas*, as que "
+            "não passam nos filtros aparecem em cinza, e *Quantas mostrar* vale sobre todas.")}),
     ])
     return
 
@@ -291,7 +298,7 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
         selected_variant_ids=get_focus_ids(), crop_domain=_crop, full_domain=full_domain, target_label=profile.target_label,
         drag_mode=_mode, axis_title=[y_metric.selected_key + _unit], color_title=color_by.selected_key,
         color_domain=_dom, color_range=_rng, x_title="Posição no cromossomo (GRCh38)", lang="pt",
-        head_size=point_size.value * 2,
+        head_size=point_size.value * 2, faded=("passa", "não passa"),
         extra_tooltip=[("target_mean", f"Mudança no {profile.target_label} ({A.UNIT.get(profile.scorer, 'log')})", ".4f"),
                        ("control_mean", f"Mudança no {profile.control_label} ({A.UNIT.get(profile.scorer, 'log')})", ".4f"),
                        ("top_feature", "Modalidade AVI", None), ("passa", "Filtros", None)])
@@ -299,7 +306,8 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
                                            file_name=f"{study_cfg.data['study_id']}_janela_{metric}"))
     _rel = sorted(((_crop[0] - locus.tss) * locus.strand, (_crop[1] - locus.tss) * locus.strand))
     mo.vstack([
-        mo.md(f"## Ao longo da janela\n{_df.height:,} variantes · trecho de {_crop[1] - _crop[0] + 1} pb "
+        mo.md(f"## Ao longo da janela\n{_df.height:,} variantes" + (f" (as {profile.top_k:,} primeiras em *Ordenar por*)"
+              if profile.top_k and _df.height >= profile.top_k else "") + f" · trecho de {_crop[1] - _crop[0] + 1} pb "
               f"({_rel[0]:+d} a {_rel[1]:+d} pb do início do gene). Clique numa variante para destacá-la."),
         mo.accordion({"Mapa da janela (gene, promotor, éxon 1)": mo.Html(figure_svg(locus, footprint_blocks(locus))),
                       "Como usar este gráfico": mo.md(
@@ -333,40 +341,12 @@ def _(canvas, full_domain, get_crop, get_crop_mode, get_focus_ids, select_varian
 @app.cell
 def _(A, H, VariantCanvas, alt, chart_spec, color_by, get_crop, get_focus_ids, mo, pl, point_size, profile, save_buttons,
       shown_df, study_cfg):
-    from viz.design_system import domain_color_scale
     _lo, _hi = get_crop()
-    _df = shown_df.filter(pl.col("position").is_between(_lo, _hi) & pl.col("target_mean").is_not_null()
-                          & pl.col("control_mean").is_not_null())
-    _df = _df.with_columns(pl.col("variant_id").is_in(list(get_focus_ids())).alias("destacada"))
-    _ccol = color_by.value
-    _p = _df.select(list(dict.fromkeys(["variant_id", "position", "genomic_domain", "target_mean", "control_mean", "passa",
-                                        "destacada", _ccol]))).to_pandas()
-    # Same colours as the window chart, so a colour means the same thing in both
-    _dom, _rng = H.fixed_colors(_ccol)
-    if _dom is None and _ccol == "genomic_domain":
-        _dom, _rng = domain_color_scale(_df["genomic_domain"].unique(maintain_order=True).to_list())
-    _color = alt.Color(f"{_ccol}:N", title=color_by.selected_key,
-                       scale=alt.Scale(domain=_dom, range=_rng) if _dom is not None else alt.Undefined)
-    _lim = float(max(_df["target_mean"].abs().max() or 0.01, _df["control_mean"].abs().max() or 0.01)) * 1.05
-    _sc = alt.Scale(domain=[-_lim, _lim])
-    _u = A.UNIT.get(profile.scorer, "log")
-    _x = alt.X("target_mean:Q", title=f"Mudança no {profile.target_label} ({_u})", scale=_sc)
-    _y = alt.Y("control_mean:Q", title=f"Mudança no {profile.control_label} ({_u})", scale=_sc)
-    _base = alt.Chart(_p)
-    _zoom = alt.selection_interval(bind="scales", encodings=["x", "y"], name="zoom_xy")
-    _pts = _base.mark_circle(size=point_size.value, cursor="pointer", clip=True).encode(
-        x=_x, y=_y, color=_color,
-        opacity=alt.condition(alt.datum.passa == "passa", alt.value(0.9), alt.value(0.18)),
-        tooltip=[alt.Tooltip("variant_id:N", title="Variante"), alt.Tooltip("genomic_domain:N", title="Região"),
-                 alt.Tooltip("passa:N", title="Filtros"),
-                 alt.Tooltip("target_mean:Q", title=f"Mudança no {profile.target_label}", format=".4f"),
-                 alt.Tooltip("control_mean:Q", title=f"Mudança no {profile.control_label}", format=".4f")]).add_params(_zoom)
-    _ring = _base.transform_filter(alt.datum.destacada).mark_point(size=300, color="#e11d48", strokeDash=[4, 3], strokeWidth=2, clip=True).encode(x=_x, y=_y)
-    _diag = alt.Chart(alt.Data(values=[{"x": -_lim, "y": -_lim}, {"x": _lim, "y": _lim}])).mark_line(
-        strokeDash=[4, 4], color="#a8a29e", clip=True).encode(x=alt.X("x:Q", scale=_sc), y=alt.Y("y:Q", scale=_sc))
-    _h = alt.Chart(alt.Data(values=[{"v": 0}])).mark_rule(color="#d6d3d1", clip=True).encode(y=alt.Y("v:Q", scale=_sc))
-    _v = alt.Chart(alt.Data(values=[{"v": 0}])).mark_rule(color="#d6d3d1", clip=True).encode(x=alt.X("v:Q", scale=_sc))
-    _schart = alt.layer(_diag, _h, _v, _pts, _ring).properties(width=560, height=440)
+    _schart = H.target_control_scatter(shown_df.filter(pl.col("position").is_between(_lo, _hi)), profile, color_by.value,
+                                       color_by.selected_key, point_size=point_size.value, focus_ids=list(get_focus_ids()))
+    if _schart is None:
+        _schart = alt.Chart(alt.Data(values=[{"t": "Nenhuma variante com valores no alvo e no controle."}])).mark_text().encode(
+            text="t:N").properties(width=560, height=60)
     scatter = mo.ui.anywidget(VariantCanvas(spec=chart_spec(_schart),
                                             selected=list(get_focus_ids()), crop=[],
                                             file_name=f"{study_cfg.data['study_id']}_alvo_x_controle"))
@@ -395,17 +375,18 @@ def _(get_focus_ids, scatter, select_variants):
 
 
 @app.cell
-def _(A, get_crop, get_focus_ids, kept, labels, mo, pl, profile, select_variants):
+def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show_mode, shown_df):
     _base = A.SCALES.get(profile.scorer, (2.718281828459045, ""))[0]
     _lo, _hi = get_crop()
-    _rows = kept.filter(pl.col("position").is_between(_lo, _hi))
+    _rows = shown_df.filter(pl.col("position").is_between(_lo, _hi))
     _eff = [c for c in _rows.columns if c.startswith("eff_")]
     _pct = lambda c: ((pl.lit(_base).pow(pl.col(c)) - 1) * 100).round(1)
     _show = _rows.select([pl.col("variant_id").alias("variante"), pl.col("genomic_domain").alias("região"),
                           pl.col("distance_to_tss").alias("dist. início do gene"),
                           _pct("target_mean").alias(f"% {profile.target_label}"), _pct("control_mean").alias(f"% {profile.control_label}"),
                           *[_pct(c).alias(f"% {labels.get(c[4:], c[4:]).split(' (')[0]}") for c in _eff],
-                          pl.col("top_feature").alias("modalidade AVI"), pl.col("atlas_url").alias("Atlas")])
+                          pl.col("top_feature").alias("modalidade AVI"), pl.col("atlas_url").alias("Atlas"),
+                          *([pl.col("passa").alias("filtros")] if show_mode.value == "all" else [])])
     _ids = _show["variante"].to_list()
     variant_table = mo.ui.table(_show.to_dicts(), selection="multi",
                                 initial_selection=[i for i, v in enumerate(_ids) if v in set(get_focus_ids())], page_size=12,
@@ -480,9 +461,8 @@ def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, p
 
 
 @app.cell
-def _(A, H, assay_pick, color_by, control_name, descriptions, flags, floor_applies, labels, mo, noise, one_alt, pl,
-      profile, ref_floor, scorer_pick, show_mode, shown_pick, source_pick, target_name, tissues, top_k,
-      use_floor, y_metric):
+def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, labels, mo, noise, pl,
+      profile, ref_floor, scorer_pick, shown_pick, source_pick, target_name, tissues, use_floor):
     _t = tissues.select(pl.col("tissue").alias("tecido"), pl.col("ontology_curie").alias("termo"),
                         pl.col("study_cohort").replace({"target": "alvo", "control": "controle"}).alias("na captura"),
                         pl.col("tracks").alias("medições"), pl.col("ref_min").round(4).alias("REF mín"),
@@ -509,9 +489,6 @@ def _(A, H, assay_pick, color_by, control_name, descriptions, flags, floor_appli
               "praticamente desligado e as mudanças previstas ficam instáveis. Na ativação ectópica, use \"Só avisar\"."),
         mo.hstack([use_floor, ref_floor, floor_applies], justify="start"),
         mo.md("\n".join(_warn)),
-        mo.md("### Gráficos e tabela"),
-        mo.hstack([y_metric, color_by], justify="start"),
-        mo.hstack([show_mode, top_k, one_alt], justify="start"),
         mo.md("### Tecidos capturados"),
         mo.ui.table(_t.to_pandas(), selection=None, pagination=False),
         mo.md("### Ruído do estudo"),

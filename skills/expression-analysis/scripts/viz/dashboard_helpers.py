@@ -30,6 +30,63 @@ def group_of(profile: A.Profile, curie: str) -> str:
     return "contexto"
 
 
+# 'Ordenar por' (label -> column): the order of the table, what 'Quantas mostrar' keeps, the height in the window chart
+Y_METRICS = {"Mudança no alvo": "target_mean", "Mudança no sentido procurado, no tecido do alvo que menos muda": "target_toward",
+             "Mudança no controle": "control_mean", "Diferença alvo − controle": "diff",
+             "Diferença em unidades de ruído": "diff_sigma", "AVI Phred (impacto geral, sem tecido)": "avi_phred"}
+
+
+def display_frame(effects: pl.DataFrame, kept: pl.DataFrame, profile: A.Profile, show_mode: str) -> pl.DataFrame:
+    """What the charts and the table show: the variants that pass ('kept') or all of them ('all', the rest marked
+    'não passa'), the first `profile.top_k` in the order of 'Ordenar por' (a display limit, not a filter)."""
+    pool = add_display_columns(kept if show_mode == "kept" else effects, kept["variant_id"].to_list())
+    if show_mode == "all" and profile.domains:
+        pool = pool.filter(pl.col("genomic_domain").is_in(profile.domains))
+    metric = profile.y_metric if profile.y_metric in pool.columns else "target_mean"
+    return A.first_k(pool, metric, profile.top_k)
+
+
+def target_control_scatter(df: pl.DataFrame, profile: A.Profile, color_col: str, color_title: str, *,
+                           point_size: int = 40, focus_ids: Sequence[str] = (), zoom: bool = True) -> Any:
+    """'O efeito é próprio do alvo?': change in the target (x) vs the control (y), same colours as the window chart,
+    variants that do not pass faded, highlighted ones ringed. None when no variant has both values."""
+    from viz.design_system import domain_color_scale
+
+    df = df.filter(pl.col("target_mean").is_not_null() & pl.col("control_mean").is_not_null())
+    if df.is_empty():
+        return None
+    df = df.with_columns(pl.col("variant_id").is_in(list(focus_ids)).alias("destacada"))
+    p = df.select(list(dict.fromkeys(["variant_id", "position", "genomic_domain", "target_mean", "control_mean", "passa",
+                                      "destacada", color_col]))).to_pandas()
+    dom, rng = fixed_colors(color_col)
+    if dom is None and color_col == "genomic_domain":
+        dom, rng = domain_color_scale(df["genomic_domain"].unique(maintain_order=True).to_list())
+    color = alt.Color(f"{color_col}:N", title=color_title,
+                      scale=alt.Scale(domain=dom, range=rng) if dom is not None else alt.Undefined)
+    lim = float(max(df["target_mean"].abs().max() or 0.01, df["control_mean"].abs().max() or 0.01)) * 1.05
+    sc = alt.Scale(domain=[-lim, lim])
+    u = A.UNIT.get(profile.scorer, "log")
+    x = alt.X("target_mean:Q", title=f"Mudança no {profile.target_label} ({u})", scale=sc)
+    y = alt.Y("control_mean:Q", title=f"Mudança no {profile.control_label} ({u})", scale=sc)
+    base = alt.Chart(p)
+    pts = base.mark_circle(size=point_size, cursor="pointer", clip=True).encode(
+        x=x, y=y, color=color,
+        opacity=alt.condition(alt.datum.passa == "passa", alt.value(0.9), alt.value(0.18)),
+        tooltip=[alt.Tooltip("variant_id:N", title="Variante"), alt.Tooltip("genomic_domain:N", title="Região"),
+                 alt.Tooltip("passa:N", title="Filtros"),
+                 alt.Tooltip("target_mean:Q", title=f"Mudança no {profile.target_label}", format=".4f"),
+                 alt.Tooltip("control_mean:Q", title=f"Mudança no {profile.control_label}", format=".4f")])
+    if zoom:
+        pts = pts.add_params(alt.selection_interval(bind="scales", encodings=["x", "y"], name="zoom_xy"))
+    ring = base.transform_filter(alt.datum.destacada).mark_point(size=300, color="#e11d48", strokeDash=[4, 3],
+                                                                 strokeWidth=2, clip=True).encode(x=x, y=y)
+    diag = alt.Chart(alt.Data(values=[{"x": -lim, "y": -lim}, {"x": lim, "y": lim}])).mark_line(
+        strokeDash=[4, 4], color="#a8a29e", clip=True).encode(x=alt.X("x:Q", scale=sc), y=alt.Y("y:Q", scale=sc))
+    h = alt.Chart(alt.Data(values=[{"v": 0}])).mark_rule(color="#d6d3d1", clip=True).encode(y=alt.Y("v:Q", scale=sc))
+    v = alt.Chart(alt.Data(values=[{"v": 0}])).mark_rule(color="#d6d3d1", clip=True).encode(x=alt.X("v:Q", scale=sc))
+    return alt.layer(diag, h, v, pts, ring).properties(width=560, height=440)
+
+
 def color_options() -> dict[str, str]:
     """Display label -> column used to colour Figure 2."""
     return {"Domínio genômico": "genomic_domain", "Passa nos filtros": "passa", "Sentido do efeito no alvo": "sentido",
