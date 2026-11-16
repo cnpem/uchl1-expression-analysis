@@ -1,39 +1,57 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml", "matplotlib", "polars", "pyarrow", "pandas", "altair"]
+# dependencies = ["pyyaml==6.0.3", "matplotlib==3.11.2", "polars==1.31.0", "pyarrow==26.0.1", "pandas==3.1.1", "altair==6.3.0"]
 # ///
 """CLI for the expression-analysis skill.
 
 Subcommands:
   check      Verify prerequisites (uv, dependency skills, licence files, API keys).
-             Prints what is missing and the install command; never installs anything.
+             Prints what is missing and the install command; never installs anything. --json
+             lists them as questions for the setup.
   locus      Workflow step 4: transcript, TSS, exon 1 and regulatory window from raw/gtf.json,
              raw/regulatory.json and raw/sequence_*.txt. Writes processed/locus.json,
              processed/transcripts_in_window.tsv and figures/fig1_genomic_architecture.html;
-             open questions go to processed/pending_decisions.json (exit 1).
+             open questions (locus.transcript, locus.feature_*, locus.no_feature_chain) go to
+             processed/pending_decisions.json (exit 1); the rest of the window follows its policy
+             (rules recorded in decisions.yaml).
   cohorts    Workflow step 8: UBERON/CL cohorts matched with the Atlas track catalogue. Writes
              processed/track_registry.tsv, processed/ontology_resolution.json and
-             processed/tissue_cohorts.md; open questions (cohort.unserved:*,
-             cohort.scorer_without_cohort:*) go to processed/pending_decisions.json (exit 1).
+             processed/tissue_cohorts.md; open questions (cohort.unserved:*, cohort.no_rna_seq:*)
+             go to processed/pending_decisions.json (exit 1); a prediction type without tracks in
+             one group is left out by rule.
   variants   Workflow step 11: saturated SNV table of the window (REF from the Ensembl sequence,
-             cross-checked with the AVI export). Writes processed/core_variants.tsv; REF
-             disagreements and SNVs without an AVI row (variants.*) go to
-             processed/pending_decisions.json (exit 1).
+             cross-checked with the AVI export). Writes processed/core_variants.tsv; positions
+             with REF disagreements or SNVs without an AVI row are left out by rule, unless they
+             exceed 1% of the window (question variants.exclusion_limit, exit 1).
   master     Workflow step 11: Tier 1 table (variants + AVI + per-track raw/quantile) with the
              2-gate QC. Writes processed/master.parquet, track_scores_long.parquet, qc_report.json;
              exit 1 when a gate fails.
-  contrast   Workflow step 12: Tier 2 target-vs-control contrasts. --propose writes
-             processed/contrasts_proposed.yaml and lists the review points. Without --propose it
-             needs decision contrast.plan and contrasts.yaml; writes processed/tissue_contrast.parquet,
-             tissue_contrast_meta.json, top_variants.tsv and top_variants.json; open review points
-             (contrast.review:*) go to processed/pending_decisions.json (exit 1).
+  contrast   Workflow step 12: Tier 2 target-vs-control contrasts (the report's fixed triage).
+             Generates contrasts.yaml from the cohorts when absent (rule contrast.plan) and writes
+             processed/tissue_contrast.parquet, tissue_contrast_meta.json, top_variants.tsv and
+             top_variants.json; no question. --propose only writes processed/contrasts_proposed.yaml
+             for a maintainer.
   report     Workflow step 13: writes <study-dir>/report.md (Estudo, Decisoes, Resultados, Skills
              utilizadas, Limitacoes, Citacoes) from processed/*, decisions.yaml and manifest.json.
-  dashboard  Workflow step 14: opens the marimo triage workbench (assets/workbench.py) on a study
-             directory; --export-html writes a static HTML with Figures 1-4 instead.
+  summarize  Text summary of the dashboard view for given choices (same computation; for the agent to
+             explain what the researcher sees). Writes nothing.
+  dashboard  Workflow step 14: opens the analysis dashboard (assets/dashboard.py) on a study directory;
+             --export-html writes a static HTML of its opening view instead. --edit (maintainers) opens
+             the marimo editor on the skill's file; --legacy opens the previous triage workbench.
   reproduce  Re-run the registered stages on a bundled reference study and compare with
              its expected.json.
+
+Captures and exploration (each runs a dependency skill with pinned packages and records itself in
+manifest.json; --dry-run prints the commands):
+  explore    Workflow step 0: read-only exploration of a gene before the study exists -> OUT/exploration/
+             (summary.md for the researcher, exploration.json, raw/, atlas/, manifest.json).
+  fetch      fetch gtf | regulatory | sequence | ols | ols-term | tracks | avi | scores | links | interpret
+             --study-dir D: one dependency capture of Workflow steps 2-13, written under the name the next
+             stage reads.
+
+Every stage subcommand above appends its own command line, outputs and the decision keys it used to
+manifest.json when it succeeds (report and dashboard included).
 
 Workflow helper (no analysis; it spares the agent hand arithmetic):
   regions    Regions the dependency commands need: the regulatory search region of step 3 (gene
@@ -46,12 +64,15 @@ Workflow helper (no analysis; it spares the agent hand arithmetic):
 import argparse
 import json
 import os
-import re
 import shutil
 import sys
 from pathlib import Path
 from typing import Callable
 
+import deps
+import explore as core_explore
+import fetch
+import manifest
 import models
 import reference
 import study
@@ -72,13 +93,39 @@ def _stage_error(exc: Exception) -> None:
     sys.exit(1)
 
 
+def _record(study_dir: Path, step: str, outputs: list[str], areas: tuple[str, ...] = (),
+            versions: dict[str, str] | None = None) -> None:
+    """Appends the stage that just ran (this exact command line) to the study manifest.
+
+    The decision keys are the recorded answers of the stage's areas (e.g. `locus.`), so the manifest says
+    which researcher decisions the outputs rest on. Called by the CLI only: `reproduce` runs the same
+    stages on a copy of the reference and records nothing.
+    """
+    # The researcher's answers under the stage's areas, plus the skill's rules other than per-position exclusions
+    # (those can be hundreds; decisions.yaml and the report list each one)
+    decisions = study.load_decisions(study_dir) if areas else {}
+    keys = [k for k, e in decisions.items() if k.startswith(areas)
+            and not (e.decided_by == "skill" and k.startswith(core_variants.RULE_PREFIXES))]
+    present = [o for o in outputs if (study_dir / o).is_file()]
+    try:
+        manifest.add_step(study_dir, manifest.ManifestStep(
+            step=step, skill="expression-analysis", command=fetch.invocation(), outputs=present,
+            source_versions={"skill_version": manifest._skill_identity()[1], **(versions or {})},
+            recorded_at=manifest._now(), decision_keys=keys))
+    except manifest.ManifestError as exc:
+        print(f"Warning: not recorded in manifest.json ({exc})", file=sys.stderr)
+        return
+    print(f"Recorded step {step!r} in {study_dir / manifest.MANIFEST_NAME}")
+
+
 def run_locus(study_dir: Path) -> None:
     """Workflow step 4: builds the locus and window, writes locus.json, the transcript table and Figure 1."""
     try:
         locus = core_locus.run(study_dir)
         figure = genomic_architecture.write_figure(study_dir, locus)
+        study.clear_pending(study_dir, ("locus.",))
     except core_locus.LocusPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("locus.",))
     except (core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     codon = ("start codon reads ATG" if locus.start_codon_verified
@@ -90,15 +137,19 @@ def run_locus(study_dir: Path) -> None:
 
 
 def locus_cmd(args: argparse.Namespace) -> None:
-    run_locus(Path(args.study_dir))
+    study_dir = Path(args.study_dir)
+    run_locus(study_dir)
+    _record(study_dir, "4-locus", [core_locus.LOCUS_FILE, core_locus.TRANSCRIPTS_FILE,
+                                   "figures/fig1_genomic_architecture.html"], ("locus.",))
 
 
 def run_cohorts(study_dir: Path) -> None:
     """Workflow step 8: resolves the cohorts against the track catalogue and writes the track registry."""
     try:
         resolution = core_cohorts.run(study_dir)
+        study.clear_pending(study_dir, ("cohort.",))
     except core_cohorts.CohortPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("cohort.",))
     except (core_cohorts.CohortError, core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     metrics = core_cohorts.stage_metrics(study_dir)
@@ -111,22 +162,28 @@ def run_cohorts(study_dir: Path) -> None:
 
 
 def cohorts_cmd(args: argparse.Namespace) -> None:
-    run_cohorts(Path(args.study_dir))
+    study_dir = Path(args.study_dir)
+    run_cohorts(study_dir)
+    _record(study_dir, "8-cohorts", [core_cohorts.REGISTRY_FILE, core_cohorts.RESOLUTION_FILE,
+                                     core_cohorts.TISSUE_DOC_FILE], ("cohort.",))
 
 
 def run_variants(study_dir: Path) -> None:
     """Workflow step 11: enumerates the SNVs of the window and writes core_variants.tsv."""
     try:
         df = core_variants.run(study_dir)
+        study.clear_pending(study_dir, ("variants.",))
     except core_variants.VariantsPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("variants.",))
     except (core_variants.VariantsError, core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     print(f"Variants: {df.height} SNV(s) at {df['position'].n_unique()} position(s). Wrote {core_variants.CORE_VARIANTS_FILE}")
 
 
 def variants_cmd(args: argparse.Namespace) -> None:
-    run_variants(Path(args.study_dir))
+    study_dir = Path(args.study_dir)
+    run_variants(study_dir)
+    _record(study_dir, "11-variants", [core_variants.CORE_VARIANTS_FILE], ("variants.",))
 
 
 def run_master(study_dir: Path) -> None:
@@ -148,15 +205,18 @@ def run_master(study_dir: Path) -> None:
 
 
 def master_cmd(args: argparse.Namespace) -> None:
-    run_master(Path(args.study_dir))
+    study_dir = Path(args.study_dir)
+    run_master(study_dir)
+    _record(study_dir, "11-master", [core_master.MASTER_FILE, core_master.LONG_FILE, core_master.QC_FILE])
 
 
 def run_contrast(study_dir: Path) -> None:
-    """Workflow step 12: executes the approved contrast plan (needs decision contrast.plan)."""
+    """Workflow step 12: runs the contrast plan of the triage (generated from the cohorts when the study has none)."""
     try:
         df = core_contrast.run(study_dir)
+        study.clear_pending(study_dir, ("contrast.",))
     except core_contrast.ContrastPending as exc:
-        study.raise_pending(study_dir, exc.items)
+        study.raise_pending(study_dir, exc.items, ("contrast.",))
     except (core_contrast.ContrastError, core_master.MasterError, core_cohorts.CohortError, models.DependencyOutputError,
             study.StudyError) as exc:
         _stage_error(exc)
@@ -168,6 +228,8 @@ def contrast_cmd(args: argparse.Namespace) -> None:
     study_dir = Path(args.study_dir)
     if not args.propose:
         run_contrast(study_dir)
+        _record(study_dir, "12-contrast", ["contrasts.yaml", core_contrast.CONTRAST_FILE, core_contrast.META_FILE,
+                                           core_contrast.TOP_TSV_FILE, core_contrast.TOP_JSON_FILE], ("contrast.",))
         return
     try:
         path, plan, points = core_contrast.propose(study_dir)
@@ -177,7 +239,8 @@ def contrast_cmd(args: argparse.Namespace) -> None:
     print(f"Proposed plan: {', '.join(c.name for c in plan.contrasts)}; priority from {plan.priority.direction_contrast}. "
           f"Wrote {path.relative_to(study_dir)}")
     for q in points:
-        print(f"  review: {q.key}: {q.question}")
+        print(f"  note: {q.question}")
+    _record(study_dir, "12-contrast-propose", [path.relative_to(study_dir).as_posix()])
 
 
 def run_workbench_metrics(study_dir: Path) -> None:
@@ -200,41 +263,108 @@ def report_cmd(args: argparse.Namespace) -> None:
             core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     print(f"Report: wrote {path}")
+    _record(study_dir, "13-report", ["report.md"])
 
 
-WORKBENCH_APP = SKILL_DIR / "assets" / "workbench.py"
-WORKBENCH_DEPS = ["marimo>=0.25", "altair>=5.4", "anywidget", "pandas", "polars", "pyarrow", "pyyaml", "matplotlib"]
+WORKBENCH_APP = SKILL_DIR / "assets" / "workbench.py"      # legacy triage workbench (reproduce stage metrics)
+DASHBOARD_APP = SKILL_DIR / "assets" / "dashboard.py"      # analysis dashboard (groups, question, filters chosen on the page)
+WORKBENCH_DEPS = list(deps.WORKBENCH_DEPS)
+DEFAULT_PORT = 2718
+
+
+def _free_port(preferred: int) -> int:
+    """`preferred` when nothing listens on it, else a free port chosen by the system."""
+    import socket
+
+    for port in (preferred, 0):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return s.getsockname()[1]
+    raise RuntimeError("no free TCP port on 127.0.0.1")
+
+
+def _place_app(app_dir: Path, source: Path) -> Path:
+    """The notebook inside the study (marimo writes __marimo__/ next to it, never inside the skill).
+
+    A symlink where the system allows one; otherwise a copy (Windows without developer mode refuses
+    symlinks). Either way the app finds scripts/ through EXPRESSION_ANALYSIS_SCRIPTS.
+    """
+    app_dir.mkdir(exist_ok=True)
+    app = app_dir / source.name
+    if app.is_symlink() or app.exists():
+        app.unlink()
+    try:
+        app.symlink_to(source)
+    except OSError:
+        shutil.copyfile(source, app)
+    return app
 
 
 def dashboard_cmd(args: argparse.Namespace) -> None:
-    """Opens the marimo workbench, or exports it to static HTML (marimo runs in an ephemeral uv environment)."""
+    """Opens the analysis dashboard (default), the legacy workbench (--legacy), the dashboard in the marimo
+    editor (--edit), or exports a static HTML (marimo runs in an ephemeral uv environment)."""
     import subprocess
 
     study_dir = Path(args.study_dir).resolve()
+    source = WORKBENCH_APP if args.legacy else DASHBOARD_APP
     try:
-        workbench_helpers.load_workbench_datasets(study_dir)
+        if args.legacy:
+            workbench_helpers.load_workbench_datasets(study_dir)
+        else:
+            core_master.load_master(study_dir)
+            core_master.load_registry(study_dir)
     except (core_contrast.ContrastError, core_master.MasterError, core_cohorts.CohortError, core_locus.LocusError,
             study.StudyError) as exc:
         _stage_error(exc)
     if shutil.which("uv") is None:
         _stage_error(RuntimeError("'uv' is not on PATH; install it with the 'uv' skill."))
-    # marimo writes __marimo__/session/ next to the notebook file. Launch it through a symlink inside
-    # the study directory so that folder lands in the study, never inside the skill's assets/.
-    # (The app resolves the symlink to find scripts/.)
-    app_dir = study_dir / ".workbench"
-    app_dir.mkdir(exist_ok=True)
-    app = app_dir / WORKBENCH_APP.name
-    if app.is_symlink() or app.exists():
-        app.unlink()
-    app.symlink_to(WORKBENCH_APP)
-    base = ["uv", "run", "--no-project", "--python", "3.13", *[a for d in WORKBENCH_DEPS for a in ("--with", d)], "marimo"]
+    env = {**os.environ, "EXPRESSION_ANALYSIS_SCRIPTS": str(SKILL_DIR / "scripts"), "PYTHONIOENCODING": "utf-8"}
+    base = ["uv", "run", "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.WORKBENCH_DEPS), "marimo"]
+    packages = ", ".join(deps.WORKBENCH_DEPS)
+    step = "14-workbench" if args.legacy else "14-dashboard"
     if args.export_html:
+        app = _place_app(study_dir / ".workbench", source)
         out = Path(args.export_html).resolve()
         out.parent.mkdir(parents=True, exist_ok=True)
-        cmd = [*base, "export", "html", str(app), "-o", str(out), "--force", "--", "--study-dir", str(study_dir)]
-    else:
-        cmd = [*base, "run", str(app), "--port", str(args.port), "--", "--study-dir", str(study_dir)]
-    sys.exit(subprocess.call(cmd, cwd=study_dir))
+        cmd = [*base, "export", "html", "--no-sandbox", str(app), "-o", str(out), "--force", "--", "--study-dir", str(study_dir)]
+        code = subprocess.call(cmd, cwd=study_dir, env=env)
+        if code == 0:
+            inside = out.is_relative_to(study_dir)
+            versions = {"marimo_command": deps.display_command(cmd), "packages": packages}
+            if not inside:
+                versions["export_outside_study"] = str(out)
+            _record(study_dir, step, [out.relative_to(study_dir).as_posix()] if inside else [], versions=versions)
+        sys.exit(code)
+    port = _free_port(args.port)
+    if port != args.port:
+        print(f"Port {args.port} is busy; using {port}.")
+    url = f"http://localhost:{port}"
+    if args.edit:
+        # The editor opens the skill's own file, so changes to cells, charts and defaults are kept in the skill
+        # (and in its git history); the study is passed as an argument.
+        cmd = [*base, "edit", "--no-sandbox", "--no-token", str(source), "--headless", "--port", str(port), "--",
+               "--study-dir", str(study_dir)]
+        print(f"Dashboard editor: open {url} in a browser. Edits are saved to {source} (Ctrl+C here stops it).", flush=True)
+        try:
+            sys.exit(subprocess.call(cmd, cwd=study_dir, env=env))
+        except KeyboardInterrupt:
+            sys.exit(130)
+    app = _place_app(study_dir / ".workbench", source)
+    cmd = [*base, "run", "--no-sandbox", str(app), "--headless", "--port", str(port), "--", "--study-dir", str(study_dir)]
+    print(f"Dashboard: open {url} in a browser (Ctrl+C here stops it).", flush=True)
+    code = 1
+    try:
+        code = subprocess.call(cmd, cwd=study_dir, env=env)
+    except KeyboardInterrupt:
+        code = 130
+    finally:
+        # Recorded after the session ends, with its exit code, so a launch that failed is not reported as served.
+        _record(study_dir, step, [], versions={"url": url, "marimo_command": deps.display_command(cmd),
+                                               "packages": packages, "exit_code": str(code)})
+    sys.exit(code)
 
 
 # --------------------------------------------------------------------------- workflow helper
@@ -308,6 +438,205 @@ def regions_cmd(args: argparse.Namespace) -> None:
         print(json.dumps(regions, indent=2))
 
 
+# --------------------------------------------------------------------------- captures (fetch) and exploration
+
+FETCH_KINDS = ("gtf", "regulatory", "sequence", "ols", "ols-term", "tracks", "scores", "avi", "links", "interpret")
+
+
+def _study_curies(study_dir: Path, config: study.StudyConfig) -> list[str]:
+    """CURIEs whose tracks the study needs: study.yaml cohorts, the cohort decisions and their replace:/add: answers."""
+    curies = [c for side in ("target", "control") for c in config.data["cohorts"][side]["curies"]]
+    try:
+        curies += sorted(core_cohorts.chosen_curies(study.load_decisions(study_dir)))
+    except core_cohorts.CohortError:
+        pass  # cohort.target / cohort.control not decided yet
+    return list(dict.fromkeys(curies))
+
+
+def _queried(study_dir: Path) -> set[tuple[str, str]]:
+    return core_cohorts._queried_pairs(study_dir)
+
+
+def fetch_cmd(args: argparse.Namespace) -> None:
+    """Runs one dependency capture of the Workflow into the study and records it in manifest.json."""
+    study_dir = Path(args.study_dir)
+    ws = fetch.Workspace(root=study_dir, invoked_by=fetch.invocation(), dry_run=args.dry_run)
+    try:
+        config = study.load_study(study_dir)
+        gene = config.gene_symbol
+        kind = args.kind
+        if kind == "gtf":
+            fetch.gtf(ws, gene)
+        elif kind in ("regulatory", "sequence"):
+            region = args.region or study_regions(study_dir)["regulatory_search"]["region"]
+            (fetch.regulatory if kind == "regulatory" else fetch.sequence)(ws, region)
+        elif kind == "ols":
+            if not args.query:
+                raise fetch.FetchError("fetch ols needs --query TEXT (repeat it for several tissues or cell types)")
+            for text in args.query:
+                path = fetch.ols_search(ws, text, args.ontology, args.rows)
+                if not args.dry_run:
+                    _print_hits(path)
+        elif kind == "ols-term":
+            if not args.curie:
+                raise fetch.FetchError("fetch ols-term needs --curie CURIE (repeatable)")
+            for curie in args.curie:
+                fetch.ols_term(ws, curie)
+        elif kind == "tracks":
+            scorers = args.scorer or list(config.data["scorers"])
+            if args.catalogue:
+                for s in scorers:
+                    if args.force or not (study_dir / "raw" / f"tracks_{s}_catalogue.parquet").is_file():
+                        fetch.catalogue(ws, s)
+            curies = args.curie or _study_curies(study_dir, config)
+            done = set() if args.force else _queried(study_dir)
+            for c in curies:
+                for s in scorers:
+                    exists = (study_dir / "raw" / f"tracks_{s}_{fetch.curie_file(c)}.parquet").is_file()
+                    if not args.force and (exists or (s, c) in done):
+                        print(f"Skip {s} x {c}: already captured (use --force to capture again).")
+                        continue
+                    fetch.tracks(ws, c, s)
+        elif kind in ("avi", "scores"):
+            regions = study_regions(study_dir)
+            if regions["window"] is None:
+                raise core_locus.LocusError("the window needs processed/locus.json; run expression.py locus first.")
+            window, max_window = regions["window"]["region"], int(regions["max_window"])
+            if kind == "avi":
+                fetch.avi_region(ws, window, max_window)
+            else:
+                resolution = core_cohorts.load_resolution(study_dir)
+                curies = resolution["effective_target_curies"] + resolution["effective_control_curies"]
+                for s in args.scorer or resolution["effective_scorers"]:
+                    fetch.scores(ws, window, max_window, s, curies, gene)
+        elif kind == "links":
+            fetch.atlas_links(ws)
+        elif kind == "interpret":
+            if not args.ontology_id:
+                raise fetch.FetchError("fetch interpret needs --ontology-id CURIE (a target CURIE the researcher chose)")
+            top = json.loads((study_dir / core_contrast.TOP_JSON_FILE).read_text(encoding="utf-8"))
+            variants = args.variant or [r["variant"] for r in top][: args.top]
+            if not args.dry_run:
+                (study_dir / "processed" / "interpret_variants.txt").write_text("\n".join(variants) + "\n",
+                                                                               encoding="utf-8")
+            label = args.tissue or config.data["cohorts"]["target"]["label"]
+            for v in variants:
+                fetch.interpret(ws, v, args.ontology_id, gene, label)
+    except (fetch.FetchError, deps.DependencyError, core_locus.LocusError, core_cohorts.CohortError,
+            core_contrast.ContrastError, models.DependencyOutputError, study.StudyError, manifest.ManifestError,
+            OSError, ValueError) as exc:
+        _stage_error(exc)
+
+
+def _print_hits(path: Path) -> None:
+    """The OLS hits as label, CURIE and the start of the definition, for showing to the researcher."""
+    hits = models.load_raw(path)[0].terms
+    seen = set()
+    print(f"OLS hits in {path.name}:")
+    for h in hits:
+        if h.obo_id in seen:
+            continue
+        seen.add(h.obo_id)
+        definition = (h.description[0] if h.description else "")[:110]
+        print(f"  {h.obo_id:<16} {h.label} -- {definition}")
+
+
+def explore_cmd(args: argparse.Namespace) -> None:
+    """Workflow step 0: read-only exploration into <out>/exploration (no study yet)."""
+    try:
+        summary = core_explore.run(Path(args.out), args.gene.strip(), args.tissue or [],
+                                   tuple(args.scorers), args.flank_bp, args.floor, fetch.invocation(), args.dry_run)
+    except (core_explore.ExploreError, fetch.FetchError, deps.DependencyError, core_locus.LocusError,
+            models.DependencyOutputError, manifest.ManifestError, OSError, ValueError) as exc:
+        _stage_error(exc)
+    if not args.dry_run:
+        print(f"Exploration: wrote {summary} and {summary.with_name(core_explore.EXPLORATION_FILE)}. Show summary.md "
+              "to the researcher and ask for the window, target, control and scorers before study.py init "
+              "--from-exploration.")
+
+
+def summarize_cmd(args: argparse.Namespace) -> None:
+    """Text summary of the dashboard view for the same choices (the agent reads it to explain the dashboard).
+
+    Same computation as assets/dashboard.py (core.analysis); defaults are the dashboard's opening view:
+    the study's target and control tissues, any direction, no filter. Writes nothing.
+    """
+    import dataclasses
+
+    import polars as pl
+
+    from core import analysis as A
+    from viz import dashboard_helpers as H
+
+    study_dir = Path(args.study_dir)
+    try:
+        data = A.load_study_data(study_dir)
+        config = study.load_study(study_dir)
+    except (core_master.MasterError, study.StudyError) as exc:
+        _stage_error(exc)
+    reg = data.registry
+    cohorts = config.data.get("cohorts", {})
+    scorer = args.scorer
+    toward = args.question != "either"
+    profile = A.Profile(
+        scorer=scorer,
+        target=args.target or sorted(set(reg.filter(reg["cohort"] == "target")["ontology_curie"].to_list())),
+        control=args.control or sorted(set(reg.filter(reg["cohort"] == "control")["ontology_curie"].to_list())),
+        target_label=args.target_label or cohorts.get("target", {}).get("label") or "Alvo",
+        control_label=args.control_label or cohorts.get("control", {}).get("label") or "Controle",
+        assays=args.assay or [], sources=args.source or [], question=args.question,
+        min_change_pct=args.min_change_pct, max_control_pct=args.max_control_pct,
+        min_diff_sigma=args.min_sigma, ref_floor=args.ref_floor, ref_floor_applies=args.floor_applies,
+        domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric, top_k=None)
+    tissues = A.tissue_table(data, scorer)
+    labels = {r["ontology_curie"]: r["tissue"] for r in tissues.iter_rows(named=True)}
+    desc = H.describe_tissues(data, scorer)
+    noise = A.noise_model(data, scorer, profile.assays or None, profile.sources or None)
+    # Same order of operations as the dashboard: controls below the expression floor leave before computing
+    used = profile
+    if profile.ref_floor is not None and profile.ref_floor_applies in ("control", "both"):
+        flags = A.expression_flags(data, profile)
+        used = dataclasses.replace(profile, control=[c for c in profile.control if flags.get(c) != "below floor"])
+    effects = A.compute(data, used, noise)
+    kept, steps = A.apply(effects, data, used, noise)
+    what = A.SCALES.get(scorer, (None, "o sinal previsto"))[1]
+    out = [f"# {config.gene_symbol}: resumo da visão do dashboard ({scorer}; % d{what})", "",
+           H.headline(kept, effects, profile, labels, A.ref_by_tissue(data)), "", "## Grupos e medições", ""]
+    for role, curies, name in (("Alvo", profile.target, profile.target_label), ("Controle", profile.control, profile.control_label)):
+        out.append(f"**{role} ({name})**")
+        out += [f"- {labels.get(c, c)} ({c}): {desc.get(c, 'sem medições deste tipo')}" for c in curies] or ["- nenhum"]
+        out.append("")
+    dropped = [c for c in profile.control if c not in used.control]
+    if dropped:
+        out += [f"Controles abaixo do piso de expressão ({H._n(profile.ref_floor, 3)}), fora do cálculo: "
+                + ", ".join(labels.get(c, c) for c in dropped) + ".", ""]
+    out += ["## Ruído entre medições do mesmo tecido", ""]
+    overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None)
+    if overall is None:
+        out.append("Não disponível (nenhum tecido com duas medições nas escolhas atuais); o filtro de ruído fica de fora.")
+    else:
+        out.append(f"Duas medições do mesmo tecido discordam em até {H._n(A.pct(overall[0], scorer), 1)}% (p95) e "
+                   f"{H._n(A.pct(overall[1], scorer), 1)}% (p99), juntando todos os tecidos com duas ou mais medições.")
+    out += ["", "## Etapas dos filtros", "", "| etapa | variantes |", "|---|---|"]
+    out += [f"| {s} | {n} |" for s, n in steps]
+    # Order: the chosen metric (as in the dashboard's table); with the default metric and a direction, the
+    # headline's order (the change in the direction asked, in the target tissue that changes least)
+    col = "target_toward" if (toward and args.y_metric == "target_mean") else args.y_metric
+    signed = col == "target_toward"
+    top = kept.sort(pl.col(col) if signed else pl.col(col).abs(), descending=True, nulls_last=True).head(args.top)
+    eff = [c for c in top.columns if c.startswith("eff_")]
+    out += ["", f"## Primeiras {top.height} variantes", "",
+            "| variante | região | % alvo | % controle | " + " | ".join(f"% {labels.get(c[4:], c[4:])}" for c in eff) + " | modalidade AVI |",
+            "|" + "---|" * (5 + len(eff))]
+    fmt = lambda v: "—" if v is None else H._n(A.pct(v, scorer), 1, True)
+    for r in top.iter_rows(named=True):
+        out.append(f"| {r['variant_id']} | {r['genomic_domain']} | {fmt(r['target_mean'])} | {fmt(r['control_mean'])} | "
+                   + " | ".join(fmt(r[c]) for c in eff) + f" | {r['top_feature']} |")
+    out += ["", "Predições do AlphaGenome; uso somente em pesquisa. Variantes de modalidade AVI *Splicing* "
+            "provavelmente agem por splicing, não por transcrição."]
+    print("\n".join(out))
+
+
 # Stage registry for `reproduce`. Each task that implements a stage appends
 # (name, run_fn, metrics_fn): run_fn(study_dir) runs it, metrics_fn(study_dir) returns its
 # {metric: value} dict for comparison with expected.json. Order = execution order.
@@ -320,42 +649,9 @@ STAGES: list[tuple[str, Callable[[Path], None], Callable[[Path], dict]]] = [
     ("workbench", run_workbench_metrics, workbench_helpers.stage_metrics),
 ]
 
-# name -> (origin, install command). Install commands are only printed, never run.
-_DEEPMIND = "google-deepmind/science-skills"
-_KDENSE = "K-Dense-AI/scientific-agent-skills"
-DEPENDENCIES = {
-    "uv": ("DeepMind", f"npx skills add {_DEEPMIND} --skill uv"),
-    "credentials": ("DeepMind", f"npx skills add {_DEEPMIND} --skill credentials"),
-    "alphagenome-variant-impact-score": ("DeepMind", f"npx skills add {_DEEPMIND} --skill alphagenome-variant-impact-score"),
-    "alphagenome-single-variant-analysis": ("DeepMind", f"npx skills add {_DEEPMIND} --skill alphagenome-single-variant-analysis"),
-    "alphagenome-atlas-website-links": ("DeepMind", f"npx skills add {_DEEPMIND} --skill alphagenome-atlas-website-links"),
-    "embl-ebi-ols": ("DeepMind", f"npx skills add {_DEEPMIND} --skill embl-ebi-ols"),
-    "ensembl-database": ("DeepMind", f"npx skills add {_DEEPMIND} --skill ensembl-database"),
-    "alphagenome": ("K-Dense", f"npx skills add {_KDENSE} --skill alphagenome"),
-}
+DEPENDENCIES = deps.DEPENDENCIES
 REQUIRED_KEYS = ["ALPHAGENOME_API_KEY"]
 OPTIONAL_KEYS = []
-_LICENSE_RE = re.compile(r"\.licenses/([A-Za-z0-9_.-]+_LICENSE\.txt)")
-
-
-def _search_dirs() -> list[Path]:
-    """Directories searched for installed skills, in priority order."""
-    cwd, home = Path.cwd(), Path.home()
-    return [
-        SKILL_DIR.parent,
-        cwd / ".claude" / "skills",
-        cwd / ".agents" / "skills",
-        home / ".claude" / "skills",
-        home / ".agents" / "skills",
-    ]
-
-
-def _find_skill(name: str) -> Path | None:
-    for d in _search_dirs():
-        candidate = d / name / "SKILL.md"
-        if candidate.is_file():
-            return candidate
-    return None
 
 
 def _key_present(name: str) -> bool:
@@ -364,7 +660,7 @@ def _key_present(name: str) -> bool:
         return True
     env_file = Path.home() / ".env"
     try:
-        for line in env_file.read_text().splitlines():
+        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
             if line.startswith("export "):
                 line = line[len("export "):]
@@ -376,55 +672,99 @@ def _key_present(name: str) -> bool:
     return False
 
 
-def check(args: argparse.Namespace) -> None:
-    errors: list[str] = []
-    warnings: list[str] = []
-    installed: dict[str, Path] = {}
+SKILL_PURPOSE = {"uv": "to run its scripts", "credentials": "to store the AlphaGenome key without showing it",
+                 "alphagenome-single-variant-analysis": "to interpret the top variants",
+                 "alphagenome-atlas-website-links": "to link the top variants to the AlphaGenome Atlas"}
+SETUP_SKILL = "alphagenome-skills-setup"  # prepares the environment step by step, with the researcher's approval
 
+
+def _setup_item(key: str, title: str, question: str, why: str, identifiers: dict, options: list[dict],
+                recommended: str | None, handled_by: str) -> dict:
+    """One missing prerequisite in the shape of a study question (study.py pending --json), so the agent and the
+    setup skill present it like any other question: in the researcher's language, labels and effects, no codes."""
+    return {"key": key, "title": title, "question": question, "why": why, "identifiers": identifiers,
+            "options": options, "recommended": recommended, "handled_by": handled_by}
+
+
+def prerequisite_items() -> list[dict]:
+    """What is missing for this skill to run, one item per prerequisite (empty when all is in place)."""
+    items: list[dict] = []
+    installed: dict[str, Path] = {}
+    later = {"code": "later", "label": "Not now", "effect": "Nothing is installed; the analysis cannot run until this is in place."}
     if shutil.which("uv") is None:
-        errors.append(
-            "Missing prerequisite: 'uv' is not on PATH. "
-            "Install it with the 'uv' skill (see below) or from https://docs.astral.sh/uv/."
-        )
+        items.append(_setup_item(
+            "setup.uv", "Install uv (runs the analysis scripts)",
+            "uv is not installed. It runs every script of the analysis in its own environment with fixed package "
+            "versions, without changing the computer's Python. Install it?",
+            "Without uv no script of the analysis can run.", {"program": "uv", "source": "https://docs.astral.sh/uv/"},
+            [{"code": "install", "label": "Install uv", "effect": "The 'uv' skill installs it for this user account."},
+             later], "install", "uv"))
     for name, (origin, command) in DEPENDENCIES.items():
-        found = _find_skill(name)
+        found = deps.find_skill(name)
         if found is None:
-            errors.append(
-                f"Missing dependency skill '{name}' (origin: {origin}).\n"
-                f"  Install command (not executed): {command}"
-            )
+            items.append(_setup_item(
+                f"setup.skill:{name}", f"Install the skill {name}",
+                f"The analysis uses the skill {name} ({origin}) {SKILL_PURPOSE.get(name, 'to fetch part of its data')}. "
+                "Install it in this project?",
+                "Installing a skill brings third-party code and, for some, terms of use; each one is approved on its own.",
+                {"skill": name, "origin": origin, "install command": command},
+                [{"code": "install", "label": f"Install {name}", "effect": f"Runs: {command}"}, later],
+                "install", SETUP_SKILL))
         else:
             installed[name] = found
-
-    licenses: dict[str, str] = {}
-    for name, path in installed.items():
-        for match in _LICENSE_RE.findall(path.read_text(errors="replace")):
-            licenses.setdefault(match, name)
-    for filename, owner in sorted(licenses.items()):
-        if not (Path.cwd() / ".licenses" / filename).is_file():
-            errors.append(
-                f"Missing licence file '.licenses/{filename}' required by skill '{owner}'. "
-                f"Follow the Prerequisites section of '{owner}' with the researcher."
-            )
-
+    searched = ", ".join(str(d) for d in deps.licence_dirs(installed))
+    for filename, owner in deps.missing_licences(installed):
+        items.append(_setup_item(
+            f"setup.licence:{owner}", f"Terms of use of {owner}",
+            f"The skill {owner} has terms of use that must be accepted before it is used. The agent shows them to you "
+            "now. Do you accept them?",
+            "The notice file records that these terms were seen and accepted; one acceptance never covers another skill.",
+            {"skill": owner, "notice file": f".licenses/{filename}"},
+            [{"code": "accept", "label": "I have read and accept the terms",
+              "effect": f"The agent creates .licenses/{filename} recording the acceptance."},
+             {"code": "decline", "label": "I do not accept",
+              "effect": f"Nothing is recorded; the steps that use {owner} cannot run."}],
+            None, SETUP_SKILL))
+        items[-1]["agent_note"] = (f"Show the terms from the Prerequisites section of {owner}'s SKILL.md before asking "
+                                   f"(looked for the notice in: {searched}).")
     for key in REQUIRED_KEYS:
         if not _key_present(key):
-            errors.append(
-                f"Missing API key {key}. Set it with the 'credentials' skill "
-                "(stored in ~/.env) or export it in the environment."
-            )
+            items.append(_setup_item(
+                f"setup.key:{key}", "AlphaGenome access key",
+                f"The AlphaGenome key ({key}) is not set. It is needed to fetch the predictions. Set it now?",
+                "The key identifies the researcher to the AlphaGenome service; it is stored in ~/.env and never shown.",
+                {"variable": key, "stored in": "~/.env"},
+                [{"code": "set", "label": "Set the key",
+                  "effect": "The 'credentials' skill stores it in ~/.env without showing it on screen."}, later],
+                "set", "credentials"))
+    return items
+
+
+def check(args: argparse.Namespace) -> None:
+    items = prerequisite_items()
     for key in OPTIONAL_KEYS:
         if not _key_present(key):
-            warnings.append(f"Warning: {key} is not set; requests will run at the lower rate limit.")
-
-    for w in warnings:
-        print(w, file=sys.stderr)
-    if errors:
-        print(f"{len(errors)} prerequisite(s) missing:", file=sys.stderr)
-        for e in errors:
-            print(f"- {e}", file=sys.stderr)
-        sys.exit(1)
-    print("All prerequisites satisfied")
+            print(f"Warning: {key} is not set; requests will run at the lower rate limit.", file=sys.stderr)
+    if args.json:
+        print(json.dumps({"ready": not items, "setup_skill": SETUP_SKILL,
+                          "setup_skill_installed": deps.find_skill(SETUP_SKILL) is not None, "items": items},
+                         indent=2, ensure_ascii=False))
+        sys.exit(1 if items else 0)
+    if not items:
+        print("All prerequisites satisfied")
+        return
+    print(f"{len(items)} prerequisite(s) missing:", file=sys.stderr)
+    for it in items:
+        command = it["identifiers"].get("install command")
+        print(f"- {it['title']}: {it['question']}" + (f"\n  Install command (not executed): {command}" if command else ""),
+              file=sys.stderr)
+    if deps.find_skill(SETUP_SKILL) is not None:
+        print(f"Next: use the skill '{SETUP_SKILL}' to go through these with the researcher, one at a time "
+              "(`check --json` lists them as questions).", file=sys.stderr)
+    else:
+        print("Next: go through each item with the researcher, one at a time, in their language (`check --json` lists them "
+              "as questions); install or accept only what they approve.", file=sys.stderr)
+    sys.exit(1)
 
 
 def reproduce(args: argparse.Namespace) -> None:
@@ -453,10 +793,76 @@ def reproduce(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    deps.use_utf8()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p = sub.add_parser("explore", help="Workflow step 0: read-only exploration before the study exists",
+                       description="Gene structure, Regulatory Build, candidate windows, OLS terms per tissue text, Atlas "
+                                   "tracks per term x scorer and the gene's predicted activity per tissue "
+                                   "(RNA_SEQ_ACTIVE), written to OUT/exploration/ with summary.md (Portuguese).")
+    p.add_argument("--gene", required=True, help="HGNC symbol")
+    p.add_argument("--out", required=True, help="Folder for the exploration (OUT/exploration/); later the study's parent")
+    p.add_argument("--tissue", action="append", help="A tissue or cell type in the researcher's words (repeatable)")
+    p.add_argument("--scorers", nargs="+", default=list(core_explore.DEFAULT_SCORERS), help="Atlas scorers to survey")
+    p.add_argument("--flank-bp", type=int, default=core_explore.DEFAULT_FLANK_BP,
+                   help="Search Regulatory Build features this far around the gene (default 2000, the study default)")
+    p.add_argument("--floor", type=float, default=core_explore.DEFAULT_FLOOR,
+                   help="Relative activity below which the gene reads as not expressed (default 0.05 of its maximum)")
+    p.add_argument("--dry-run", action="store_true", help="Print the first command and stop")
+    p.set_defaults(func=explore_cmd)
+
+    p = sub.add_parser("fetch", help="Run one dependency capture into the study and record it in manifest.json",
+                       description="Runs a dependency skill script with pinned packages, writes the file the next stage "
+                                   "reads and records the exact command. Kinds: gtf (step 2), regulatory and sequence "
+                                   "(step 3), ols (5), ols-term (6), tracks [--catalogue] (7), avi (9), scores (10), "
+                                   "links and interpret (13).")
+    p.add_argument("kind", choices=FETCH_KINDS)
+    p.add_argument("--study-dir", required=True, help="Study directory")
+    p.add_argument("--region", help="regulatory/sequence: override the region (default: regions regulatory_search)")
+    p.add_argument("--query", action="append", help="ols: tissue or cell text (repeatable); file raw/ols_search_<slug>.json")
+    p.add_argument("--ontology", default=fetch.DEFAULT_OLS_ONTOLOGIES, help="ols: ontologies (default uberon,cl,efo,clo)")
+    p.add_argument("--rows", type=int, default=10, help="ols: hits to keep (default 10)")
+    p.add_argument("--curie", action="append", help="ols-term / tracks: CURIE (repeatable; tracks default: the study's)")
+    p.add_argument("--scorer", action="append", help="tracks / scores: scorer (repeatable; default: the study's)")
+    p.add_argument("--catalogue", action="store_true", help="tracks: also the whole catalogue of each scorer")
+    p.add_argument("--force", action="store_true", help="tracks: capture again what was already captured")
+    p.add_argument("--ontology-id", help="interpret: target CURIE for the model-API interpretation")
+    p.add_argument("--tissue", help="interpret: tissue label for the figures (default: the target cohort label)")
+    p.add_argument("--top", type=int, default=5, help="interpret: number of top variants (default 5)")
+    p.add_argument("--variant", action="append", help="interpret: a chr:pos:REF>ALT instead of the top list (repeatable)")
+    p.add_argument("--dry-run", action="store_true", help="Print the commands; run and record nothing")
+    p.set_defaults(func=fetch_cmd)
+
+    p = sub.add_parser("summarize", help="Text summary of the dashboard view for given choices (for the agent)",
+                       description="Same computation as the dashboard. Defaults: the study's target and control tissues, any "
+                                   "direction, no filter. Writes nothing; prints Markdown.")
+    p.add_argument("--study-dir", required=True, help="Study directory")
+    p.add_argument("--scorer", default="RNA_SEQ", help="RNA_SEQ (gene expression; default), CAGE, DNASE or ATAC")
+    p.add_argument("--target", action="append", help="Target CURIE (repeatable; default: the study's target tissues)")
+    p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
+    p.add_argument("--target-label", help="Name of the target group (default: study.yaml)")
+    p.add_argument("--control-label", help="Name of the control group (default: study.yaml)")
+    p.add_argument("--question", choices=["repression", "increase", "either"], default="either", help="Direction in the target")
+    p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
+    p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
+    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control above this many noise sigmas (0 = off)")
+    p.add_argument("--assay", action="append", help="Assay titles kept (repeatable; default all)")
+    p.add_argument("--source", action="append", help="Data sources kept, e.g. encode, gtex (repeatable; default all)")
+    p.add_argument("--domain", action="append", help="Genomic domains kept (repeatable; default all)")
+    p.add_argument("--one-alt", action="store_true", help="Keep one alternative per position (the largest effect)")
+    p.add_argument("--ref-floor", type=float, help="Reference expression floor (RNA_SEQ REF; default: off)")
+    p.add_argument("--floor-applies", choices=["warn", "control", "target", "both"], default="warn",
+                   help="What the floor does: warn (default), drop controls below it, skip a target below it, or both")
+    p.add_argument("--y-metric", default="target_mean",
+                   choices=["target_mean", "target_toward", "control_mean", "diff", "diff_sigma", "avi_phred"],
+                   help="Order of the list (the dashboard's 'Altura no gráfico da janela e ordem da tabela')")
+    p.add_argument("--top", type=int, default=10, help="Variants listed (default 10)")
+    p.set_defaults(func=summarize_cmd)
+
     p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")
+    p.add_argument("--json", action="store_true",
+                   help="Print the missing prerequisites as questions (same shape as study.py pending --json)")
     p.set_defaults(func=check)
 
     p = sub.add_parser("locus", help="Workflow step 4: locus, TSS and regulatory window")
@@ -484,10 +890,14 @@ def main() -> None:
     p.add_argument("--study-dir", required=True, help="Study directory")
     p.set_defaults(func=report_cmd)
 
-    p = sub.add_parser("dashboard", help="Workflow step 14: marimo triage workbench")
+    p = sub.add_parser("dashboard", help="Workflow step 14: interactive analysis dashboard (marimo)")
     p.add_argument("--study-dir", required=True, help="Study directory")
-    p.add_argument("--port", type=int, default=2718, help="Port of the marimo server (default 2718)")
+    p.add_argument("--port", type=int, default=DEFAULT_PORT,
+                   help="Preferred port of the marimo server (default 2718; a free one is used when it is busy)")
     p.add_argument("--export-html", help="Write a static HTML export to this path instead of serving")
+    p.add_argument("--edit", action="store_true",
+                   help="Maintainers: open the dashboard in the marimo editor (edits are saved to the skill's assets/dashboard.py)")
+    p.add_argument("--legacy", action="store_true", help="Open the previous triage workbench (assets/workbench.py)")
     p.set_defaults(func=dashboard_cmd)
 
     p = sub.add_parser("reproduce", help="Re-run stages on a bundled reference study")

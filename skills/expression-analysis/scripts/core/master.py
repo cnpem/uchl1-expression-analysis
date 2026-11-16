@@ -334,7 +334,7 @@ def run(study_dir: Path) -> QcReport:
     avi = core_variants._load_avi(study_dir)
     registry = load_registry(study_dir)
     scores = _load_scores(study_dir, sorted(set(registry["scorer"].to_list())))
-    quarantined = core_variants.excluded_positions(decisions)
+    quarantined = core_variants.excluded_positions(decisions, include_rules=True)
     long_table = long_scores(scores, registry, variants["variant_id"].to_list(), locus.gene_id)
     master, report, long_table = _assemble(variants, avi, long_table, registry, locus, quarantined)
     (study_dir / "processed").mkdir(parents=True, exist_ok=True)

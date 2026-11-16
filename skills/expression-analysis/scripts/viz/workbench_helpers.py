@@ -183,14 +183,23 @@ def format_slim_master_table(df: pl.DataFrame, plan: ContrastPlan, sort_by_col: 
 
 def center_crop_on_positions(positions: Sequence[int], current_crop: Optional[tuple[int, int]],
                              full_domain: tuple[int, int], margin_bp: int = 10) -> tuple[int, int]:
-    """Smallest window that keeps the current crop width (if any) and contains all `positions`."""
+    """Window that shows all `positions`: the current crop if they are already inside it; otherwise the crop
+    shifted (same width) to contain them, widened only when they do not fit in that width."""
     if not positions:
         return current_crop or full_domain
     lo, hi = min(positions) - margin_bp, max(positions) + margin_bp
     if current_crop:
-        width = current_crop[1] - current_crop[0]
-        center = (min(positions) + max(positions)) // 2
-        lo, hi = min(lo, center - width // 2), max(hi, center + width // 2)
+        c_lo, c_hi = current_crop
+        if c_lo <= min(positions) and max(positions) <= c_hi:
+            return (c_lo, c_hi)
+        width = c_hi - c_lo
+        if hi - lo <= width:
+            center = (lo + hi) // 2
+            lo, hi = center - width // 2, center - width // 2 + width
+            if lo < full_domain[0]:
+                lo, hi = full_domain[0], full_domain[0] + width
+            if hi > full_domain[1]:
+                lo, hi = full_domain[1] - width, full_domain[1]
     return (max(lo, full_domain[0]), min(hi, full_domain[1]))
 
 
@@ -205,7 +214,10 @@ def build_unified_lollipop_canvas(
     selected_variant_ids: Optional[Sequence[str]] = None, crop_domain: Optional[tuple[int, int]] = None,
     full_domain: tuple[int, int], max_focus_labels: int = 5, target_label: str = "target", drag_mode: str = "pan",
     axis_title: Optional[Sequence[str]] = None, title: Optional[str] = None,
-    subtitle: Optional[str | Sequence[str]] = None,
+    subtitle: Optional[str | Sequence[str]] = None, color_title: Optional[str] = None,
+    color_domain: Optional[Sequence[str]] = None, color_range: Optional[Sequence[str]] = None,
+    extra_tooltip: Optional[Sequence[tuple[str, str, Optional[str]]]] = None,
+    x_title: str = "GRCh38 position (bp)", lang: str = "en", head_size: float = 90,
 ):
     """Figure 2: one lollipop per variant at its position, height = `metric_col`.
 
@@ -219,21 +231,25 @@ def build_unified_lollipop_canvas(
     data = (df.filter(pl.col(metric_col).is_not_null())
             .sort(pl.col(metric_col).abs(), descending=True).head(max_lollipops)
             .with_columns(pl.lit(0.0).alias("_zero"), pl.col(metric_col).alias("_y_val")))
+    extra = list(extra_tooltip or [])
     keep = ["variant_id", "position", "distance_to_tss", "genomic_domain", "ensembl_transcript_region", "avi_phred",
-            "predicted_direction", "specificity_scope", "_zero", "_y_val", color_col]
+            "predicted_direction", "specificity_scope", "_zero", "_y_val", color_col, *[c for c, _, _ in extra]]
     data = data.select(list(dict.fromkeys(c for c in keep if c in data.columns)))
     domain = list(crop_domain or full_domain)
     y_title = list(axis_title) if axis_title else metric_label
-    x = alt.X("position:Q", title="GRCh38 position (bp)", scale=alt.Scale(domain=domain),
+    x = alt.X("position:Q", title=x_title, scale=alt.Scale(domain=domain),
               axis=alt.Axis(format=",d", tickCount=6, labelOverlap="greedy", labelFlush=True))
-    if color_col == "predicted_direction":
+    if color_domain is not None and color_range is not None:
+        color = alt.Color(f"{color_col}:N", title=color_title or color_col,
+                          scale=alt.Scale(domain=list(color_domain), range=list(color_range)))
+    elif color_col == "predicted_direction":
         color = alt.Color(f"{color_col}:N", title="Predicted direction",
                           scale=alt.Scale(domain=list(DIRECTION_COLORS), range=list(DIRECTION_COLORS.values())))
     elif color_col == "genomic_domain":
         domains, colors = domain_color_scale(data["genomic_domain"].unique(maintain_order=True).to_list())
         color = alt.Color("genomic_domain:N", title="Genomic domain", scale=alt.Scale(domain=domains, range=colors))
     else:
-        color = alt.Color(f"{color_col}:N", title=color_col.replace("_", " ").capitalize())
+        color = alt.Color(f"{color_col}:N", title=color_title or color_col.replace("_", " ").capitalize())
     tooltip = [alt.Tooltip("variant_id:N", title="Variant ID"), alt.Tooltip("position:Q", title="Position", format="d"),
                alt.Tooltip("distance_to_tss:Q", title="Distance to TSS (bp)"),
                alt.Tooltip("genomic_domain:N", title="Genomic Domain"),
@@ -242,6 +258,15 @@ def build_unified_lollipop_canvas(
                alt.Tooltip("avi_phred:Q", title="AVI Phred", format=".2f"),
                alt.Tooltip("predicted_direction:N", title=f"Predicted {target_label} effect"),
                alt.Tooltip("specificity_scope:N", title="Specificity scope")]
+    tooltip = [t for t in tooltip if t.to_dict()["field"] in data.columns]
+    if lang == "pt":
+        pt = {"Variant ID": "Variante", "Position": "Posição", "Distance to TSS (bp)": "Distância ao TSS (pb)",
+              "Genomic Domain": "Domínio genômico", "Consequence": "Região do transcrito", "AVI Phred": "AVI Phred"}
+        for tt in tooltip:
+            tip_title = tt.to_dict().get("title")
+            if tip_title in pt:
+                tt.title = pt[tip_title]
+    tooltip += [alt.Tooltip(f"{c}:{'Q' if fmt else 'N'}", title=t, **({"format": fmt} if fmt else {})) for c, t, fmt in extra]
     base = alt.Chart(data.to_pandas())
     spine = base.mark_tick(orient="horizontal", thickness=3, size=10, opacity=0.4, clip=True).encode(
         x=x, y=alt.Y("_zero:Q", title=y_title))
@@ -250,8 +275,8 @@ def build_unified_lollipop_canvas(
         drag = alt.selection_interval(name=CROP_BRUSH_NAME, encodings=["x"], translate=False, zoom=False,
                                       mark=alt.BrushConfig(fill="#e11d48", fillOpacity=0.12, stroke="#e11d48", strokeWidth=1.5))
     else:
-        drag = alt.selection_interval(bind="scales", encodings=["x"], zoom=False)
-    heads = base.mark_circle(size=90, stroke="#ffffff", strokeWidth=0.8, clip=True, opacity=0.9, cursor="pointer").encode(
+        drag = alt.selection_interval(bind="scales", encodings=["x", "y"], zoom=True)  # wheel zooms, drag pans, double-click resets
+    heads = base.mark_circle(size=head_size, stroke="#ffffff", strokeWidth=0.8, clip=True, opacity=0.9, cursor="pointer").encode(
         x=x, y=alt.Y("_y_val:Q", title=y_title), color=color, tooltip=tooltip)
     layers = [spine.add_params(drag), stems, heads]
     focus = data.filter(pl.col("variant_id").is_in(list(selected_variant_ids or [])))
@@ -262,14 +287,20 @@ def build_unified_lollipop_canvas(
             x=x, y="_y_val:Q", tooltip=[alt.Tooltip("variant_id:N", title="Picked variant (click to unpick)")]))
         layers.append(focus_base.mark_rule(strokeDash=[5, 4], strokeWidth=1.6, color="#e11d48", opacity=0.75, clip=True)
                       .encode(x=x))
-        if focus.height <= max_focus_labels:
+        # One label per picked position (variants at the same position share it, e.g. "chr1:123 A>G, A>T"),
+        # each label on its own row so labels at nearby positions do not overlap.
+        groups = (focus.sort("position").with_columns(pl.col("variant_id").str.split(":").alias("_p"))
+                  .group_by("position", maintain_order=True)
+                  .agg(pl.col("_p").list.get(0).first().alias("_chr"),
+                       pl.col("_p").list.get(-1).str.join(", ").alias("_alts")))
+        groups = groups.with_columns((pl.col("_chr") + ":" + pl.col("position").cast(pl.Utf8) + " " + pl.col("_alts")).alias("_label"))
+        if groups.height <= max_focus_labels:
             mid = (domain[0] + domain[1]) / 2
-            for side, dx, part in (("left", 4, focus.filter(pl.col("position") < mid)),
-                                   ("right", -4, focus.filter(pl.col("position") >= mid))):
-                if not part.is_empty():
-                    layers.append(alt.Chart(part.to_pandas()).mark_text(
-                        y=4, baseline="top", dx=dx, align=side, fontSize=14, fontWeight="bold", color="#e11d48",
-                        clip=True).encode(x=x, text="variant_id:N"))
+            for row, g in enumerate(groups.iter_rows(named=True)):
+                side, dx = ("left", 6) if g["position"] < mid else ("right", -6)
+                layers.append(alt.Chart(pl.DataFrame([g]).select("position", "_label").to_pandas()).mark_text(
+                    y=4 + 18 * row, baseline="top", dx=dx, align=side, fontSize=13, fontWeight="bold", color="#e11d48",
+                    clip=True).encode(x=x, text="_label:N"))
     chart = alt.layer(*layers).properties(width="container", height=440)
     if title:
         chart = chart.properties(title=alt.TitleParams(text=title, subtitle=(list(subtitle) if isinstance(subtitle, (list, tuple)) else subtitle) or alt.Undefined))

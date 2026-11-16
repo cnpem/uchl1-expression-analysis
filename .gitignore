@@ -14,3 +14,10 @@ __pycache__/
 *.lock
 .DS_Store
 Thumbs.db
+
+# Study results, explorations and skill-creator evals stay out of git (research data, not skill code)
+exploration/
+*-workspace/
+evals/
+analysis/
+run-log.tsv

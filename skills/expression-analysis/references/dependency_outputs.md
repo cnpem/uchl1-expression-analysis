@@ -7,7 +7,9 @@ Formats were recorded on 2026-11-12 (reference study `assets/reference/uchl1/`, 
 
 Placeholders: `G` gene symbol, `R` regulatory search region (gene span ± `window.regulatory_search_upstream_bp`),
 `W` analysis window `chr:start-end` (from `processed/locus.json`), `M` = `study.py window --print-max-window`,
-`C` CURIE, `S` Atlas scorer. Commands run from the directory that holds `.claude/skills/`.
+`C` CURIE, `S` Atlas scorer. Each file is written by `expression.py fetch <kind>` (or `explore`), which
+runs the command shown with the pinned packages of `scripts/deps.py` and records it in `manifest.json`;
+the commands below show what runs, not something to type.
 
 ## Dependency versions tested
 
@@ -26,14 +28,14 @@ version fields their own files declare.
 **Running the pyproject-based DeepMind scripts.** `alphagenome_atlas_avi.py` and
 `alphagenome_atlas_links.py` have no PEP 723 header; their skill's `pyproject.toml` holds the
 dependencies. `uv run` from the skill folder would write `.venv/` and `uv.lock` into the installed
-skill, and `uv run --with-requirements pyproject.toml` is refused by uv, so the captures pass the
-same list explicitly:
-
-```bash
-AVI_DEPS="alphagenome>=0.9.0,absl-py,anndata,numpy>=2.0,pandas<3.0,polars,pyarrow,pysam,python-dotenv,tabulate"
-uv run --no-project --python 3.13 --with "$AVI_DEPS" .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py …
-LINKS_DEPS="alphagenome>=0.9.0,numpy>=2.0,pandas<3.0,pyarrow,python-dotenv"
-```
+skill, and `uv run --with-requirements pyproject.toml` is refused by uv, so the fetches pass the same
+list explicitly, with exact versions (`deps.AVI_DEPS`, `deps.LINKS_DEPS`), under
+`uv run --no-project --python 3.13`. Versions resolved on 2026-11-15: `alphagenome` 2.0.0, `polars`
+1.31.0 (newer releases refuse to start on Windows ARM64 under x86-64 emulation: `unknown feature flag:
+'sse3'`), `pandas` 2.3.3. `pysam` carries the marker `sys_platform != 'win32'`, as in the DeepMind
+pyproject: it has no Windows wheel and the AVI script imports it only for VCF output. Scripts with
+their own PEP 723 header (`atlas_query.py`, `search_ols.py`, `get_term.py`, `ensembl_api.py`) get
+their packages pinned with `--with` (`alphagenome==2.0.0`, `polite-http==0.1.4`).
 
 **`alphagenome` 2.0.0.** An unpinned `alphagenome` now resolves to 2.0.0, which no longer exposes
 `alphagenome.models.dna_client` (`ImportError: cannot import name 'dna_client'`). The Atlas
@@ -42,18 +44,24 @@ client (`alphagenome.atlas`) and `alphagenome.data.genome` still work, so `alpha
 script) needs `uv run --with "alphagenome<2" …` (resolved 0.11.0).
 
 **Keys.** The DeepMind scripts load `~/.env` themselves. The K-Dense scripts read only the
-environment, so they run as `uv run --env-file ~/.env …` (uv loads the file into the
-process environment; the shell never sources it, and the key never appears on a command line).
+environment, so the fetch runs them as `uv run --env-file <home>/.env …` with the path expanded in
+Python and written with `/` (uv drops the backslashes of a Windows path given to `--env-file`). uv
+loads the file into the process environment; no shell sources it, and the key never appears on a
+command line or in the manifest.
+
+**polite-http.** The OLS and Ensembl scripts pace requests through a lock file per host holding the
+monotonic time of the next free slot. A file left by a process with another clock can hold a slot
+hours ahead, and the script then sleeps without a message. The fetches set `POLITE_HTTP_LOCK_DIR` to
+`~/.cache/alphagenome-gene-skills/polite-http` and reset a slot more than ten minutes ahead.
 
 ## `gtf.json` — gene structure (Workflow step 2)
 
 ```bash
-uv run --no-project --python 3.13 --with "$AVI_DEPS" .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
-  gtf --gene G --all_transcripts --exons --cds --utr --format json | sed -n '/^\[$/,$p' > raw/gtf.json
+alphagenome_atlas_avi.py gtf --gene G --all_transcripts --exons --cds --utr --format json   # fetch gtf
 ```
 
 `--format json` prints the JSON to stdout and ignores `--output`; the script also prints one
-`Loading GTF from …` line to stdout first, which the `sed` filter drops (nothing else is changed).
+`Loading GTF from …` line to stdout first, which `fetch gtf` drops in Python (nothing else is changed).
 The first run downloads the 318 MB GENCODE v46 Feather to `~/.cache/alphagenome/`.
 
 List of `GtfTranscript`:
@@ -100,6 +108,18 @@ returns a copy with 1-based closed starts for the transcript, exons, CDS and UTR
 `intron_length = junction_end - junction_start`; it raises `ValueError` if an exon's
 acceptor/donor do not follow the convention above. After it, the TSS is `start` on `+` and `end`
 on `−`. Only `+`-strand genes were recorded so far; the `−` branch follows the script's code.
+
+## Exploration-only files (`OUT/exploration/atlas/`, step 0)
+
+- `atlas_tracks.tsv` — `atlas_query.py tracks -o …` (K-Dense, no `--scorer`): the whole Atlas track
+  catalogue, one row per scorer × track: `scorer`, `track_index`, `name`, `strand`, `ontology_curie`,
+  `biosample_name`, `biosample_type`, `assay_title`, `gtex_tissue`, `data_source` (columns present only
+  when the server sends them). It adds the source and assay that the AVI catalogue lacks.
+- `scores_RNA_SEQ_ACTIVE_baseline.tsv` — `atlas_query.py scores --variant V --scorers RNA_SEQ_ACTIVE
+  --gene G -o …` for one SNV in the middle of exon 1 (REF from the sequence): one row per RNA-seq track
+  with the gene's predicted activity (`raw_score`); same columns as `scores_{S}.tsv`.
+
+Neither is copied into a study; the files of `OUT/exploration/raw/` are, with their manifest steps.
 
 ## `regulatory.json` — Ensembl Regulatory Build (step 3)
 
@@ -157,7 +177,7 @@ parent, so step 6 requests `hierarchicalDescendants` too (`cohorts` offers them 
 ## `tracks_{S}_{PREFIX}_{digits}.parquet` — Atlas track catalogue (step 7)
 
 ```bash
-uv run --no-project --python 3.13 --with "$AVI_DEPS" .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
+uv run --no-project --python 3.13 <AVI_DEPS pinned> .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
   metadata --tracks --ontology C --scorer S --output raw/tracks_{S}_{PREFIX}_{digits}.parquet
 ```
 
@@ -172,7 +192,7 @@ pair never queried. `AtlasTrack` rows: `scorer`, `track_name`, `biosample_name`,
 ### `tracks_{S}_catalogue.parquet` — whole catalogue per scorer (step 7, once per study scorer)
 
 ```bash
-uv run --no-project --python 3.13 --with "$AVI_DEPS" .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
+uv run --no-project --python 3.13 <AVI_DEPS pinned> .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
   metadata --tracks --scorer S --output raw/tracks_{S}_catalogue.parquet
 ```
 
@@ -184,7 +204,7 @@ scorer serves; without it the question lists every descendant and says so. A man
 ## `avi_region.parquet` — saturation scan with AVI (step 9)
 
 ```bash
-uv run --no-project --python 3.13 --with "$AVI_DEPS" .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
+uv run --no-project --python 3.13 <AVI_DEPS pinned> .claude/skills/alphagenome-variant-impact-score/scripts/alphagenome_atlas_avi.py \
   region --region W --top_k 20 --min_phred 0 --max_window_size M --include_features --include_track_info --output raw/avi_region.parquet
 ```
 
@@ -198,7 +218,7 @@ these must hold values (null, empty or NaN fails); none of the recorded outputs 
 ## `scores_{S}.tsv` — per-tissue track scores (step 10)
 
 ```bash
-uv run --env-file ~/.env .claude/skills/alphagenome/scripts/atlas_query.py scores \
+uv run --env-file <home>/.env --with alphagenome==2.0.0 .claude/skills/alphagenome/scripts/atlas_query.py scores \
   --interval W --max-window M --scorers S --ontology C1 C2 … [--gene G] -o raw/scores_{S}.tsv
 ```
 
@@ -217,7 +237,7 @@ Empty cells are missing values. Columns seen on 2026-11-12: `RNA_SEQ` has the ge
 ## `interpret_{variant}.txt` — splicing interpretation of the top variants (step 13)
 
 ```bash
-uv run --with "alphagenome<2" .claude/skills/alphagenome-single-variant-analysis/scripts/interpret_splicing.py \
+uv run --no-project --python 3.13 <SVA_DEPS pinned, alphagenome==0.11.0> .claude/skills/alphagenome-single-variant-analysis/scripts/interpret_splicing.py \
   --chrom CHR --pos POS --ref REF --alt ALT --ontology_id C > raw/interpret_{CHR}_{POS}_{REF}_{ALT}.txt
 ```
 
@@ -237,7 +257,7 @@ splicing capture; the overlapping-junction list can run to thousands of lines.
 ## `atlas_links.md` — Atlas deep links (step 13)
 
 ```bash
-uv run --no-project --python 3.13 --with "$LINKS_DEPS" .claude/skills/alphagenome-atlas-website-links/scripts/alphagenome_atlas_links.py \
+uv run --no-project --python 3.13 <LINKS_DEPS pinned> .claude/skills/alphagenome-atlas-website-links/scripts/alphagenome_atlas_links.py \
   table --input FILE.json > raw/atlas_links.md
 ```
 

@@ -24,7 +24,7 @@ from core import cohorts as core_cohorts
 from core import contrast as core_contrast
 from core import locus as core_locus
 from core import master as core_master
-from study import load_decisions, load_study
+from study import load_decisions, load_study, option_codes, option_label
 
 REPORT_FILE = "report.md"
 MANIFEST_FILE = "manifest.json"
@@ -137,15 +137,33 @@ def _section_decisions(study_dir: Path, meta: Mapping[str, Any]) -> list[str]:
     lines = ["## Decisões", ""]
     if not decisions:
         return lines + ["Nenhuma decisão registrada em `decisions.yaml`.", ""]
-    lines += ["Respostas do pesquisador registradas em `decisions.yaml` (passo do workflow, chave, opções oferecidas, "
-              "recomendada, valor escolhido); \"—\" quando a pergunta foi registrada sem opções:", ""]
-    rows = [(e.workflow_step, f"`{key}`", "; ".join(f"`{o}`" for o in e.options) if e.options else "—",
-             f"`{e.recommended}`" if e.recommended is not None else "—",
-             f"`{e.value}`" if not isinstance(e.value, list) else ", ".join(map(str, e.value)),
-             e.answered_at[:10]) for key, e in sorted(decisions.items(), key=lambda kv: (kv[1].workflow_step, kv[0]))]
-    lines += _table(["Passo", "Decisão", "Opções", "Recomendada", "Valor", "Data"], rows)
+    ordered = sorted(decisions.items(), key=lambda kv: (kv[1].workflow_step, kv[0]))
+    asked = [(k, e) for k, e in ordered if e.decided_by == "researcher"]
+    rules = [(k, e) for k, e in ordered if e.decided_by == "skill"]
+
+    def shown(options: Any, code: Any) -> str:
+        if isinstance(code, list):
+            return ", ".join(map(str, code))
+        label = option_label(options, code)
+        return f"{label} (`{code}`)" if label else f"`{code}`"
+
+    if asked:
+        lines += ["### Escolhas do pesquisador", "",
+                  "Respostas registradas em `decisions.yaml`, com as opções oferecidas e a recomendada; o código entre "
+                  "crases é o valor gravado. \"—\" quando a pergunta não tinha opções fixas:", ""]
+        rows = [(e.workflow_step, f"`{key}`",
+                 "; ".join(shown(e.options, c) for c in option_codes(e.options)) if e.options else "—",
+                 shown(e.options, e.recommended) if e.recommended is not None else "—",
+                 shown(e.options, e.value), e.note or "—", e.answered_at[:10]) for key, e in asked]
+        lines += _table(["Passo", "Decisão", "Opções", "Recomendada", "Escolhida", "Nota", "Data"], rows)
+    if rules:
+        lines += ["", "### Regras aplicadas pela skill", "",
+                  "Escolhas feitas por regra fixa, sem pergunta (verificações técnicas e o plano da triagem), "
+                  "registradas em `decisions.yaml` com `decided_by: skill`:", ""]
+        rows = [(e.workflow_step, f"`{key}`", shown(None, e.value), e.rule or "—", e.answered_at[:10]) for key, e in rules]
+        lines += _table(["Passo", "Item", "Aplicado", "Regra", "Data"], rows)
     plan = meta["plan"]
-    lines += ["", "Plano de contrastes aprovado (`contrasts.yaml`):", ""]
+    lines += ["", "Plano de contrastes da triagem (`contrasts.yaml`):", ""]
     rows = [(c["name"], c["scorer"], c["strand"], c["tissue_aggregation"], len(c["target"]), len(c["control"]))
             for c in plan["contrasts"]]
     lines += _table(["Contraste", "Scorer", "Fita", "Agregação por tecido", "Tecidos alvo", "Tecidos controle"], rows)
@@ -170,8 +188,10 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
                     [("Direção", k, v) for k, v in sorted(meta["predicted_direction"].items(), key=lambda kv: -kv[1])]
                     + [("Escopo", k, v) for k, v in sorted(meta["specificity_scope"].items(), key=lambda kv: -kv[1])])
     shown = workbench_helpers.default_filter(df)
-    lines += ["", f"Com os filtros padrão do workbench (|quantil| >= {workbench_helpers.DEFAULT_MIN_QUANTILE} em todos os "
-              f"tecidos alvo) restam {shown.height:,} de {df.height:,} SNVs.", "", "SNVs por domínio genômico:", ""]
+    lines += ["", f"Com o filtro fixo da triagem (|quantil| >= {workbench_helpers.DEFAULT_MIN_QUANTILE} em todos os "
+              f"tecidos alvo) restam {shown.height:,} de {df.height:,} SNVs. Estes rótulos e este filtro são uma triagem "
+              "heurística; os grupos, a pergunta e os filtros do estudo são escolhidos pelo pesquisador no dashboard.",
+              "", "SNVs por domínio genômico:", ""]
     counts = dict(df.group_by("genomic_domain").len().rows())
     lines += _table(["Domínio", "SNVs"], [(d, counts[d]) for d in workbench_helpers.domain_options(df)])
     diffs = [c["name"] for c in meta["plan"]["contrasts"]]
@@ -185,8 +205,8 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
             for t in top]
     lines += _table(headers, rows)
     lines += ["", "Δ = média alvo menos média controle do escore bruto previsto (comparável apenas dentro de um scorer). "
-              "A Figura 1 (`figures/fig1_genomic_architecture.html`) mostra a janela; as Figuras 2 a 4 estão no workbench "
-              "(`expression.py dashboard`).", ""]
+              "A Figura 1 (`figures/fig1_genomic_architecture.html`) mostra a janela; os gráficos interativos estão no "
+              "dashboard (`expression.py dashboard`).", ""]
     links = study_dir / ATLAS_LINKS_FILE
     if links.is_file():
         lines += ["### Links do Atlas", "", links.read_text(encoding="utf-8").strip(), ""]
@@ -230,10 +250,10 @@ def _section_limits(resolution: Mapping[str, Any], meta: Mapping[str, Any]) -> l
     if unserved:
         lines.append("- CURIEs sem trilhas próprias no catálogo foram descartados das coortes: "
                      + ", ".join(f"`{c}`" for c in unserved) + ".")
-    reviews = [d["key"] for d in meta.get("review_decisions", []) if d["key"].startswith("contrast.review:")]
-    if reviews:
-        lines.append("- Pontos de revisão do plano de contrastes aceitos pelo pesquisador (fontes ou ensaios misturados, "
-                     "tecido único): " + ", ".join(f"`{k.removeprefix('contrast.review:')}`" for k in reviews) + ".")
+    notes = [n["note"] for n in meta.get("plan_notes", [])]
+    if notes:
+        lines.append("- Observações do plano de contrastes da triagem (ensaios ou fontes misturados, grupo com um só "
+                     "tecido): " + " ".join(notes))
     return lines + [""]
 
 

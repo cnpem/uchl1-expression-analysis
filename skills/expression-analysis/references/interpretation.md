@@ -4,6 +4,12 @@ Read this before reporting results. All numbers come from AlphaGenome Atlas pred
 prioritise experiments, they are not measurements, and they are for research use only (never a
 diagnosis or a clinical finding).
 
+The analysis the researcher sees is the dashboard's (`references/dashboard.md`): % change per tissue,
+target and control groups chosen on the page, the noise between measurements of the same tissue, and
+filters that start off. The tier files, the labels and the workbench below are the pipeline's fixed
+triage, kept for `report.md` and for `reproduce`; their labels (**Inconsistent**, **Mixed**, the
+quantile cut) are heuristics, so do not present them as the study's result.
+
 ## Tiers
 
 | Tier | File | Content |
@@ -16,7 +22,7 @@ statistics are over tissues. `top_variants.tsv/.json` hold the first `report.top
 (consistent direction first, then the largest |difference|; a variant without a difference, e.g.
 no score in one cohort, comes last).
 
-## Labels (threshold-free)
+## Labels (legacy triage)
 
 Computed from tissue-level **quantiles** of the plan's `direction_contrast`; the quantile scale
 [-1, 1] is what makes tissues and assays comparable.
@@ -43,7 +49,8 @@ the target alone: read both.
 
 - **Raw scores** are comparable within a scorer, not across scorers; use quantiles to compare assays.
 - **Track sources** may differ between cohorts (e.g. GTEx regions vs ENCODE tissues, polyA vs total
-  RNA-seq). The plan review points (`contrast.review:*`) record whether the researcher accepted this.
+  RNA-seq). The report notes when a contrast of the triage mixes them (`plan_notes`); in the dashboard
+  the researcher chooses which assays and sources enter.
 - **Window scope:** only the analysed window is mutated; distal enhancers and introns are not.
 - **Transcript:** annotations follow the selected transcript; other transcripts that start inside the
   window are listed in `processed/transcripts_in_window.tsv`.
@@ -55,7 +62,7 @@ the target alone: read both.
 - **AVI Phred:** 10 = top 10%, 20 = top 1% of all SNVs genome-wide; it summarises the overall
   predicted impact and does not say in which tissue.
 
-## Workbench (`expression.py dashboard`)
+## Legacy workbench (`expression.py dashboard --legacy`)
 
 Figure 1 is the window (footprint, Regulatory Build, transcript). Figure 2 is one lollipop per SNV
 along the window (height = chosen metric; click to pick variants; the menu saves SVG or 4x PNG).

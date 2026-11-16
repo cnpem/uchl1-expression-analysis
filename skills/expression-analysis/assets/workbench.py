@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["marimo>=0.25", "altair>=5.4", "anywidget", "pandas", "polars", "pyarrow", "pyyaml", "matplotlib"]
+# dependencies = ["marimo==0.25.2", "altair==6.3.0", "anywidget==0.11.0", "pandas==3.1.1", "polars==1.31.0", "pyarrow==26.0.1", "pyyaml==6.0.3", "matplotlib==3.11.2"]
 # ///
 """Variant triage workbench (Workflow step 14), a marimo app over one study directory.
 
@@ -24,7 +24,8 @@ def _():
     import marimo as mo
     import polars as pl
 
-    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+    # expression.py dashboard passes the skill's scripts/ folder; a direct `marimo run` finds it next to assets/.
+    scripts_dir = Path(os.environ.get("EXPRESSION_ANALYSIS_SCRIPTS") or Path(__file__).resolve().parent.parent / "scripts")
     if str(scripts_dir) not in sys.path:
         sys.path.insert(0, str(scripts_dir))
 
