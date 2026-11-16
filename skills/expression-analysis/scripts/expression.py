@@ -581,7 +581,7 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--question", choices=["repression", "increase", "either"], default="either", help="Direction in the target")
     p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
     p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
-    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control above this many noise sigmas (0 = off)")
+    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control beyond this many noise sigmas, in the question's direction (both for either; 0 = off)")
     p.add_argument("--assay", action="append", help="Assay titles kept (repeatable; default all)")
     p.add_argument("--source", action="append", help="Data sources kept, e.g. encode, gtex (repeatable; default all)")
     p.add_argument("--domain", action="append", help="Genomic domains kept (repeatable; default all)")

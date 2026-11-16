@@ -65,7 +65,8 @@ STUDY_SUBDIRS = ("raw", "processed", "figures")
 MIN_WINDOW = 1000
 DECISION_FIELDS = ("value", "workflow_step", "asked_at", "answered_at", "note")
 OFFERED_FIELDS = ("options", "recommended")  # optional in decisions.yaml, always together
-TRACE_FIELDS = ("value_label", "decided_by", "rule")  # optional in decisions.yaml (absent in older studies)
+TRACE_FIELDS = ("value_label", "decided_by", "rule", "previous")  # optional in decisions.yaml (absent in older studies)
+PREVIOUS_FIELDS = ("value", "value_label", "answered_at", "note", "options", "recommended", "decided_by")
 DECIDED_BY = ("researcher", "skill")
 # Plain names of the prediction types (Atlas scorers) for texts the researcher reads
 PREDICTION_NAMES = {"RNA_SEQ": "gene expression (RNA-seq)", "RNA_SEQ_ACTIVE": "gene activity (RNA-seq)",
@@ -330,6 +331,9 @@ class DecisionEntry:
         decided_by: "researcher" (an answer to a question) or "skill" (a fixed rule the skill applied
             without asking; `rule` says which).
         rule: For decided_by "skill", the rule in plain words.
+        previous: Earlier answers to the same key, oldest first, when the decision was redefined (e.g. the
+            groups changed after the results). Each keeps its value, label, time, note and the options it was
+            chosen from, so the report shows what changed and why. None when never redefined.
     """
 
     value: Any
@@ -342,6 +346,7 @@ class DecisionEntry:
     value_label: str | None = None
     decided_by: str = "researcher"
     rule: str | None = None
+    previous: list[dict[str, Any]] | None = None
 
 
 def load_decisions(study_dir: Path) -> dict[str, DecisionEntry]:
@@ -362,6 +367,9 @@ def load_decisions(study_dir: Path) -> dict[str, DecisionEntry]:
                              f"of {list(OFFERED_FIELDS)} and any of {list(TRACE_FIELDS)}")
         if offered and not isinstance(entry["options"], list):
             raise StudyError(f"{path}: decision {key!r}: options must be a list")
+        if "previous" in entry and not (isinstance(entry["previous"], list)
+                                        and all(isinstance(x, dict) and "value" in x for x in entry["previous"])):
+            raise StudyError(f"{path}: decision {key!r}: previous must be a list of earlier answers (each with a value)")
         if entry.get("decided_by", "researcher") not in DECIDED_BY:
             raise StudyError(f"{path}: decision {key!r}: decided_by must be one of {list(DECIDED_BY)}")
         body = {f: _text(entry[f]) if f.endswith("_at") else entry[f] for f in DECISION_FIELDS}
@@ -394,7 +402,7 @@ def _write_decisions(study_dir: Path, decisions: dict[str, DecisionEntry]) -> No
         if entry.options is None:  # decided without a pending question: no offered fields
             for f in OFFERED_FIELDS:
                 del body[key][f]
-        for f in ("value_label", "rule"):  # optional trace fields stay out when empty (older files unchanged)
+        for f in ("value_label", "rule", "previous"):  # optional trace fields stay out when empty (older files unchanged)
             if body[key][f] is None:
                 del body[key][f]
         if entry.decided_by == "researcher":
@@ -872,6 +880,19 @@ def _match_code(raw: str, parsed: Any, codes: list[str]) -> tuple[bool, Any]:
     return False, parsed
 
 
+def _history(old: DecisionEntry | None, answer: Any) -> list[dict[str, Any]] | None:
+    """The earlier answers to keep when a key is decided again: the old entry is appended when the value
+    changes (a redefinition), so nothing the researcher decided before is lost."""
+    if old is None:
+        return None
+    hist = list(old.previous or [])
+    if old.value != answer:
+        snap = {f: getattr(old, f) for f in PREVIOUS_FIELDS}
+        hist.append({f: v for f, v in snap.items()
+                     if v is not None and v != "" and not (f == "decided_by" and v == "researcher")})
+    return hist or None
+
+
 def decide(args: argparse.Namespace) -> None:
     study_dir = Path(args.study_dir)
     if not study_dir.is_dir():
@@ -909,6 +930,7 @@ def decide(args: argparse.Namespace) -> None:
                                      "Nothing was recorded.")
             offered = _offered(args, previous, decisions.get(key))
             decisions[key] = DecisionEntry(
+                previous=_history(decisions.get(key), answer),
                 value=answer,
                 workflow_step=args.step,
                 asked_at=previous["asked_at"] if previous and "asked_at" in previous else now,

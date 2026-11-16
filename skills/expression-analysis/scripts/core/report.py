@@ -157,6 +157,19 @@ def _section_decisions(study_dir: Path, meta: Mapping[str, Any]) -> list[str]:
                  shown(e.options, e.recommended) if e.recommended is not None else "—",
                  shown(e.options, e.value), e.note or "—", e.answered_at[:10]) for key, e in asked]
         lines += _table(["Passo", "Decisão", "Opções", "Recomendada", "Escolhida", "Nota", "Data"], rows)
+    redefined = [(k, e) for k, e in ordered if e.previous]
+    if redefined:
+        lines += ["", "### Redefinições", "",
+                  "Decisões que o pesquisador mudou depois de respondidas (por exemplo, os grupos trocados depois dos "
+                  "resultados). Os valores anteriores ficam em `decisions.yaml` (`previous`); a tabela acima mostra o "
+                  "atual:", ""]
+        rows = []
+        for key, e in redefined:
+            for old in e.previous:
+                rows.append((f"`{key}`", shown(old.get("options"), old.get("value")), old.get("note") or "—",
+                             str(old.get("answered_at", ""))[:10] or "—"))
+            rows.append((f"`{key}`", f"**{shown(e.options, e.value)}** (atual)", e.note or "—", e.answered_at[:10]))
+        lines += _table(["Decisão", "Valor", "Nota", "Data"], rows)
     if rules:
         lines += ["", "### Regras aplicadas pela skill", "",
                   "Escolhas feitas por regra fixa, sem pergunta (verificações técnicas e o plano da triagem), "

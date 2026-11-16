@@ -11,6 +11,12 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Added
 
+- **Decision history.** Deciding a key again with another value keeps the earlier answer in `previous`
+  (value, label, date, note, options) in `decisions.yaml`; `report.md` lists them under *Redefinições*.
+- **Scope section in SKILL.md.** Questions beyond the screen (transcription factors, motifs, mechanism,
+  literature) are flagged as out of scope, worked outside the study folder with a record of what was done,
+  and never end in proposed experiments.
+
 - **`exploration/activity.md`**: every term of the Atlas catalogue with the gene's predicted activity (and
   relative to the most active), kind of sample, assays, sources and number of measurements, written by
   `explore`; `explore --out OUT --activity-only` writes it for an existing exploration without new captures.
@@ -36,6 +42,12 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
   was saved again after its figures were drawn.
 
 ### Changed
+
+- **The noise filter follows the question** (*Alvo − controle acima do ruído*, `--min-sigma`): with
+  repression the target must be below the control, with increase above, with either both ways. Before, a
+  variant that raised the target could pass a repression question.
+- A redefinition of the groups ends by saving the analysis as a view, with the researcher's OK
+  (`references/workflow.md`).
 
 - **Keys**: the AlphaGenome key is read only from the project's `.env`, not from `~/.env` or environment
   variables, so each study runs with the key of its own project.

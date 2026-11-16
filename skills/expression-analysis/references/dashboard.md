@@ -85,6 +85,9 @@ Mention these when they matter for what the researcher is looking at:
 - An empty selection means all (regions, assays, sources).
 - *Mudança mínima* applies to **every** target tissue in the direction asked; *mudança máxima no
   controle* applies to every control tissue in both directions.
+- *Alvo − controle acima do ruído* follows the question: with *Diminui*, the target must be that many σ
+  **below** the control; with *Aumenta*, above; with *Qualquer mudança*, either way. A variant that
+  raises the target never passes a repression question through this filter.
 - A filter that cannot apply is listed as *ignorado* in the filter steps, with the reason (no control
   tissue, no tissue with two measurements for the noise).
 - *Quantas mostrar* and *Variantes nos gráficos* do not change the counts: the blue box and the filter
