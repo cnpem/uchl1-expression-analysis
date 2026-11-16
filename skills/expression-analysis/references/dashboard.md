@@ -29,7 +29,7 @@ the HTML). The dashboard never calls the network: a tissue that was not captured
 |---|---|---|
 | Title, *Como usar* | gene, window, number of variants (every single-base change) | the change is a percent of what the scorer measures |
 | Three choices | *O que você procura?* (diminui / aumenta / qualquer mudança), *Onde* (target tissues), *Comparado com* (control tissues) | these are the only choices needed to start |
-| How to show (row below) | *Ordenar por* (order of the table, which variants *Quantas mostrar* keeps, height in the window chart), *Quantas mostrar* (all, or the first 10-200 in that order), *Variantes nos gráficos* (only those that pass, or all with the rest in grey) | change what is shown and ranked; *Quantas mostrar* also changes the headline's count |
+| How to show (row below) | *Ordenar por* (order of the table, which variants *Quantas mostrar* keeps, height in the window chart), *Quantas mostrar* (0 = all; otherwise only the first N in that order are drawn and listed), *Variantes nos gráficos* (only those that pass, or all with the rest in grey) | change what is drawn and in which order; the headline and the filter steps still count every variant that passes |
 | *De onde vêm as medições* | for each chosen tissue, its measurements (GTEx or ENCODE, tissue or cell type, polyA or total RNA-seq) and how well they agree in this gene | tissues whose measurements agree poorly are unstable comparisons |
 | Headline (blue box) | how many variants pass, the ones that change the target most (% in target and in control), a warning when the gene is predicted to be almost off in a target tissue | read it first; it states the result of the current choices |
 | *Ao longo da janela* | one stem per variant at its position; height = change in the target (or what *Ordenar por* chose); colour, point size and *Uma alternativa por posição* are next to it | click to highlight; wheel zooms, drag pans, double-click resets; *Recortar* limits the window for the other parts; *Salvar PNG/SVG* below |
@@ -64,12 +64,12 @@ the researcher read them out) and map them:
 | *Piso (REF)* on, *O que fazer com o piso* | `--ref-floor N --floor-applies warn/control/target/both` |
 | *Uma alternativa por posição* | `--one-alt` |
 | *Ordenar por* | `--y-metric` |
-| *Quantas mostrar* | `--top-k N` (omit for *Todas*) |
+| *Quantas mostrar* | nothing: it only limits what is drawn; `--top N` lists the first N |
 | *Nome do grupo alvo / controle* | `--target-label`, `--control-label` |
 | *Tipo de predição* | `--scorer` |
 
-Crop, highlights, colours, the point size and *Variantes nos gráficos* change only what is drawn, not the
-numbers.
+Crop, highlights, colours, the point size, *Quantas mostrar* and *Variantes nos gráficos* change only what
+is drawn, not the numbers.
 
 ## What each quantity means
 

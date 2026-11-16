@@ -99,7 +99,7 @@ class Profile:
     domains: list[str] = dataclasses.field(default_factory=list)     # empty = all
     one_alt_per_position: bool = False
     y_metric: str = "target_mean"      # target_mean | target_toward | control_mean | diff | diff_sigma | avi_phred
-    top_k: int | None = None
+    top_k: int | None = None           # display limit ('Quantas mostrar'), not a filter: see first_k
 
 
 # --------------------------------------------------------------------------- data
@@ -374,11 +374,20 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
     if p.one_alt_per_position:
         df = df.sort(pl.col(metric).abs(), descending=True, nulls_last=True).unique("position", keep="first", maintain_order=True)
         steps.append(("uma alternativa por posição", df.height))
-    df = df.sort(pl.col(metric).abs(), descending=True, nulls_last=True)
-    if p.top_k:
-        df = df.head(p.top_k)
-        steps.append((f"{p.top_k} primeiras pela ordem escolhida", df.height))
-    return df, steps
+    return df.sort(order_expr(metric), descending=True, nulls_last=True), steps
+
+
+def order_expr(metric: str) -> pl.Expr:
+    """Sort key of 'Ordenar por': the size of the change, except target_toward, which is already signed toward the
+    question (larger = more in the direction asked)."""
+    return pl.col(metric) if metric == "target_toward" else pl.col(metric).abs()
+
+
+def first_k(df: pl.DataFrame, metric: str, k: int | None) -> pl.DataFrame:
+    """The first `k` rows in the order of 'Ordenar por' (all when k is 0 or None). A display limit, not a filter."""
+    metric = metric if metric in df.columns else "target_mean"
+    df = df.sort(order_expr(metric), descending=True, nulls_last=True)
+    return df.head(k) if k else df
 
 
 def funnel(steps: list[tuple[str, int]]) -> pl.DataFrame:

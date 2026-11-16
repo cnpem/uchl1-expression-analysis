@@ -152,9 +152,8 @@ def _(H, assays, base, data, labels, mo, sources):
                               label="Cor no gráfico da janela")
     show_mode = mo.ui.dropdown(options={"Só as que passam nos filtros": "kept", "Todas (as que não passam em cinza)": "all"},
                                value="Só as que passam nos filtros", label="Variantes nos gráficos")
-    _k = {"Todas": 0, **{f"{n} primeiras": n for n in sorted({10, 20, 50, 100, 200, *([base.top_k] if base.top_k else [])})}}
-    top_k = mo.ui.dropdown(options={k: v for k, v in _k.items()}, label="Quantas mostrar",
-                           value=next((k for k, v in _k.items() if v == (base.top_k or 0)), "Todas"))
+    top_k = mo.ui.number(start=0, stop=data.master.height, step=1, value=base.top_k or 0,
+                         label="Quantas mostrar (0 = todas)")
     return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, max_control_pct, min_sigma,
             min_target_pct, one_alt, question, ref_floor, show_mode, shown_pick, source_pick, target_name, target_pick, top_k,
             use_floor, use_max_control, y_metric)
@@ -188,9 +187,12 @@ def _(A, H, data, dataclasses, pl, profile, show_mode):
     kept, steps = A.apply(effects, data, _p, noise)
     flags = A.expression_flags(data, profile)
     metric = profile.y_metric if profile.y_metric in effects.columns else "target_mean"
-    shown_df = H.add_display_columns(kept if show_mode.value == "kept" else effects, kept["variant_id"].to_list())
+    # What the charts and the table show: the variants that pass (or all, the rest in grey), the first K in the
+    # order chosen. K limits what is shown; the headline and the filter steps still count every variant that passes.
+    _pool = H.add_display_columns(kept if show_mode.value == "kept" else effects, kept["variant_id"].to_list())
     if show_mode.value == "all" and profile.domains:
-        shown_df = shown_df.filter(pl.col("genomic_domain").is_in(profile.domains))
+        _pool = _pool.filter(pl.col("genomic_domain").is_in(profile.domains))
+    shown_df = A.first_k(_pool, metric, profile.top_k)
     return effects, flags, kept, metric, noise, shown_df, steps
 
 
@@ -231,8 +233,9 @@ def _(control_pick, descriptions, mo, question, show_mode, target_pick, top_k, y
             "**Ordenar por** define a ordem da tabela, quais entram em *Quantas mostrar* e a altura de cada haste no "
             "gráfico da janela. *Mudança no alvo* é a média dos tecidos do alvo; *no sentido procurado, no tecido que "
             "menos muda* favorece variantes que mudam todos os tecidos do alvo; *diferença alvo − controle* favorece "
-            "efeitos próprios do alvo. **Quantas mostrar** guarda só as primeiras nessa ordem, em todos os gráficos e "
-            "na tabela. **Variantes nos gráficos**: com *Todas*, as que não passam nos filtros aparecem em cinza.")}),
+            "efeitos próprios do alvo. **Quantas mostrar** desenha e lista só as N primeiras nessa ordem (0 = todas); o resumo "
+            "e as etapas dos filtros continuam contando todas as que passam. **Variantes nos gráficos**: com *Todas*, as que "
+            "não passam nos filtros aparecem em cinza, e *Quantas mostrar* vale sobre todas.")}),
     ])
     return
 
@@ -300,7 +303,7 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
         selected_variant_ids=get_focus_ids(), crop_domain=_crop, full_domain=full_domain, target_label=profile.target_label,
         drag_mode=_mode, axis_title=[y_metric.selected_key + _unit], color_title=color_by.selected_key,
         color_domain=_dom, color_range=_rng, x_title="Posição no cromossomo (GRCh38)", lang="pt",
-        head_size=point_size.value * 2,
+        head_size=point_size.value * 2, faded=("passa", "não passa"),
         extra_tooltip=[("target_mean", f"Mudança no {profile.target_label} ({A.UNIT.get(profile.scorer, 'log')})", ".4f"),
                        ("control_mean", f"Mudança no {profile.control_label} ({A.UNIT.get(profile.scorer, 'log')})", ".4f"),
                        ("top_feature", "Modalidade AVI", None), ("passa", "Filtros", None)])
@@ -308,7 +311,8 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
                                            file_name=f"{study_cfg.data['study_id']}_janela_{metric}"))
     _rel = sorted(((_crop[0] - locus.tss) * locus.strand, (_crop[1] - locus.tss) * locus.strand))
     mo.vstack([
-        mo.md(f"## Ao longo da janela\n{_df.height:,} variantes · trecho de {_crop[1] - _crop[0] + 1} pb "
+        mo.md(f"## Ao longo da janela\n{_df.height:,} variantes" + (f" (as {profile.top_k:,} primeiras em *Ordenar por*)"
+              if profile.top_k and _df.height >= profile.top_k else "") + f" · trecho de {_crop[1] - _crop[0] + 1} pb "
               f"({_rel[0]:+d} a {_rel[1]:+d} pb do início do gene). Clique numa variante para destacá-la."),
         mo.accordion({"Mapa da janela (gene, promotor, éxon 1)": mo.Html(figure_svg(locus, footprint_blocks(locus))),
                       "Como usar este gráfico": mo.md(
@@ -404,17 +408,18 @@ def _(get_focus_ids, scatter, select_variants):
 
 
 @app.cell
-def _(A, get_crop, get_focus_ids, kept, labels, mo, pl, profile, select_variants):
+def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show_mode, shown_df):
     _base = A.SCALES.get(profile.scorer, (2.718281828459045, ""))[0]
     _lo, _hi = get_crop()
-    _rows = kept.filter(pl.col("position").is_between(_lo, _hi))
+    _rows = shown_df.filter(pl.col("position").is_between(_lo, _hi))
     _eff = [c for c in _rows.columns if c.startswith("eff_")]
     _pct = lambda c: ((pl.lit(_base).pow(pl.col(c)) - 1) * 100).round(1)
     _show = _rows.select([pl.col("variant_id").alias("variante"), pl.col("genomic_domain").alias("região"),
                           pl.col("distance_to_tss").alias("dist. início do gene"),
                           _pct("target_mean").alias(f"% {profile.target_label}"), _pct("control_mean").alias(f"% {profile.control_label}"),
                           *[_pct(c).alias(f"% {labels.get(c[4:], c[4:]).split(' (')[0]}") for c in _eff],
-                          pl.col("top_feature").alias("modalidade AVI"), pl.col("atlas_url").alias("Atlas")])
+                          pl.col("top_feature").alias("modalidade AVI"), pl.col("atlas_url").alias("Atlas"),
+                          *([pl.col("passa").alias("filtros")] if show_mode.value == "all" else [])])
     _ids = _show["variante"].to_list()
     variant_table = mo.ui.table(_show.to_dicts(), selection="multi",
                                 initial_selection=[i for i, v in enumerate(_ids) if v in set(get_focus_ids())], page_size=12,

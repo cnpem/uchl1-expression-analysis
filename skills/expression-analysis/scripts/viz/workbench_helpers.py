@@ -216,6 +216,7 @@ def build_unified_lollipop_canvas(
     axis_title: Optional[Sequence[str]] = None, title: Optional[str] = None,
     subtitle: Optional[str | Sequence[str]] = None, color_title: Optional[str] = None,
     color_domain: Optional[Sequence[str]] = None, color_range: Optional[Sequence[str]] = None,
+    faded: Optional[tuple[str, str]] = None,
     extra_tooltip: Optional[Sequence[tuple[str, str, Optional[str]]]] = None,
     x_title: str = "GRCh38 position (bp)", lang: str = "en", head_size: float = 90,
 ):
@@ -250,6 +251,13 @@ def build_unified_lollipop_canvas(
         color = alt.Color("genomic_domain:N", title="Genomic domain", scale=alt.Scale(domain=domains, range=colors))
     else:
         color = alt.Color(f"{color_col}:N", title=color_title or color_col.replace("_", " ").capitalize())
+    if faded is not None and faded[0] in data.columns:
+        # rows where faded[0] == faded[1] (e.g. variants that do not pass the filters) are drawn light grey
+        is_faded = alt.datum[faded[0]] == faded[1]
+        color = alt.condition(is_faded, alt.value("#c8c4c0"), color)
+        fade = lambda solid: alt.condition(is_faded, alt.value(0.35), alt.value(solid))
+    else:
+        fade = lambda solid: alt.value(solid)
     tooltip = [alt.Tooltip("variant_id:N", title="Variant ID"), alt.Tooltip("position:Q", title="Position", format="d"),
                alt.Tooltip("distance_to_tss:Q", title="Distance to TSS (bp)"),
                alt.Tooltip("genomic_domain:N", title="Genomic Domain"),
@@ -270,14 +278,15 @@ def build_unified_lollipop_canvas(
     base = alt.Chart(data.to_pandas())
     spine = base.mark_tick(orient="horizontal", thickness=3, size=10, opacity=0.4, clip=True).encode(
         x=x, y=alt.Y("_zero:Q", title=y_title))
-    stems = base.mark_rule(strokeWidth=1.8, clip=True, opacity=0.7).encode(x=x, y="_zero:Q", y2="_y_val:Q", color=color)
+    stems = base.mark_rule(strokeWidth=1.8, clip=True).encode(x=x, y="_zero:Q", y2="_y_val:Q", color=color,
+                                                             opacity=fade(0.7))
     if drag_mode == "crop":
         drag = alt.selection_interval(name=CROP_BRUSH_NAME, encodings=["x"], translate=False, zoom=False,
                                       mark=alt.BrushConfig(fill="#e11d48", fillOpacity=0.12, stroke="#e11d48", strokeWidth=1.5))
     else:
         drag = alt.selection_interval(bind="scales", encodings=["x", "y"], zoom=True)  # wheel zooms, drag pans, double-click resets
-    heads = base.mark_circle(size=head_size, stroke="#ffffff", strokeWidth=0.8, clip=True, opacity=0.9, cursor="pointer").encode(
-        x=x, y=alt.Y("_y_val:Q", title=y_title), color=color, tooltip=tooltip)
+    heads = base.mark_circle(size=head_size, stroke="#ffffff", strokeWidth=0.8, clip=True, cursor="pointer").encode(
+        x=x, y=alt.Y("_y_val:Q", title=y_title), color=color, opacity=fade(0.9), tooltip=tooltip)
     layers = [spine.add_params(drag), stems, heads]
     focus = data.filter(pl.col("variant_id").is_in(list(selected_variant_ids or [])))
     if not focus.is_empty():
