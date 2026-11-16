@@ -7,13 +7,14 @@ question instead of a silent fix. Codons are read in transcript orientation; a c
 exon 1 or the window keeps its CDS coordinates but no codon or amino-acid strings (those bases are
 not in the window sequence).
 
-Researcher questions (answered with study.py decide, Workflow step 11):
-  variants.ref_mismatch:{pos}         the Atlas REF differs from the Ensembl sequence at pos:
-                                      exclude_position | abort
-  variants.missing_in_atlas:{pos}     pos has SNVs without an AVI row:
-                                      exclude_position | abort
-`exclude_position` drops all SNVs of the position from every later table; `abort` stops the stage
-with exit 1. The site in a key is the 1-based position.
+Rule applied without asking (a technical check the researcher cannot judge position by position):
+  variants.ref_mismatch:{pos}         the Atlas REF differs from the Ensembl sequence at pos
+  variants.missing_in_atlas:{pos}     pos has SNVs without an AVI row
+Each such position is excluded (`exclude_position`: all its SNVs leave every later table) and recorded
+in decisions.yaml with decided_by: skill and the reason. When they exceed MAX_AUTO_EXCLUDED_FRACTION of
+the window the stage stops instead: so many disagreements point to a capture problem (another window,
+assembly or pull), not to isolated positions. An answer recorded earlier by the researcher
+(`exclude_position` or `abort`) still applies. The site in a key is the 1-based position.
 
 Output (processed/): core_variants.tsv (one row per SNV; `exon_number` is 1 inside exon 1 and empty
 elsewhere because the GENCODE GTF carries exon numbers, not exon IDs).
@@ -35,7 +36,7 @@ import models
 from core import locus as core_locus
 from core.locus import LocusConfig
 from models import AviRecord, EnsemblSequence
-from study import DecisionEntry, PendingDecision, load_decisions, load_study
+from study import DecisionEntry, Option, PendingDecision, load_decisions, load_study, sync_rules
 
 WORKFLOW_STEP = 11
 AVI_STEP = 9
@@ -148,20 +149,46 @@ def _codon_fields(locus: LocusConfig, window: str, pos: int, alt: str) -> dict[s
 # --- decisions ------------------------------------------------------------------------------
 
 
-def _site_question(kind: str, pos: int, detail: str) -> PendingDecision:
+MAX_AUTO_EXCLUDED_FRACTION = 0.01  # above 1% of the window's positions the stage asks first (capture problem?)
+LIMIT_KEY = "variants.exclusion_limit"
+RULE_PREFIXES = ("variants.ref_mismatch:", "variants.missing_in_atlas:")
+
+
+def _limit_question(found: Sequence[dict[str, Any]], size: int, chromosome: str) -> PendingDecision:
+    positions = sorted(f["pos"] for f in found)
+    shown = ", ".join(f"{chromosome}:{p:,}" for p in positions[:10]) + (" …" if len(positions) > 10 else "")
+    share = len(found) / size
     return PendingDecision(
-        key=f"variants.{kind}:{pos}",
-        question=f"{detail} Exclude position {pos} from the analysis, or stop?",
-        options=["exclude_position", "abort"],
-        recommended="exclude_position",
-        workflow_step=WORKFLOW_STEP,
-    )
+        key=LIMIT_KEY,
+        question=(f"At {len(found)} of the window's {size:,} positions ({share:.1%}) the AlphaGenome Atlas and the "
+                  "reference sequence disagree, or the Atlas has no prediction. A few such positions are normal; this "
+                  "many usually means the Atlas data and the sequence were captured for different windows. What should "
+                  "happen?"),
+        options=[Option(code="abort", label="Pause to capture the data again",
+                        effect="The analysis pauses; the agent captures the Atlas data and the sequence again for the "
+                               "study window and runs this step again."),
+                 Option(code="exclude_all", label=f"Leave these {len(found)} positions out and continue",
+                        effect=f"{3 * len(found):,} variants are not analysed; each position is listed in the report.")],
+        recommended="abort", workflow_step=WORKFLOW_STEP,
+        title="Many positions without matching predictions",
+        why="Leaving out many positions removes variants from every result; if the cause is a capture problem, the "
+            "rest of the data may be affected too.",
+        identifiers={"positions": shown, "window positions": f"{size:,}"},
+        agent_note="Before asking, check that raw/avi_region.parquet and the sequence file cover the window of "
+                   "processed/locus.json (Workflow steps 3 and 9).")
 
 
-def excluded_positions(decisions: Mapping[str, DecisionEntry]) -> list[int]:
-    """Positions the researcher excluded with `variants.ref_mismatch:{pos}` or `variants.missing_in_atlas:{pos}`."""
+def excluded_positions(decisions: Mapping[str, DecisionEntry], include_rules: bool = False) -> list[int]:
+    """Positions excluded with `variants.ref_mismatch:{pos}` or `variants.missing_in_atlas:{pos}`.
+
+    By default only the researcher's answers: the stage evaluates its rule again on every run, so a recapture
+    that fixes a position brings it back. `include_rules` adds the positions the last run excluded by rule
+    (decided_by: skill), i.e. every position missing from core_variants.tsv (what the master QC expects).
+    """
     out: set[int] = set()
     for key, entry in decisions.items():
+        if entry.decided_by == "skill" and not include_rules:
+            continue
         kind, _, site = key.partition(":")
         if kind in ("variants.ref_mismatch", "variants.missing_in_atlas") and entry.value == "exclude_position":
             try:
@@ -173,7 +200,7 @@ def excluded_positions(decisions: Mapping[str, DecisionEntry]) -> list[int]:
 
 def _answer(decisions: Mapping[str, DecisionEntry], key: str) -> str | None:
     entry = decisions.get(key)
-    if entry is None:
+    if entry is None or entry.decided_by == "skill":
         return None
     if entry.value == "exclude_position":
         return "exclude_position"
@@ -192,6 +219,7 @@ def enumerate_variants(
     *,
     decisions: Mapping[str, DecisionEntry] | None = None,
     species: str = "homo_sapiens",
+    auto: list[dict[str, Any]] | None = None,
 ) -> pl.DataFrame:
     """All SNVs of the window (3 per position, REF from the sequence) minus the excluded positions.
 
@@ -202,12 +230,15 @@ def enumerate_variants(
         decisions: Researcher answers; `variants.*` keys exclude positions.
         species: study.yaml species, for the Ensembl links.
 
+        auto: When given, receives one {key, value, rule} per position excluded by the rule (the caller
+            records them with study.record_rule).
+
     Returns:
         One row per SNV, columns in VARIANT_COLUMNS order, sorted by position then ALT.
 
     Raises:
-        VariantsPending: REF disagreements or SNVs without an AVI row that no decision covers.
-        VariantsError: an aborting decision, or a sequence that cannot serve the window.
+        VariantsError: an aborting decision, more problem positions than MAX_AUTO_EXCLUDED_FRACTION of the
+            window, or a sequence that cannot serve the window.
     """
     decisions = decisions or {}
     window = window_sequence(locus, sequence)
@@ -216,24 +247,36 @@ def enumerate_variants(
         if locus.window.contains(rec.position):
             have.setdefault(rec.position, {})[rec.alt] = rec.ref
     excluded = set(excluded_positions(decisions))
-    pending: list[PendingDecision] = []
+    found: list[dict[str, Any]] = []
     for pos in range(locus.window.start, locus.window.end + 1):
         ref = window[pos - locus.window.start]
         seen = have.get(pos, {})
         wrong = sorted({r for r in seen.values() if r != ref})
         if wrong:
             if _answer(decisions, f"variants.ref_mismatch:{pos}") is None:
-                pending.append(_site_question(
-                    "ref_mismatch", pos, f"At {locus.chromosome}:{pos} the Ensembl sequence has {ref} but the Atlas AVI "
-                    f"export has REF {', '.join(wrong)}."))
+                found.append({"key": f"variants.ref_mismatch:{pos}", "pos": pos, "rule": (
+                    f"At {locus.chromosome}:{pos:,} the reference sequence (Ensembl) has {ref} but the AlphaGenome Atlas "
+                    f"has {', '.join(wrong)}; the position is left out, since its predictions refer to another base.")})
             continue
         absent = [a for a in BASES if a != ref and a not in seen]
         if absent and _answer(decisions, f"variants.missing_in_atlas:{pos}") is None:
-            pending.append(_site_question(
-                "missing_in_atlas", pos, f"At {locus.chromosome}:{pos} ({ref}) the Atlas AVI export has no row for "
-                f"ALT {', '.join(absent)}."))
-    if pending:
-        raise VariantsPending(pending)
+            found.append({"key": f"variants.missing_in_atlas:{pos}", "pos": pos, "rule": (
+                f"At {locus.chromosome}:{pos:,} ({ref}) the AlphaGenome Atlas has no prediction for "
+                f"{', '.join(f'{ref}>{a}' for a in absent)}; the position is left out so every position is compared with "
+                "all three possible base changes.")})
+    size = locus.window.end - locus.window.start + 1
+    if len(found) > MAX_AUTO_EXCLUDED_FRACTION * size:
+        answer = decisions.get(LIMIT_KEY)
+        accepted = answer is not None and answer.decided_by == "researcher" and str(answer.value) == "exclude_all"
+        if answer is not None and str(answer.value) == "abort":
+            raise VariantsError(f"Stopped by the researcher's answer to '{LIMIT_KEY}': capture the AlphaGenome Atlas "
+                                "export (Workflow step 9) and the sequence (step 3) again for the study window.")
+        if not accepted:
+            raise VariantsPending([_limit_question(found, size, locus.chromosome)])
+    for f in found:
+        excluded.add(f["pos"])
+        if auto is not None:
+            auto.append({"key": f["key"], "value": "exclude_position", "rule": f["rule"]})
 
     transcript_url = f"{ENSEMBL_BASE_URL}/{_species_path(species)}/Transcript/Summary?t={locus.transcript_id}"
     base_url = f"{ENSEMBL_BASE_URL}/{_species_path(species)}"
@@ -296,7 +339,13 @@ def run(study_dir: Path) -> pl.DataFrame:
         raise VariantsError("locus.json records no window sequence file; run expression.py locus (Workflow step 4).")
     sequence = models.load_raw(study_dir / locus.sequence_file)[0]
     avi = _load_avi(study_dir)
-    df = enumerate_variants(locus, avi, sequence, decisions=decisions, species=study.data["species"])
+    auto: list[dict[str, Any]] = []
+    try:
+        df = enumerate_variants(locus, avi, sequence, decisions=decisions, species=study.data["species"], auto=auto)
+    except (VariantsPending, VariantsError):
+        sync_rules(study_dir, RULE_PREFIXES, [], WORKFLOW_STEP)  # the last run's exclusions no longer hold
+        raise
+    sync_rules(study_dir, RULE_PREFIXES, auto, WORKFLOW_STEP)
     (study_dir / "processed").mkdir(parents=True, exist_ok=True)
     df.write_csv(study_dir / CORE_VARIANTS_FILE, separator="\t")
     return df

@@ -5,14 +5,16 @@ are matched with the Atlas track catalogue (raw/tracks_{scorer}_{curie}.parquet)
 (raw/ols_search_*.json, raw/ols_term_*.json) give each CURIE its label and definition, and every
 CURIE or scorer that would leave a cohort empty becomes a question instead of an empty cohort.
 
-Researcher questions (answered with study.py decide, Workflow step 8):
+Researcher questions (answered with study.py decide, Workflow step 8; codes, the labels are in the question):
   cohort.unserved:{curie}             the CURIE has no track for any requested scorer:
-                                      drop_curie | replace:{descendant CURIE}
-  cohort.scorer_without_cohort:{s}    scorer s has no track in the target or in the control cohort:
-                                      drop_scorer
+                                      drop_curie | replace:{descendant CURIE} | abort
   cohort.no_rna_seq:{role}            the target or control cohort keeps no RNA_SEQ track:
                                       add:{descendant CURIE} | abort
-Any question also accepts `abort`, which stops the stage with exit 1. RNA_SEQ is the scorer of the
+Rule applied without asking (recorded in decisions.yaml with decided_by: skill):
+  cohort.scorer_without_cohort:{s}    scorer s has no track in the target or in the control cohort, so no
+                                      comparison is possible for it: drop_scorer (an earlier `abort` answer
+                                      still stops the stage)
+`abort` stops the stage with exit 1. RNA_SEQ is the scorer of the
 expression contrast, so a cohort without an RNA_SEQ track cannot be fixed by dropping the scorer.
 `add:{curie}` adds an OLS descendant of one of that cohort's CURIEs to the cohort (the CURIEs it
 already has stay, for the other scorers); the recommended one is the descendant with the most
@@ -35,6 +37,7 @@ Library: CohortError, CohortPending, resolve_cohorts, chosen_curies, run, load_r
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -45,10 +48,12 @@ import models
 from core import locus as core_locus
 from core import tracks as core_tracks
 from models import AtlasTrack
-from study import DecisionEntry, PendingDecision, StudyConfig, load_decisions, load_study
+from study import (PREDICTION_NAMES, DecisionEntry, Option, PendingDecision, StudyConfig, load_decisions, load_study,
+                   prediction_names, sync_rules)
 
 WORKFLOW_STEP = 8
 OLS_STEP = 5
+CHOICE_STEP = 1  # where cohort.target and cohort.control are recorded (from the exploration)
 TRACKS_STEP = 7
 GENE_EXPRESSION_SCORER = "RNA_SEQ"
 REGISTRY_FILE = "processed/track_registry.tsv"
@@ -183,13 +188,14 @@ def _record(curie: str, label: str, iri: str, ontology: str, description: Sequen
 
 
 def _cohort_curies(decisions: Mapping[str, DecisionEntry]) -> dict[str, list[str]]:
-    """Target and control CURIEs from the decisions (Workflow step 5), which settle the request of study.yaml."""
+    """Target and control CURIEs from the decisions (Workflow step 1), which settle the request of study.yaml."""
     out: dict[str, list[str]] = {}
     for role in ("target", "control"):
         entry = decisions.get(f"cohort.{role}")
         if entry is None:
             raise CohortError(
-                f"Missing decision 'cohort.{role}'. Run Workflow step {OLS_STEP} and record the answer with study.py decide.")
+                f"Missing decision 'cohort.{role}'. Ask the researcher for the {role} terms (Workflow step {CHOICE_STEP}, "
+                "from the exploration) and record them with study.py decide.")
         value = entry.value
         if not isinstance(value, list) or not value or not all(isinstance(v, str) for v in value):
             raise CohortError(f"decision 'cohort.{role}' must be a non-empty list of CURIEs, got {value!r}")
@@ -200,7 +206,8 @@ def _cohort_curies(decisions: Mapping[str, DecisionEntry]) -> dict[str, list[str
     if both:
         raise CohortError(
             f"CURIE(s) {', '.join(both)} are in both cohort.target and cohort.control; a tissue cannot be its own "
-            f"control. Choose different CURIEs for one cohort (Workflow step {OLS_STEP}) and record them with study.py decide.")
+            f"control. Choose different CURIEs for one cohort with the researcher (Workflow step {CHOICE_STEP}) and record "
+            "them with study.py decide.")
     return out
 
 
@@ -277,7 +284,7 @@ def resolve_cohorts(
         key = f"cohort.unserved:{curie}"
         answer = _choice(decisions, key)
         if answer is None:
-            pending.append(_unserved_question(item, requested, descendants.get(curie), served))
+            pending.append(_unserved_question(item, requested, descendants.get(curie), served, rna_seq_counts, seen))
             return
         used.append(key)
         if answer == "drop_curie":
@@ -317,7 +324,7 @@ def resolve_cohorts(
             key = f"{NO_RNA_SEQ_KEY}:{role}"
             answer = _choice(decisions, key)
             if answer is None:
-                pending.append(_no_rna_seq_question(role, entries, descendants, rna_seq_counts, seen))
+                pending.append(_no_rna_seq_question(role, entries, descendants, rna_seq_counts, seen, served))
                 continue
             used.append(key)
             if answer == "abort":
@@ -340,6 +347,7 @@ def resolve_cohorts(
 
     kept = [e for e in entries if e["status"] == "kept"]
     dropped_scorers: list[str] = []
+    rules: list[dict[str, str]] = []
     adding = {q.key.split(":", 1)[1] for q in pending if q.key.startswith(f"{NO_RNA_SEQ_KEY}:")}
     for scorer in requested:
         empty = [role for role in ("target", "control")
@@ -347,19 +355,23 @@ def resolve_cohorts(
         if not empty or scorer == GENE_EXPRESSION_SCORER or set(empty) <= adding:
             continue  # (a descendant added for RNA_SEQ may bring this scorer's tracks too: ask that first)
         key = f"cohort.scorer_without_cohort:{scorer}"
-        answer = _choice(decisions, key)
-        if answer is None:
-            pending.append(_scorer_question(scorer, empty, kept))
-            continue
-        used.append(key)
-        if answer == "drop_scorer":
+        entry = decisions.get(key)
+        answer = None if entry is None or entry.decided_by == "skill" else str(entry.value).strip()
+        if answer is not None:
+            used.append(key)
+        if answer is None:  # not a choice: without tracks in one group there is nothing to compare
+            dropped_scorers.append(scorer)
+            rules.append({"key": key, "value": "drop_scorer", "rule": SCORER_RULE.format(
+                what=PREDICTION_NAMES.get(scorer, scorer).capitalize(), groups=" and ".join(empty),
+                terms=", ".join(_name(e["curie"], e["ols"]["label"]) for e in kept if e["role"] in empty))})
+        elif answer == "drop_scorer":
             dropped_scorers.append(scorer)
         elif answer == "abort":
             raise CohortError(f"Aborted by the researcher at '{key}'.")
         else:
             raise CohortError(f"Decision '{key}' is {answer!r}; expected drop_scorer or abort.")
     if pending:
-        raise CohortPending(pending)
+        raise CohortPending([_recommend(q, entries) for q in pending])
 
     if GENE_EXPRESSION_SCORER in requested:
         for role in ("target", "control"):
@@ -384,46 +396,85 @@ def resolve_cohorts(
         "dropped_scorers": dropped_scorers,
         "effective_target_curies": [e["curie"] for e in kept if e["role"] == "target"],
         "effective_control_curies": [e["curie"] for e in kept if e["role"] == "control"],
-        "decisions": [{"key": k, "value": decisions[k].value} for k in sorted(used)],
+        "decisions": [{"key": k, "value": decisions[k].value} for k in sorted(used) if k in decisions]
+                     + [{"key": r["key"], "value": r["value"]} for r in rules],
+        "rules": rules,
     }
+
+
+UNSERVED_WHY = ("A tissue without AlphaGenome predictions contributes nothing to the comparison; keeping its name "
+                "in the group would suggest it was compared when it was not.")
+SCORER_RULE = ("{what} is not predicted for any tissue of the {groups} group, so it cannot be compared and is left "
+               "out of this study (terms: {terms}).")
+SHOW_FIRST = 6
+
+
+def _name(curie: str, label: str | None) -> str:
+    return f"{label} ({curie})" if label else curie
+
+
+def _kind(curie: str) -> str:
+    return "cell type" if curie.startswith("CL:") else ("tissue" if curie.startswith("UBERON:") else "sample")
+
+
+def _offer(c: str, label: str, served: Sequence[str] | None, rna: Mapping[str, int] | None) -> tuple[str, tuple]:
+    """(effect text, sort key) of a more specific term offered as a replacement or an addition."""
+    n = (rna or {}).get(c, 0)
+    others = [s for s in (served or ()) if s != GENE_EXPRESSION_SCORER]
+    if n:
+        what = f"gene expression ({n} RNA-seq data set{'s' if n > 1 else ''})"
+        if others:
+            what += ", " + prediction_names(others)
+        effect = f"A {_kind(c)} with predictions for {what}."
+    elif served:
+        effect = (f"A {_kind(c)} with predictions for {prediction_names(others)} only: it cannot be used to compare "
+                  "gene expression.")
+    else:
+        effect = f"A {_kind(c)}; whether it has predictions is not known yet (the catalogue was not captured)."
+    return effect, (-n, -len(served or ()), label.lower())
 
 
 def _unserved_question(item: Mapping[str, Any], requested: Sequence[str],
                        descendants: Sequence[tuple[str, str]] | None,
-                       served: Mapping[str, Sequence[str]] | None) -> PendingDecision:
+                       served: Mapping[str, Sequence[str]] | None, rna: Mapping[str, int] | None,
+                       taken: set[str]) -> PendingDecision:
     curie, role, label = item["curie"], item["role"], item["ols"]["label"]
-    options = ["drop_curie"]
-    unique = dict(descendants or ())
-    if not unique:
-        hint = (f" No descendants are recorded: run Workflow step 6 (get_term.py --relations "
-                f"hierarchicalChildren,hierarchicalDescendants) for {curie} to see replacements.")
-    elif served is None:
-        ordered = sorted(unique.items(), key=lambda kv: (not kv[0].startswith("UBERON:"), kv[1].lower(), kv[0]))
-        options += [f"replace:{c} ({l})" for c, l in ordered]
-        hint = (f" The Atlas catalogue was not captured (raw/tracks_SCORER_catalogue.parquet, Workflow step 7), so all "
-                f"{len(ordered)} OLS descendant(s) are listed, served or not; after choosing one pull its catalogue and "
-                "run cohorts again.")
-    else:
-        ordered = sorted(((c, l) for c, l in unique.items() if served.get(c)), key=lambda kv: (kv[1].lower(), kv[0]))
-        options += [f"replace:{c} ({l}; served by {', '.join(served[c])})" for c, l in ordered]
-        hint = (f" {len(ordered)} of its {len(unique)} OLS descendant(s) are served by at least one requested scorer and "
-                "are listed as replace:CURIE options; after choosing one pull its catalogue (Workflow step 7) and run "
-                "cohorts again." if ordered else
-                f" None of its {len(unique)} OLS descendant(s) is served by a requested scorer.")
+    group = "target" if role == "target" else "control"
+    options = [Option(code="drop_curie", label=f"Remove {_name(curie, label)} from the {group} group",
+                      effect=f"The {group} group keeps its other tissues; the report lists this term as removed.")]
+    unique = {c: l for c, l in (descendants or ()) if c not in taken}
+    offered = [(c, l) for c, l in unique.items() if served is None or served.get(c)]
+    ranked = sorted(((c, l, *_offer(c, l, (served or {}).get(c), rna)) for c, l in offered), key=lambda x: x[3])
+    options += [Option(code=f"replace:{c}", label=f"Use {_name(c, l)} instead",
+                       effect=f"{effect} Its data are fetched and this step runs again.") for c, l, effect, _ in ranked]
+    note = ""
+    if descendants is None:
+        note = (f"No more specific terms were looked up for {curie}: run `expression.py fetch ols-term --study-dir D "
+                f"--curie {curie}` and this step again before asking, so replacements can be offered.")
+    elif len(ranked) > SHOW_FIRST:
+        note = (f"{len(ranked)} replacements, most useful first (most RNA-seq data, then most kinds of prediction); "
+                f"show the first {SHOW_FIRST} and offer the rest on request.")
+    options.append(Option(code="abort", label="Pause to choose other tissues",
+                          effect="The analysis pauses here. You choose other terms from the exploration page; the agent "
+                                 "updates the study and the analysis continues from this step."))
+    found = (f" {len(ranked)} more specific term(s) have predictions and can replace it." if ranked else
+             " None of its more specific terms has predictions either." if unique else "")
     return PendingDecision(
         key=f"cohort.unserved:{curie}",
-        question=(f"{role.capitalize()} cohort term {curie} ({label}) has no AlphaGenome track for any requested "
-                  f"scorer {list(requested)}. Drop it from the cohort?{hint}"),
-        options=options,
-        recommended="drop_curie",
-        workflow_step=WORKFLOW_STEP,
+        question=(f"AlphaGenome has no prediction for {_name(curie, label)}: none of its data sets for "
+                  f"{prediction_names(requested)} come from this {_kind(curie)}. What should happen to it in the "
+                  f"{group} group?{found}"),
+        options=options, recommended="drop_curie", workflow_step=WORKFLOW_STEP,
+        title=f"{label or curie}: no AlphaGenome predictions", why=UNSERVED_WHY,
+        identifiers={"term": _name(curie, label), "group": group}, agent_note=note,
     )
 
 
 def _no_rna_seq_question(role: str, entries: Sequence[Mapping[str, Any]],
                          descendants: Mapping[str, Sequence[tuple[str, str]]],
-                         counts: Mapping[str, int] | None, seen: set[str]) -> PendingDecision:
-    """cohort.no_rna_seq:{role}: add an OLS descendant served by RNA_SEQ, or abort."""
+                         counts: Mapping[str, int] | None, seen: set[str],
+                         served: Mapping[str, Sequence[str]] | None = None) -> PendingDecision:
+    """cohort.no_rna_seq:{role}: add a more specific term with RNA-seq predictions, or pause."""
     mine = [e for e in entries if e["role"] == role]
     curies = [e["curie"] for e in mine]
     unique: dict[str, str] = {}
@@ -431,58 +482,55 @@ def _no_rna_seq_question(role: str, entries: Sequence[Mapping[str, Any]],
         for c, label in descendants.get(curie, ()):
             if c not in seen:
                 unique.setdefault(c, label)
-    tracks = ", ".join(f"{e['curie']} ({e['ols']['label']}): "
-                       + ", ".join(f"{s} {n}" for s, n in e["tracks_per_scorer"].items()) for e in mine)
-    scorer = GENE_EXPRESSION_SCORER
-    options: list[str] = []
-    recommended = "abort"
-    if not unique:
-        missing = [c for c in curies if c not in descendants]
-        hint = (f" No OLS descendants are recorded for {', '.join(missing or curies)}: run Workflow step 6 (get_term.py "
-                "--relations hierarchicalChildren,hierarchicalDescendants) for them, then run cohorts again to see "
-                f"descendants served by {scorer}.")
-    elif counts is None:
-        ordered = sorted(unique.items(), key=lambda kv: (kv[1].lower(), kv[0]))
-        options = [f"add:{c} ({l})" for c, l in ordered]
-        recommended = None
-        hint = (f" The {scorer} catalogue was not captured (raw/tracks_{scorer}_catalogue.parquet, Workflow step 7), so "
-                f"all {len(ordered)} OLS descendant(s) are listed, served or not, and none is recommended; capture it "
-                "and run cohorts again to see which are served.")
+    group = "target" if role == "target" else "control"
+    names = ", ".join(_name(e["curie"], e["ols"]["label"]) for e in mine)
+    note = ""
+    if counts is None:
+        ranked = sorted(((c, l, *_offer(c, l, (served or {}).get(c), None)) for c, l in unique.items()), key=lambda x: x[3])
     else:
-        ordered = sorted(((c, l) for c, l in unique.items() if counts.get(c)),
-                         key=lambda kv: (-counts[kv[0]], kv[1].lower(), kv[0]))
-        options = [f"add:{c} ({l}; {counts[c]} {scorer} tracks)" for c, l in ordered]
-        if options:
-            recommended = options[0]
-        hint = (f" {len(ordered)} of their {len(unique)} OLS descendant(s) have {scorer} tracks in the catalogue and are "
-                f"listed as add:CURIE options, most tracks first (recommended: the first). After choosing one, pull its "
-                "tracks (Workflow step 7) and run cohorts again." if ordered else
-                f" None of their {len(unique)} OLS descendant(s) has a {scorer} track in the catalogue; choose other "
-                f"CURIEs for cohort.{role} (Workflow step {OLS_STEP}) or abort.")
+        ranked = sorted(((c, l, *_offer(c, l, (served or {}).get(c) or [GENE_EXPRESSION_SCORER], counts))
+                         for c, l in unique.items() if counts.get(c)), key=lambda x: x[3])
+    options = [Option(code=f"add:{c}", label=f"Add {_name(c, l)} to the {group} group for gene expression",
+                      effect=f"{effect} The group's other terms stay for the other predictions.") for c, l, effect, _ in ranked]
+    recommended = options[0].code if options and counts is not None else None
+    missing = [c for c in curies if c not in descendants]
+    if missing:
+        note = (f"No more specific terms were looked up for {', '.join(missing)}: run `expression.py fetch ols-term "
+                "--study-dir D --curie C` for each and this step again before asking.")
+    elif counts is None:
+        note = "The RNA-seq catalogue was not captured (`expression.py fetch tracks --catalogue`); capture it so a term can be recommended."
+    elif len(ranked) > SHOW_FIRST:
+        note = f"{len(ranked)} terms, most RNA-seq data first; show the first {SHOW_FIRST} and offer the rest on request."
+    options.append(Option(code="abort", label="Pause to choose other tissues",
+                          effect=f"The analysis pauses here. You choose other terms for the {group} group from the "
+                                 "exploration page; the agent updates the study and the analysis continues from this step."))
+    if not ranked:
+        recommended = "abort"
     return PendingDecision(
         key=f"{NO_RNA_SEQ_KEY}:{role}",
-        question=(f"The {role} cohort keeps no {scorer} track ({tracks}), and {scorer} is the expression contrast. Add an "
-                  f"OLS descendant that {scorer} serves to the {role} cohort (its CURIEs stay for the other scorers), or "
-                  f"abort?{hint}"),
-        options=[*options, "abort"],
-        recommended=recommended,
-        workflow_step=WORKFLOW_STEP,
+        question=(f"No tissue of the {group} group ({names}) has a gene-expression (RNA-seq) prediction, and gene "
+                  "expression is what this study compares. Add a more specific term that has one, or pause?"
+                  + ("" if ranked else " None of their more specific terms has one.")),
+        options=options, recommended=recommended, workflow_step=WORKFLOW_STEP,
+        title=f"The {group} group has no gene-expression prediction",
+        why="Without RNA-seq predictions in a group, the expression of the gene cannot be compared between target and control.",
+        identifiers={"group": group, "terms": names}, agent_note=note,
     )
 
 
-def _scorer_question(scorer: str, empty: Sequence[str], kept: Sequence[Mapping[str, Any]]) -> PendingDecision:
-    by_curie = ", ".join(f"{e['curie']} {e['tracks_per_scorer'].get(scorer, 0)}" for e in kept)
-    return PendingDecision(
-        key=f"cohort.scorer_without_cohort:{scorer}",
-        question=(f"Scorer {scorer} has no track in the {' and '.join(empty)} cohort, so no target-vs-control contrast "
-                  f"is possible for it. Drop {scorer} from this study? (tracks by CURIE: {by_curie})"),
-        options=["drop_scorer"],
-        recommended="drop_scorer",
-        workflow_step=WORKFLOW_STEP,
-    )
-
-
-# --- stage ----------------------------------------------------------------------------------
+def _recommend(q: PendingDecision, entries: Sequence[Mapping[str, Any]]) -> PendingDecision:
+    """Removing a term is recommended only while its group keeps a term with RNA-seq predictions; otherwise the
+    replacement with the most RNA-seq data is (removing it would leave the group unable to compare expression)."""
+    if not q.key.startswith("cohort.unserved:"):
+        return q
+    curie = q.key.split(":", 1)[1]
+    role = next((e["role"] for e in entries if e["curie"] == curie), None)
+    keeps = any(e["role"] == role and e["status"] == "kept" and e["tracks_per_scorer"].get(GENE_EXPRESSION_SCORER)
+                for e in entries)
+    if keeps:
+        return q
+    best = next((o.code for o in q.options if o.code.startswith("replace:") and "gene expression (" in o.effect), None)
+    return dataclasses.replace(q, recommended=best) if best else q
 
 
 def chosen_curies(decisions: Mapping[str, DecisionEntry]) -> set[str]:
@@ -517,6 +565,7 @@ def run(study_dir: Path) -> dict[str, Any]:
     tracks = _load_tracks(study_dir, sorted(needed), study.data["scorers"])
     resolution = resolve_cohorts(study, tracks, ols, descendants, decisions, _served_by(study_dir, study.data["scorers"]),
                                  _catalogue_counts(study_dir, GENE_EXPRESSION_SCORER))
+    sync_rules(study_dir, ("cohort.scorer_without_cohort:",), resolution["rules"], WORKFLOW_STEP)
     catalogue = [t for ts in tracks.values() for t in ts]
     registry = core_tracks.build_track_registry(
         catalogue, study, resolution=resolution, chromosome=locus.chromosome, gene_strand=locus.strand,

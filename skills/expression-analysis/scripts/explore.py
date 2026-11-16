@@ -66,7 +66,7 @@ def _gene_locus(gtf_path: Path, gene: str) -> tuple[Any, list[Any], str | None]:
         q = exc.items[0]
         chosen = next(t for t in transcripts if t.transcript_id == q.recommended)
         return chosen, transcripts, (f"no single MANE Select transcript; {chosen.transcript_id} (longest CDS) is used "
-                                     f"here and the study asks locus.transcript ({', '.join(q.options[:-1])})")
+                                     f"here and the study asks locus.transcript ({', '.join(q.codes[:-1])})")
 
 
 def search_region(transcripts: list[Any], flank: int) -> tuple[str, int, int]:
@@ -406,8 +406,9 @@ def render_summary(d: dict[str, Any]) -> str:
         L.append(f"\n**Recomendação:** `{w0['id']}` — {w0['why']}. É a menor janela que cobre o elemento onde a "
                  "transcrição começa e o éxon 1 inteiro, que é onde variantes reguladoras do promotor costumam agir.")
         if w0["study_questions"]:
-            L.append(f"Ao criar o estudo com ela, a etapa do locus vai perguntar: {', '.join(w0['study_questions'])} "
-                     "(por exemplo, se um elemento entra no éxon 1, se a unidade inteira é mantida).")
+            n = len(w0["study_questions"])
+            L.append(f"Ao criar o estudo com ela, {'uma pergunta' if n == 1 else f'{n} perguntas'} sobre a extensão da "
+                     "janela (incluir ou não elementos reguladores vizinhos) será feita na etapa da janela.")
     L.append("")
     L.append("## 4. Tecidos e células: termos de ontologia e trilhas disponíveis\n")
     L.append("Para cada texto citado, os termos candidatos (UBERON = tecido, CL = tipo celular, EFO/CLO = linhagens "
@@ -478,8 +479,8 @@ def render_summary(d: dict[str, Any]) -> str:
             c["curie"] == t["recommended"] and c["per_scorer"].get(s) for c in t["candidates"])]
         L.append(f"| {s} | {meaning.get(s, s)} | {len(served)} de {len(d['terms'])} ({', '.join(served) or '—'}) |")
     L.append("\n**Recomendação:** RNA_SEQ é obrigatório (é o contraste de expressão). Os demais valem a pena quando "
-             "servem ao menos um termo do alvo e um do controle; um scorer sem trilha em um dos grupos será descartado "
-             "pelo estudo (pergunta `cohort.scorer_without_cohort`).\n")
+             "servem ao menos um termo do alvo e um do controle; um tipo de previsão sem trilhas em um dos grupos é "
+             "deixado de fora automaticamente e registrado no relatório.\n")
     L.append("## 7. Limites\n")
     L.append("- O Atlas só tem **substituições de uma base (SNVs)** do genoma de referência GRCh38. Inserções e deleções "
              "(indels) conhecidas, ou uma lista fornecida pelo pesquisador, podem ser pontuadas pelo modelo "

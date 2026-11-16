@@ -45,7 +45,7 @@ from typing import Any
 
 import models
 from models import EnsemblSequence, GtfExon, GtfTranscript, RegulatoryFeature
-from study import DecisionEntry, PendingDecision, StudyConfig, load_decisions, load_study
+from study import DecisionEntry, Option, PendingDecision, StudyConfig, load_decisions, load_study, sync_rules
 
 WORKFLOW_STEP = 4
 GTF_FILE = "raw/gtf.json"
@@ -341,9 +341,22 @@ def _cds_length(t: GtfTranscript) -> int:
     return sum(s.end - s.start + 1 for s in t.cds)
 
 
-def _question(key: str, question: str, options: Iterable[str], recommended: str | None) -> PendingDecision:
+def _question(key: str, question: str, options: Iterable[Option], recommended: str | None, *, title: str,
+              why: str, identifiers: dict[str, Any]) -> PendingDecision:
     return PendingDecision(key=key, question=question, options=list(options), recommended=recommended,
-                           workflow_step=WORKFLOW_STEP)
+                           workflow_step=WORKFLOW_STEP, title=title, why=why, identifiers=identifiers)
+
+
+WINDOW_WHY = ("The window is the set of variants every conclusion rests on: what it leaves out is never scored, "
+              "and every base it adds costs three more variants to capture.")
+STOP_WINDOW = Option(code="abort", label="Pause to choose another window",
+                     effect="The analysis pauses here. You then choose another window from the exploration page (for "
+                            "example the start of the gene +/- 500 bp); the agent sets it and the analysis continues "
+                            "from this step.")
+
+
+def _span(a: int, b: int) -> str:
+    return f"{b - a + 1:,} bp, {3 * (b - a + 1):,} variants"
 
 
 def _resolve(triggers: list[PendingDecision], decisions: Mapping[str, DecisionEntry]) -> dict[str, Any]:
@@ -354,8 +367,8 @@ def _resolve(triggers: list[PendingDecision], decisions: Mapping[str, DecisionEn
     chosen: dict[str, Any] = {}
     for t in triggers:
         value = decisions[t.key].value
-        if str(value) not in t.options:
-            raise LocusError(f"Decision '{t.key}' = {value!r} is not one of {t.options}; record it again with "
+        if str(value) not in t.codes:
+            raise LocusError(f"Decision '{t.key}' = {value!r} is not one of {t.codes}; record it again with "
                              f"study.py decide (Workflow step {WORKFLOW_STEP}).")
         chosen[t.key] = str(value)
     aborted = sorted(k for k, v in chosen.items() if v == "abort")
@@ -393,18 +406,33 @@ def select_transcript(transcripts: list[GtfTranscript], gene_symbol: str,
         chosen = mane[0]
     else:
         coding = sorted((t for t in transcripts if t.cds), key=lambda t: (-_cds_length(t), t.transcript_id))
-        candidates = [t.transcript_id for t in (mane or coding)]
+        pool = mane or coding
+        candidates = [t.transcript_id for t in pool]
         entry = decisions.get(TRANSCRIPT_KEY)
         if entry is None:
             gene_ids = sorted({t.gene_id for t in transcripts})
-            genes = f" The symbol maps to {len(gene_ids)} gene IDs: {gene_ids}." if len(gene_ids) > 1 else ""
-            basis = ("MANE Select candidates" if mane else
-                     "no MANE Select transcript (MANE does not cover every gene); protein-coding candidates by CDS length")
+            genes = f" The symbol {gene_symbol} matches {len(gene_ids)} genes ({', '.join(gene_ids)})." if len(gene_ids) > 1 else ""
+            basis = (f"{len(mane)} transcripts are marked MANE Select (the reference transcript agreed by NCBI and "
+                     "Ensembl)" if mane else
+                     "no transcript is marked MANE Select (the reference agreed by NCBI and Ensembl does not cover "
+                     "every gene); the protein-coding transcripts are listed, longest coding sequence first")
+            options = [Option(
+                code=t.transcript_id,
+                label=f"{t.transcript_id} ({'MANE Select, ' if t.is_mane_select else ''}{t.transcript_type.replace('_', '-')}, "
+                      f"coding sequence {_cds_length(t):,} bp)",
+                effect=f"The gene starts at {t.chromosome}:{_tss(t):,} (strand {'+' if _strand(t) == 1 else '-'}); "
+                       "the window, exon 1 and the start codon follow this transcript.") for t in pool]
+            options.append(Option(code="abort", label="Stop to check the gene",
+                                  effect="Nothing is computed; check the gene symbol or capture the gene structure again."))
             raise LocusPending([_question(
                 TRANSCRIPT_KEY,
-                f"{GTF_FILE} has {len(mane)} MANE Select transcripts for {gene_symbol}.{genes} Which transcript "
-                f"defines the TSS, exon 1 and the start codon? ({basis}: {candidates})",
-                [*candidates, "abort"], candidates[0] if candidates else "abort")])
+                f"Which transcript of {gene_symbol} defines where the gene starts, its first exon and its start codon? "
+                f"{basis.capitalize()}.{genes}",
+                options, candidates[0] if candidates else "abort",
+                title=f"Reference transcript of {gene_symbol}",
+                why="The start of the transcript places the window and labels each variant (promoter, 5' UTR, coding); "
+                    "another transcript can move the window and change those labels.",
+                identifiers={"gene": gene_symbol, "gene IDs": ", ".join(gene_ids), "source": GTF_FILE})])
         value = str(entry.value)
         if value == "abort":
             raise LocusError(f"Stopped: the researcher answered 'abort' to {TRANSCRIPT_KEY}.")
@@ -428,13 +456,28 @@ def derive_regulatory_unit_window(
     biotypes: Iterable[str],
     max_gap_bp: int,
     chromosome: str,
+    decisions: Mapping[str, DecisionEntry] | None = None,
+    rules: list[dict[str, Any]] | None = None,
 ) -> tuple[Interval | None, list[RegulatoryFeature], list[PendingDecision]]:
     """Applies the `regulatory_unit` policy to a normalised transcript.
+
+    Args:
+        decisions: Recorded answers. The chain stops at the first feature_overlap/feature_gap question
+            without an answer (the next run asks the following one) and at an `exclude_feature` answer. None
+            (the exploration) chains every feature it can, collecting every question.
+        rules: When given, receives the choices the policy makes by definition ({key, value, rule}):
+            several regions at the start of the gene are all kept (`locus.multiple_tss_features`), and a
+            region that reaches into exon 1 keeps the whole of exon 1 (`locus.exon1_overlap:{feature}`).
+            They are not questions: the researcher chose this policy, whose window is the regulatory
+            regions at the start of the gene through the end of exon 1.
 
     Returns:
         (window, chained features, questions). With no feature at the TSS the window is None and
         the only question is `locus.no_feature_chain`.
     """
+    exploring = decisions is None
+    decisions = decisions or {}
+    feat = lambda f: f"{f.id} ({f.description}, {chromosome}:{f.start:,}-{f.end:,})"
     s = _strand(tx)
     ex1 = _first_exon(tx)
     tss_o = _tss(tx) * s
@@ -447,20 +490,42 @@ def derive_regulatory_unit_window(
     if not anchors:
         return None, [], [_question(
             NO_CHAIN_KEY,
-            f"No {sorted(wanted)} feature in {REGULATORY_FILE} contains or abuts the TSS of {tx.transcript_id} "
-            f"({chromosome}:{_tss(tx)}). Set window.policy: explicit with window.explicit_interval in study.yaml "
-            "and run the locus step again, or stop?",
-            ["set_explicit_interval", "abort"], "set_explicit_interval")]
+            f"No {' or '.join(sorted(wanted))} region of the Ensembl Regulatory Build contains or touches the start of "
+            f"{tx.transcript_id} ({chromosome}:{_tss(tx):,}), so the window cannot be built from regulatory regions. "
+            "Which window should the study use?",
+            [Option(code="set_explicit_interval", label="Use a window from the exploration page",
+                    effect="You choose one of the exploration's windows that does not depend on regulatory regions "
+                           "(for example the start of the gene +/- 500 bp); the agent sets it and the analysis continues "
+                           "from this step."),
+             STOP_WINDOW], "set_explicit_interval",
+            title="No regulatory region at the start of the gene", why=WINDOW_WHY,
+            identifiers={"transcript": tx.transcript_id, "gene start": f"{chromosome}:{_tss(tx):,}",
+                         "regions searched": ", ".join(sorted(wanted))})]
 
     triggers: list[PendingDecision] = []
+    found_rules: list[dict[str, Any]] = []
     chain = [min(anchors, key=lambda f: oriented[f.id][0])]
     if len(anchors) > 1:
-        ids = sorted(f.id for f in anchors)
-        triggers.append(_question(
-            MULTIPLE_TSS_KEY,
-            f"Several regulatory features contain or abut the TSS ({chromosome}:{_tss(tx)}): {ids}. Use their union "
-            "as the core of the window, or stop?",
-            ["union", "abort"], "union"))
+        lo = min(f.start for f in anchors)
+        hi = max(f.end for f in anchors)
+        listed = "; ".join(feat(f) for f in sorted(anchors, key=lambda g: g.start))
+        touching = all(oriented[f.id][0] <= tss_o <= oriented[f.id][1] + 1 for f in anchors)
+        if touching:  # by definition of the window: every region at the start of the gene is part of it
+            found_rules.append({"key": MULTIPLE_TSS_KEY, "value": "union", "rule": (
+                f"{len(anchors)} regulatory regions contain or touch the start of the gene ({chromosome}:{_tss(tx):,}): "
+                f"{listed}. All of them are kept, so the window starts from {chromosome}:{lo:,}-{hi:,}.")})
+        else:  # some reach the start of the gene only through the allowed gap: a real choice
+            triggers.append(_question(
+                MULTIPLE_TSS_KEY,
+                f"{len(anchors)} regulatory regions lie at or near the start of the gene ({chromosome}:{_tss(tx):,}), "
+                f"some only within the {max_gap_bp:,} bp the study allows between regions: {listed}. Should the window "
+                "start from all of them together?",
+                [Option(code="union", label="Use all of them together",
+                        effect=f"The core of the window spans {chromosome}:{lo:,}-{hi:,} ({_span(lo, hi)})."),
+                 STOP_WINDOW], "union",
+                title="Several regulatory regions near the start of the gene", why=WINDOW_WHY,
+                identifiers={"regions": ", ".join(sorted(f.id for f in anchors)),
+                             "gene start": f"{chromosome}:{_tss(tx):,}"}))
         chain = sorted(anchors, key=lambda f: oriented[f.id][0])
 
     used = {f.id for f in chain}
@@ -472,20 +537,24 @@ def derive_regulatory_unit_window(
             break
         f = min(nxt, key=lambda g: oriented[g.id][0])
         gap = head_o - oriented[f.id][1] - 1
-        if gap < 0:
+        added = oriented[chain[0].id][0] - oriented[f.id][0]  # bases the window gains upstream with f
+        if gap != 0:
+            key = f"locus.feature_{'overlap' if gap < 0 else 'gap'}:{f.id}+{chain[0].id}"
+            how = (f"overlaps {chain[0].id} by {-gap:,} bp" if gap < 0 else
+                   f"is {gap:,} bp upstream of {chain[0].id} (regions up to {max_gap_bp:,} bp apart are joined)")
+            include = Option(code="union" if gap < 0 else "bridge_gap", label=f"Include {f.id} in the window",
+                             effect=f"The window grows by {added:,} bp upstream ({3 * added:,} more variants)"
+                                    + ("." if gap < 0 else ", including the gap between the two regions."))
+            exclude = Option(code="exclude_feature", label=f"Leave {f.id} out",
+                             effect=f"The window starts at {chain[0].id}; {f.id} and any region beyond it are not scored.")
             triggers.append(_question(
-                f"locus.feature_overlap:{f.id}+{chain[0].id}",
-                f"Regulatory features {f.id} ({f.description}, {f.start}-{f.end}) and {chain[0].id} "
-                f"({chain[0].description}, {chain[0].start}-{chain[0].end}) overlap by {-gap} bp. Chain them "
-                "(union), or stop?",
-                ["union", "abort"], "union"))
-        elif gap > 0:
-            triggers.append(_question(
-                f"locus.feature_gap:{f.id}+{chain[0].id}",
-                f"Regulatory features {f.id} ({f.description}, {f.start}-{f.end}) and {chain[0].id} "
-                f"({chain[0].description}, {chain[0].start}-{chain[0].end}) are separated by a {gap} bp gap "
-                f"(max_feature_gap_bp {max_gap_bp}). Bridge the gap, or stop?",
-                ["bridge_gap", "abort"], "bridge_gap"))
+                key, f"The regulatory region {feat(f)} {how}. Should it be part of the window?",
+                [include, exclude, STOP_WINDOW], include.code,
+                title=f"Extend the window to {f.id}?", why=WINDOW_WHY,
+                identifiers={"region": feat(f), "next to": feat(chain[0])}))
+            entry = decisions.get(key)
+            if (entry is None and not exploring) or (entry is not None and str(entry.value) == "exclude_feature"):
+                break  # the regions beyond depend on this answer: ask them only once it is known
         chain.insert(0, f)
         used.add(f.id)
 
@@ -496,13 +565,12 @@ def derive_regulatory_unit_window(
         lo, hi = oriented[f.id]
         if hi >= ex1_o[0]:
             overlap = min(hi, ex1_o[1]) - ex1_o[0] + 1
-            triggers.append(_question(
-                f"locus.exon1_overlap:{f.id}",
-                f"Regulatory feature {f.id} ({f.description}, {f.start}-{f.end}) extends {overlap} bp into exon 1 "
-                f"of {tx.transcript_id} ({ex1.start}-{ex1.end}). Keep the full unit {chromosome}:{a}-{b} "
-                f"({b - a + 1} bp), which includes all of exon 1 (overlapping bases are annotated with both the "
-                "feature and the transcript region), or stop?",
-                ["keep_full_unit", "abort"], "keep_full_unit"))
+            found_rules.append({"key": f"locus.exon1_overlap:{f.id}", "value": "keep_full_unit", "rule": (
+                f"Region {feat(f)} overlaps the first {overlap:,} bp of exon 1 of {tx.transcript_id} "
+                f"({chromosome}:{ex1.start:,}-{ex1.end:,}); the window keeps all of exon 1, and those bases count as both "
+                f"{f.description} and exon 1. Window {chromosome}:{a:,}-{b:,} ({_span(a, b)}).")})
+    if rules is not None:
+        rules.extend(found_rules)
     return Interval(start=a, end=b), chain, triggers
 
 
@@ -526,8 +594,11 @@ def build_locus(
     regulatory: list[RegulatoryFeature],
     study: StudyConfig,
     decisions: dict[str, DecisionEntry],
+    rules: list[dict[str, Any]] | None = None,
 ) -> LocusConfig:
     """Derives the locus and window of the study gene.
+
+    `rules`, when given, receives the window choices made by the policy's definition (recorded by `run`).
 
     Args:
         transcripts: Records of raw/gtf.json AS LOADED (0-based starts); normalised here once.
@@ -555,10 +626,22 @@ def build_locus(
     if policy == "explicit":
         window = parse_explicit_interval(policy_cfg.get("explicit_interval"), chromosome)
     elif policy == "regulatory_unit":
+        found: list[dict[str, Any]] = []
         window, _chain, triggers = derive_regulatory_unit_window(
             tx, on_contig, policy_cfg.get("feature_biotypes") or DEFAULT_BIOTYPES,
-            int(policy_cfg.get("max_feature_gap_bp") or 0), chromosome)
+            int(policy_cfg.get("max_feature_gap_bp") or 0), chromosome, decisions, found)
         chosen = _resolve(triggers, decisions)
+        for r in found:  # an older study may hold the researcher's answer to what is now a rule
+            entry = decisions.get(r["key"])
+            if entry is not None and entry.decided_by == "researcher":
+                if str(entry.value) == "abort":
+                    raise LocusError(f"Stopped: the researcher answered 'abort' to {r['key']}. Change the window in "
+                                     "study.yaml or record another answer.")
+                chosen[r["key"]] = str(entry.value)
+            else:
+                chosen[r["key"]] = r["value"]
+        if rules is not None:
+            rules.extend(found)
         if window is None:
             raise LocusError(f"Decision '{NO_CHAIN_KEY}' = set_explicit_interval: set window.policy: explicit and "
                              "window.explicit_interval in study.yaml, then run expression.py locus again.")
@@ -797,9 +880,11 @@ def run(study_dir: Path) -> LocusConfig:
     regulatory = _load(study_dir, REGULATORY_FILE, 3, "regulatory_features.py overlap")
     sequences = _load_sequences(study_dir)
     try:
-        locus = build_locus(transcripts, regulatory, study, decisions)
+        rules: list[dict[str, Any]] = []
+        locus = build_locus(transcripts, regulatory, study, decisions, rules)
     except ValueError as exc:  # normalize_gtf or a LocusConfig invariant
         raise LocusError(f"Cannot build the locus: {exc}") from None
+    sync_rules(study_dir, (MULTIPLE_TSS_KEY, "locus.exon1_overlap:"), rules, WORKFLOW_STEP)
     locus = check_sequence(locus, sequences)
     (study_dir / "processed").mkdir(parents=True, exist_ok=True)
     (study_dir / LOCUS_FILE).write_text(json.dumps(locus.to_dict(), indent=2) + "\n", encoding="utf-8")
