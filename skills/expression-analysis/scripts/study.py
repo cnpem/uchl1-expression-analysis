@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml"]
+# dependencies = ["pyyaml==6.0.3"]
 # ///
 """Study configuration, researcher decisions and pending questions of a study directory.
 
@@ -9,7 +9,10 @@ The kind of study ("expression" or "splicing") is read from the name in the SKIL
 skill this script lives in, so the same file serves both skills.
 
 Subcommands:
-  init      Create the study directory and study.yaml from assets/study_template.yaml.
+  init      Create the study directory and study.yaml from assets/study_template.yaml, or, with
+            --from-exploration DIR, from the options the researcher chose in an `expression.py explore`
+            run (window, target and control CURIEs, labels, scorers), copying its captures into raw/
+            with their manifest steps (no network call is repeated).
   validate  Check study.yaml against the fields of the skill's kind.
   decide    Record a researcher's answer in decisions.yaml and clear it from the pending list.
   require   Exit 1 with the missing-decision message unless the key has an answer.
@@ -27,7 +30,8 @@ nor decided before (unless --option says the agent asked it).
 offered next to what was chosen. For a question the agent asks itself (no pending entry, e.g.
 cohort.target), `--option` (repeatable) and `--recommended` record what was offered; they take
 precedence over a pending entry. A key decided with neither has no offered fields (unless an
-earlier decision of the same key had them).
+earlier decision of the same key had them). An answer `replace:{curie}` to `cohort.unserved:{old}`
+also writes {curie} in place of {old} in study.yaml, with a comment keeping the original.
 
 Library: StudyConfig.from_dict, load_study, saturation_flank_bp, DecisionEntry, load_decisions,
 require, PendingDecision, raise_pending, max_window.
@@ -502,10 +506,169 @@ def max_window(study_dir: Path) -> int:
     return max(MIN_WINDOW, length)
 
 
+# --- exploration and CURIE replacement --------------------------------------------------------
+
+
+_REPLACE_ANSWER = re.compile(r"^replace:(\S+)")
+_EXPLORATION_RAW = (re.compile(r"^gtf\.json$"), re.compile(r"^regulatory\.json$"), re.compile(r"^sequence_.+\.txt$"),
+                    re.compile(r"^ols_search_.+\.json$"), re.compile(r"^ols_term_.+\.json$"))
+_CATALOGUE = re.compile(r"^tracks_([A-Z0-9_]+)_catalogue\.parquet$")
+
+
+def apply_replacement(study_dir: Path, key: str, value: Any) -> str | None:
+    """After `cohort.unserved:{curie}` = replace:{new}, writes {new} in place of {curie} in study.yaml.
+
+    study.yaml stays the request the study actually ran on, and a comment at its end keeps the original CURIE
+    and the decision that changed it. Returns a one-line report, or None when nothing changed.
+    """
+    if not key.startswith("cohort.unserved:"):
+        return None
+    m = _REPLACE_ANSWER.match(str(value).strip())
+    if m is None:
+        return None
+    old, new = key.split(":", 1)[1], m.group(1)
+    path = Path(study_dir) / STUDY_FILE
+    text = path.read_text(encoding="utf-8")
+    token = re.compile(rf"(?<![\w:]){re.escape(old)}(?![\w:])")
+    lines = text.splitlines(keepends=True)
+    changed = False
+    for i, line in enumerate(lines):
+        body = line.split("#", 1)[0]
+        if ("curies:" in body or body.lstrip().startswith("- ")) and token.search(body):
+            lines[i] = token.sub(new, body, count=1) + line[len(body):]
+            changed = True
+    if not changed:
+        return None
+    note = f"# {key}: {old} replaced by {new} on {_now()} (decisions.yaml keeps the original cohort answer)\n"
+    new_text = "".join(lines)
+    new_text = new_text if new_text.endswith("\n") else new_text + "\n"
+    StudyConfig.from_dict(yaml.safe_load(new_text), kind=skill_kind())
+    _atomic_write(path, new_text + note)
+    return f"study.yaml: {old} replaced by {new} in the cohort CURIEs (original kept in a comment)."
+
+
+def _exploration_root(path: Path) -> Path:
+    path = Path(path)
+    for candidate in (path, path / "exploration"):
+        if (candidate / "exploration.json").is_file():
+            return candidate
+    raise StudyError(f"no exploration.json in {path} or {path / 'exploration'}; run expression.py explore first.")
+
+
+def _fill(text: str, pattern: str, value: str) -> str:
+    new, n = re.subn(pattern, lambda m: m.group(1) + value, text, count=1, flags=re.M)
+    if n != 1:
+        raise StudyError(f"study template: line {pattern!r} not found")
+    return new
+
+
+def _flow(items: list[str]) -> str:
+    return "[" + ", ".join(items) + "]"
+
+
+def init_from_exploration(args: argparse.Namespace) -> None:
+    """study.yaml from the options the researcher chose in the exploration, and the exploration captures in raw/."""
+    import shutil
+
+    import manifest  # same scripts/ folder; only this path needs it
+
+    if skill_kind() != "expression":
+        raise StudyError("--from-exploration is for expression studies")
+    root = _exploration_root(Path(args.from_exploration))
+    data = json.loads((root / "exploration.json").read_text(encoding="utf-8"))
+    windows = {w["id"]: w for w in data["windows"]}
+    if args.window not in windows:
+        raise StudyError(f"--window {args.window!r} is not one of the exploration windows {list(windows)}")
+    if not args.target or not args.control:
+        raise StudyError("--target and --control (CURIEs, repeatable) are required: the researcher's choice")
+    both = sorted(set(args.target) & set(args.control))
+    if both:
+        raise StudyError(f"{both} in both --target and --control; a tissue cannot be its own control")
+    scorers = list(args.scorers or data["scorers"])
+    if "RNA_SEQ" not in scorers:
+        raise StudyError("RNA_SEQ must be among the scorers (the expression contrast)")
+    missing = [s for s in scorers if not (root / "raw" / f"tracks_{s}_catalogue.parquet").is_file()]
+    if missing:
+        raise StudyError(f"the exploration has no catalogue for {missing}; run explore with --scorers including them")
+    gene = data["gene"]
+    study_dir = Path(args.study_dir)
+    target = study_dir / STUDY_FILE
+    if target.exists():
+        raise StudyError(f"{target} already exists; refusing to overwrite an existing study.")
+    window = windows[args.window]
+    policy = window["policy"]
+    text = (SKILL_DIR / "assets" / "study_template.yaml").read_text(encoding="utf-8")
+    text = text.replace("{{STUDY_ID}}", (args.study_id or gene.lower())).replace("{{GENE_SYMBOL}}", gene)
+    text = _fill(text, r"^(\s*policy:\s*)\S+", policy["policy"])
+    text = _fill(text, r"^(\s*explicit_interval:\s*)\S+", policy.get("explicit_interval") or "null")
+    text = _fill(text, r"^(\s*regulatory_search_upstream_bp:\s*)\d+", str(data["flank_bp"]))
+    text = _fill(text, r"^(\s*max_feature_gap_bp:\s*)\d+", str(policy.get("max_feature_gap_bp", 0)))
+    text = _fill(text, r"^(\s*label:\s*)Target", json.dumps(args.target_label or "Target", ensure_ascii=False))
+    text = _fill(text, r"^(\s*curies:\s*)\[\]", _flow(args.target))
+    text = _fill(text, r"^(\s*label:\s*)Control", json.dumps(args.control_label or "Control", ensure_ascii=False))
+    text = _fill(text, r"^(\s*curies:\s*)\[\]", _flow(args.control))
+    text = _fill(text, r"^(scorers:\s*)\[[^\]]*\]", _flow(scorers))
+    text = text.replace("# Ask the researcher for the gene, target and control tissues, scorers and window policy\n"
+                        "# (Workflow step 1), then run `study.py validate`.",
+                        f"# Written by study.py init --from-exploration from {root} (window option {args.window}).")
+    StudyConfig.from_dict(yaml.safe_load(text), kind="expression")
+
+    study_dir.mkdir(parents=True, exist_ok=True)
+    for sub in STUDY_SUBDIRS:
+        (study_dir / sub).mkdir(exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    invocation = " ".join(__import__("shlex").quote(a) for a in ["uv", "run", sys.argv[0], *sys.argv[1:]])
+    manifest.add_step(study_dir, manifest.ManifestStep(
+        step="1-study", skill="expression-analysis", command=invocation, outputs=[STUDY_FILE],
+        source_versions={"exploration": str(root.resolve()), "window_option": args.window},
+        recorded_at=manifest._now(), decision_keys=[]),
+        origin_kind="live", origin_note=args.origin_note or f"Created from the exploration in {root}")
+
+    explored = json.loads((root / "manifest.json").read_text(encoding="utf-8"))["steps"]
+    copied = 0
+    for src in sorted((root / "raw").iterdir()):
+        cat = _CATALOGUE.match(src.name)
+        if not (any(r.match(src.name) for r in _EXPLORATION_RAW) or (cat and cat.group(1) in scorers)):
+            continue
+        rel = f"raw/{src.name}"
+        step = next((s for s in explored if rel in s.get("outputs", [])), None)
+        if step is None:
+            raise StudyError(f"{src} has no step in {root / 'manifest.json'}; it cannot be traced, so it is not copied")
+        shutil.copy2(src, study_dir / rel)
+        manifest.add_step(study_dir, manifest.ManifestStep(
+            step=step["step"], skill=step["skill"], command=step["command"], outputs=[rel],
+            source_versions={**step.get("source_versions", {}), "copied_from": str((root / rel).resolve()),
+                             "captured_at": step.get("recorded_at", "")},
+            recorded_at=manifest._now(), decision_keys=[]))
+        copied += 1
+    # The reference expression (REF) of the exploration's baseline variant: the dashboard reads it from raw/
+    # to tell where the gene is predicted to be off. Optional (older explorations have none).
+    rel_src = "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"
+    step = next((s for s in explored if rel_src in s.get("outputs", [])), None)
+    if (root / rel_src).is_file() and step is not None:
+        rel = "raw/scores_RNA_SEQ_ACTIVE_baseline.tsv"
+        shutil.copy2(root / rel_src, study_dir / rel)
+        manifest.add_step(study_dir, manifest.ManifestStep(
+            step=step["step"], skill=step["skill"], command=step["command"], outputs=[rel],
+            source_versions={**step.get("source_versions", {}), "copied_from": str((root / rel_src).resolve()),
+                             "captured_at": step.get("recorded_at", "")},
+            recorded_at=manifest._now(), decision_keys=[]))
+        copied += 1
+    print(f"Created {target} (study_id {args.study_id or gene.lower()}, window {window['region']} [{args.window}], "
+          f"scorers {scorers}) and copied {copied} exploration file(s) into raw/ with their manifest steps. "
+          "Record the researcher's choices with study.py decide (cohort.target, cohort.control with the options "
+          "shown in summary.md), then run study.py validate.")
+
+
 # --- CLI ------------------------------------------------------------------------------------
 
 
 def init(args: argparse.Namespace) -> None:
+    if args.from_exploration:
+        init_from_exploration(args)
+        return
+    if not args.gene:
+        raise StudyError("--gene is required (or --from-exploration)")
     study_dir = Path(args.study_dir)
     target = study_dir / STUDY_FILE
     if target.exists():
@@ -586,6 +749,10 @@ def decide(args: argparse.Namespace) -> None:
               "(e.g. cohort.target).", file=sys.stderr)
     for key in keys:
         print(f"Recorded decision '{key}' = {json.dumps(value, ensure_ascii=False)} in {study_dir / DECISIONS_FILE}")
+        if (study_dir / STUDY_FILE).is_file():
+            report = apply_replacement(study_dir, key, value)
+            if report:
+                print(report)
 
 
 def require_cmd(args: argparse.Namespace) -> None:
@@ -615,6 +782,8 @@ def window(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on any console (cp1252 on Windows)
+        stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command_name", required=True)
 
@@ -623,7 +792,17 @@ def main() -> None:
 
     p = sub.add_parser("init", help="Create a study directory and study.yaml from the template")
     study_dir_arg(p)
-    p.add_argument("--gene", required=True, help="Gene symbol, e.g. the HGNC symbol")
+    p.add_argument("--gene", help="Gene symbol, e.g. the HGNC symbol (taken from the exploration with --from-exploration)")
+    p.add_argument("--from-exploration", metavar="DIR",
+                   help="Build study.yaml from an `expression.py explore` folder and copy its captures into raw/")
+    p.add_argument("--window", help="--from-exploration: window option id from summary.md (e.g. regulatory_unit)")
+    p.add_argument("--target", action="append", help="--from-exploration: target CURIE (repeatable)")
+    p.add_argument("--control", action="append", help="--from-exploration: control CURIE (repeatable)")
+    p.add_argument("--target-label", help="--from-exploration: short name of the target group")
+    p.add_argument("--control-label", help="--from-exploration: short name of the control group")
+    p.add_argument("--scorers", nargs="+", help="--from-exploration: scorers (default: those explored)")
+    p.add_argument("--study-id", help="--from-exploration: study id (default: lower-case gene symbol)")
+    p.add_argument("--origin-note", help="--from-exploration: origin note of the manifest (who asked what, when)")
     p.set_defaults(func=init)
 
     p = sub.add_parser("validate", help="Validate study.yaml")

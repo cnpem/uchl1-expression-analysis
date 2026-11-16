@@ -24,7 +24,8 @@ raw/tracks_{scorer}_catalogue.parquet were captured (Workflow step 7), the quest
 descendants they serve (any requested scorer for replace, RNA_SEQ for add, with track counts);
 without them every descendant is listed and the question says so. After choosing one, pull that
 CURIE's tracks (Workflow step 7) and run this stage again. A replacement that turns out to have no
-tracks raises its own `cohort.unserved:{descendant}` question.
+tracks raises its own `cohort.unserved:{descendant}` question. `study.py decide` also writes a
+`replace:` answer into study.yaml (this stage reads the CURIEs from decisions.yaml either way).
 
 Outputs (processed/): track_registry.tsv, ontology_resolution.json, tissue_cohorts.md.
 
@@ -118,8 +119,8 @@ def _load_tracks(study_dir: Path, curies: Sequence[str], scorers: Sequence[str])
         shown = ", ".join(missing[:6]) + (f" and {len(missing) - 6} more" if len(missing) > 6 else "")
         raise CohortError(
             f"Track catalogue missing for {len(missing)} CURIE x scorer pair(s): {shown}. Run Workflow step "
-            f"{TRACKS_STEP} (alphagenome_atlas_avi.py metadata --tracks --ontology CURIE --scorer SCORER --output "
-            "raw/tracks_SCORER_PREFIX_digits.parquet) for each, then run cohorts again."
+            f"{TRACKS_STEP} (expression.py fetch tracks --study-dir D, which queries every missing pair), then run "
+            "cohorts again."
         )
     return out
 
