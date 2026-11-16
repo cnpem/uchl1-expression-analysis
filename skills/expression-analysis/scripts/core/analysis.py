@@ -377,7 +377,7 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
     df = df.sort(pl.col(metric).abs(), descending=True, nulls_last=True)
     if p.top_k:
         df = df.head(p.top_k)
-        steps.append((f"{p.top_k} primeiras pela métrica do gráfico", df.height))
+        steps.append((f"{p.top_k} primeiras pela ordem escolhida", df.height))
     return df, steps
 
 

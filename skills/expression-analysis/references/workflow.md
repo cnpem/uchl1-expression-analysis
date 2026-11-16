@@ -306,7 +306,9 @@ uv run SKILL/scripts/expression.py dashboard --study-dir D --export-html D/figur
 
 `dashboard` serves on port 2718, or on a free port when 2718 is taken, and prints the URL to give the
 researcher. marimo runs in an ephemeral `uv` environment (the first run needs network access) and
-writes its session folder under `D/.workbench/`, never inside the skill. If you restart it, tell the
+writes its session folder under `D/.workbench/`, never inside the skill. Open the link once, after the URL
+is printed: two pages opened while it starts can break the first session (a matplotlib import error in the
+server output; reload the page). If you restart it, tell the
 researcher to reload the page: an old page is refused by the new server ("Unauthorized").
 
 The dashboard writes nothing to the study. To explain what the researcher sees, run `summarize` with

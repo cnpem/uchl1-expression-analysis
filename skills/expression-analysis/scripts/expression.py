@@ -587,7 +587,7 @@ def summarize_cmd(args: argparse.Namespace) -> None:
         assays=args.assay or [], sources=args.source or [], question=args.question,
         min_change_pct=args.min_change_pct, max_control_pct=args.max_control_pct,
         min_diff_sigma=args.min_sigma, ref_floor=args.ref_floor, ref_floor_applies=args.floor_applies,
-        domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric, top_k=None)
+        domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric, top_k=args.top_k)
     tissues = A.tissue_table(data, scorer)
     labels = {r["ontology_curie"]: r["tissue"] for r in tissues.iter_rows(named=True)}
     desc = H.describe_tissues(data, scorer)
@@ -856,7 +856,8 @@ def main() -> None:
                    help="What the floor does: warn (default), drop controls below it, skip a target below it, or both")
     p.add_argument("--y-metric", default="target_mean",
                    choices=["target_mean", "target_toward", "control_mean", "diff", "diff_sigma", "avi_phred"],
-                   help="Order of the list (the dashboard's 'Altura no gráfico da janela e ordem da tabela')")
+                   help="Order of the list (the dashboard's 'Ordenar por')")
+    p.add_argument("--top-k", type=int, help="Keep only the first K in that order (the dashboard's 'Quantas mostrar')")
     p.add_argument("--top", type=int, default=10, help="Variants listed (default 10)")
     p.set_defaults(func=summarize_cmd)
 

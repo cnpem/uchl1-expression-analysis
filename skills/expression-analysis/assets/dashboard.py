@@ -146,13 +146,15 @@ def _(H, assays, base, data, labels, mo, sources):
                 "Mudança no controle": "control_mean", "Diferença alvo − controle": "diff",
                 "Diferença em unidades de ruído": "diff_sigma", "AVI Phred (impacto geral, sem tecido)": "avi_phred"}
     y_metric = mo.ui.dropdown(options=_ymetric, value=next((k for k, v in _ymetric.items() if v == base.y_metric), "Mudança no alvo"),
-                              label="Altura no gráfico da janela e ordem da tabela")
+                              label="Ordenar por")
     _colors = H.color_options()
     color_by = mo.ui.dropdown(options=_colors, value=next((k for k, v in _colors.items() if v == base.color_by), "Domínio genômico"),
                               label="Cor no gráfico da janela")
     show_mode = mo.ui.dropdown(options={"Só as que passam nos filtros": "kept", "Todas (as que não passam em cinza)": "all"},
                                value="Só as que passam nos filtros", label="Variantes nos gráficos")
-    top_k = mo.ui.number(start=0, stop=100000, step=10, value=base.top_k or 0, label="Mostrar só as K primeiras (0 = todas)")
+    _k = {"Todas": 0, **{f"{n} primeiras": n for n in sorted({10, 20, 50, 100, 200, *([base.top_k] if base.top_k else [])})}}
+    top_k = mo.ui.dropdown(options={k: v for k, v in _k.items()}, label="Quantas mostrar",
+                           value=next((k for k, v in _k.items() if v == (base.top_k or 0)), "Todas"))
     return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, max_control_pct, min_sigma,
             min_target_pct, one_alt, question, ref_floor, show_mode, shown_pick, source_pick, target_name, target_pick, top_k,
             use_floor, use_max_control, y_metric)
@@ -213,17 +215,24 @@ def _(A, data, locus, mo, scorer_pick):
 
 
 @app.cell
-def _(control_pick, descriptions, mo, question, target_pick):
+def _(control_pick, descriptions, mo, question, show_mode, target_pick, top_k, y_metric):
     _desc = lambda xs: "  \n".join(f"- {descriptions.get(c, '')}" for c in xs if descriptions.get(c))
     mo.vstack([
         question,
         mo.hstack([target_pick, control_pick], justify="start", gap=2),
+        mo.hstack([y_metric, top_k, show_mode], justify="start", gap=2),
         mo.accordion({"De onde vêm as medições destes tecidos": mo.md(
             "**Alvo**  \n" + (_desc(target_pick.value) or "nenhum tecido escolhido")
             + "\n\n**Controle**  \n" + (_desc(control_pick.value) or "nenhum tecido escolhido")
             + "\n\nGTEx e ENCODE são os projetos que mediram a expressão usada para treinar o modelo: GTEx mede tecidos de adultos "
             "(mistura de tipos celulares); ENCODE inclui tipos celulares isolados, linhagens e alguns tecidos. polyA mede sobretudo "
-            "mRNA maduro; total inclui RNA ainda não processado.")}),
+            "mRNA maduro; total inclui RNA ainda não processado."),
+                      "Como mostrar": mo.md(
+            "**Ordenar por** define a ordem da tabela, quais entram em *Quantas mostrar* e a altura de cada haste no "
+            "gráfico da janela. *Mudança no alvo* é a média dos tecidos do alvo; *no sentido procurado, no tecido que "
+            "menos muda* favorece variantes que mudam todos os tecidos do alvo; *diferença alvo − controle* favorece "
+            "efeitos próprios do alvo. **Quantas mostrar** guarda só as primeiras nessa ordem, em todos os gráficos e "
+            "na tabela. **Variantes nos gráficos**: com *Todas*, as que não passam nos filtros aparecem em cinza.")}),
     ])
     return
 
@@ -480,9 +489,8 @@ def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, p
 
 
 @app.cell
-def _(A, H, assay_pick, color_by, control_name, descriptions, flags, floor_applies, labels, mo, noise, one_alt, pl,
-      profile, ref_floor, scorer_pick, show_mode, shown_pick, source_pick, target_name, tissues, top_k,
-      use_floor, y_metric):
+def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, labels, mo, noise, pl,
+      profile, ref_floor, scorer_pick, shown_pick, source_pick, target_name, tissues, use_floor):
     _t = tissues.select(pl.col("tissue").alias("tecido"), pl.col("ontology_curie").alias("termo"),
                         pl.col("study_cohort").replace({"target": "alvo", "control": "controle"}).alias("na captura"),
                         pl.col("tracks").alias("medições"), pl.col("ref_min").round(4).alias("REF mín"),
@@ -509,9 +517,6 @@ def _(A, H, assay_pick, color_by, control_name, descriptions, flags, floor_appli
               "praticamente desligado e as mudanças previstas ficam instáveis. Na ativação ectópica, use \"Só avisar\"."),
         mo.hstack([use_floor, ref_floor, floor_applies], justify="start"),
         mo.md("\n".join(_warn)),
-        mo.md("### Gráficos e tabela"),
-        mo.hstack([y_metric, color_by], justify="start"),
-        mo.hstack([show_mode, top_k, one_alt], justify="start"),
         mo.md("### Tecidos capturados"),
         mo.ui.table(_t.to_pandas(), selection=None, pagination=False),
         mo.md("### Ruído do estudo"),

@@ -29,14 +29,15 @@ the HTML). The dashboard never calls the network: a tissue that was not captured
 |---|---|---|
 | Title, *Como usar* | gene, window, number of variants (every single-base change) | the change is a percent of what the scorer measures |
 | Three choices | *O que você procura?* (diminui / aumenta / qualquer mudança), *Onde* (target tissues), *Comparado com* (control tissues) | these are the only choices needed to start |
+| How to show (row below) | *Ordenar por* (order of the table, which variants *Quantas mostrar* keeps, height in the window chart), *Quantas mostrar* (all, or the first 10-200 in that order), *Variantes nos gráficos* (only those that pass, or all with the rest in grey) | change what is shown and ranked; *Quantas mostrar* also changes the headline's count |
 | *De onde vêm as medições* | for each chosen tissue, its measurements (GTEx or ENCODE, tissue or cell type, polyA or total RNA-seq) and how well they agree in this gene | tissues whose measurements agree poorly are unstable comparisons |
 | Headline (blue box) | how many variants pass, the ones that change the target most (% in target and in control), a warning when the gene is predicted to be almost off in a target tissue | read it first; it states the result of the current choices |
-| *Ao longo da janela* | one stem per variant at its position; height = change in the target (or the metric chosen in *Avançado*) | click to highlight; wheel zooms, drag pans, double-click resets; *Recortar* limits the window for the other parts; *Salvar PNG/SVG* below |
+| *Ao longo da janela* | one stem per variant at its position; height = change in the target (or what *Ordenar por* chose); colour, point size and *Uma alternativa por posição* are next to it | click to highlight; wheel zooms, drag pans, double-click resets; *Recortar* limits the window for the other parts; *Salvar PNG/SVG* below |
 | *O efeito é próprio do alvo?* | each variant as a point: change in target (x) vs control (y) | on the dashed diagonal = shared; near the horizontal zero line = own to the target; opposite quadrants = opposite directions |
 | *Variantes* | table in % per group and per tissue | tick rows to highlight |
 | *Variantes destacadas* | per-measurement bars for the highlighted variants, Atlas link | bars of one tissue that disagree = unstable tissue |
 | *Filtrar resultados* (closed) | minimum change in every target tissue, maximum change in the control, target − control above the noise (× σ), regions; the count after each step | all start off; the noise of the study is the reference. A filter that cannot apply (no control tissue, no tissue with two measurements) is listed as *ignorado* with the reason instead of removing everything |
-| *Avançado* (closed) | group names, context tissues, which measurements enter, the expression floor, chart options, the captured tissues table, the noise table, the scorer | for refinements, not for a first look |
+| *Avançado* (closed) | group names, context tissues, which measurements enter, the expression floor, the captured tissues table, the noise table, the prediction type | technical refinements, not for a first look |
 | *Comparar todos os tecidos* (closed) | variant × tissue matrix | red = increase, blue = decrease |
 
 ## Explaining a view: `summarize`
@@ -62,11 +63,13 @@ the researcher read them out) and map them:
 | *Ensaios que entram* / *Fontes que entram* | `--assay`, `--source` (repeatable) |
 | *Piso (REF)* on, *O que fazer com o piso* | `--ref-floor N --floor-applies warn/control/target/both` |
 | *Uma alternativa por posição* | `--one-alt` |
-| *Altura no gráfico da janela e ordem da tabela* | `--y-metric` |
+| *Ordenar por* | `--y-metric` |
+| *Quantas mostrar* | `--top-k N` (omit for *Todas*) |
 | *Nome do grupo alvo / controle* | `--target-label`, `--control-label` |
 | *Tipo de predição* | `--scorer` |
 
-Crop, highlights, colours and the point size change only what is drawn, not the numbers.
+Crop, highlights, colours, the point size and *Variantes nos gráficos* change only what is drawn, not the
+numbers.
 
 ## What each quantity means
 
