@@ -19,7 +19,8 @@ Why each rule matters:
 - **One approval per item.** Installing brings third-party code, and some skills come with terms of
   use; the researcher decides each one, and the record (`.licenses/`, the report) shows what they agreed to.
 - **The key never passes through the chat, and never reaches git.** The researcher pastes it into the
-  project's `.env` in a text editor; the setup adds `.env` to `.gitignore` first, because the AlphaGenome
+  project's `.env` (the only place the analysis skills read keys from) in a text editor; the setup adds
+  `.env` to `.gitignore` first, because the AlphaGenome
   terms make the key personal (not to be shared, even with colleagues). Scripts only check that it is
   there. Do not read, print, copy or `cat` a `.env`.
 - **No administrator rights, no Docker.** Everything installs for the user; Windows may still ask for
@@ -96,7 +97,7 @@ alphagenome-skills-setup progress:
 | `setup.py plan [--json]` | What is missing, as questions with options, effects and the recommended one |
 | `setup.py terms <skill> [--open]` | What the terms of use cover, in plain words, with their links (opened in the browser with `--open`) |
 | `setup.py install <key> --approved <key>` | `setup.uv`, `setup.node`, `setup.skill:<name>` (npx skills add, copy mode), `setup.licence:<skill>`, `setup.key:<VAR>` |
-| `setup.py key [VAR]` | Whether a key is set and where (environment, project `.env`, `~/.env`); never its value |
+| `setup.py key [VAR]` | Whether a key is set in the project's `.env` (the only place used); never its value |
 | `setup.py verify [--json]` | `check` of each analysis skill, and its `reproduce` when the reference is bundled |
 | `setup.py report` | `environment-report.md` in the workspace |
 

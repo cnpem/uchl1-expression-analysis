@@ -20,7 +20,8 @@ Subcommands:
              setup.licence:<skill>, setup.key:<VAR> (opens the page where the key is created and the
              workspace's .env in the text editor, with an empty line for it and .env added to .gitignore;
              the researcher pastes the key there; it never reaches the chat).
-  key        Says whether a key is set (environment, the workspace's .env or ~/.env), never its value.
+  key        Says whether a key is set in the project's .env (the only place keys are read from), never
+             its value.
   verify     Runs each installed analysis skill's `check`, and its offline `reproduce` when the
              reference study is bundled.
   report     Writes environment-report.md in the workspace: what is installed, versions, the result
@@ -127,14 +128,19 @@ def _key_in(path: Path, name: str) -> bool:
 
 
 def key_where(ws: Path, name: str) -> str | None:
-    """Where the key is set ('environment', 'workspace .env', '~/.env'), or None. The value is never kept or shown."""
+    """'project .env' when the project's .env sets the key, else None. The project's .env is the only place the
+    analysis skills read keys from (not ~/.env, not environment variables). The value is never kept or shown."""
+    return "project .env" if _key_in(ws / ".env", name) else None
+
+
+def key_elsewhere(name: str) -> list[str]:
+    """Places that hold the key but are not used (to tell the researcher), never their values."""
+    out = []
     if os.environ.get(name):
-        return "environment"
-    if _key_in(ws / ".env", name):
-        return "workspace .env"
+        out.append("an environment variable")
     if _key_in(Path.home() / ".env", name):
-        return "~/.env"
-    return None
+        out.append("~/.env (home folder)")
+    return out
 
 
 def key_present(name: str, ws: Path | None = None) -> bool:
@@ -227,9 +233,11 @@ def diagnose_data(ws: Path, wanted: list[str] | None, net: bool = True) -> dict[
     keys = {}
     for t in targets:
         for k in TARGETS["analysis_skills"][t]["keys"]["required"]:
-            keys[k] = {"required": True, "present": key_present(k, ws), "where": key_where(ws, k)}
+            keys[k] = {"required": True, "present": key_present(k, ws), "where": key_where(ws, k),
+                       "unused_elsewhere": key_elsewhere(k)}
         for k in TARGETS["analysis_skills"][t]["keys"]["optional"]:
-            keys.setdefault(k, {"required": False, "present": key_present(k, ws), "where": key_where(ws, k)})
+            keys.setdefault(k, {"required": False, "present": key_present(k, ws), "where": key_where(ws, k),
+                                "unused_elsewhere": key_elsewhere(k)})
     uv = uv_path()
     npx = shutil.which("npx")
     project_env = (ws / ".env").is_file()
@@ -264,8 +272,10 @@ def cmd_diagnose(args: argparse.Namespace) -> None:
     for name, v in d["licences"].items():
         print(f"  terms {'accepted' if v['accepted'] else 'NOT accepted'}: {name}")
     for k, v in d["keys"].items():
-        print(f"  key {k}: {('set (' + v['where'] + ')') if v['present'] else 'not set'}"
-              f"{'' if v['required'] else ' (optional)'}")
+        print(f"  key {k}: {('set (' + v['where'] + ')') if v['present'] else 'not set in the project .env'}"
+              f"{'' if v['required'] else ' (optional)'}"
+              + (f"; also found in {', '.join(v['unused_elsewhere'])}, which the analysis does not use"
+                 if v["unused_elsewhere"] else ""))
     if d["project_env_file"] and d["project_env_ignored_by_git"] is False:
         print("  WARNING: the workspace's .env is not ignored by git; a commit would publish the key. "
               "`install setup.key:…` adds it to .gitignore.")
@@ -355,31 +365,14 @@ def plan_items(d: dict[str, Any], agents: list[str]) -> list[dict[str, Any]]:
                 agent_note=f"Before asking: `setup.py terms {name} --open` (explain its points in the researcher's "
                            "language; the pages open in their browser) and give them time to read."))
     for k, v in d["keys"].items():
-        if v["required"] and v["where"] == "~/.env":
-            items.append(_item(
-                f"setup.key:{k}", "Key in the project folder",
-                f"The key {k} was found only in the home folder (~/.env). This setup keeps each researcher's key in "
-                "the project's own .env (ignored by git), so the project carries its configuration. Set it in this "
-                "project now? The agent guides you; you paste the key yourself, it never goes into the chat.",
-                "The analysis still works with ~/.env; keeping the key in the project makes the setup explicit and "
-                "lets each researcher use their own key in their own project.",
-                {"variable": k, "found in": "~/.env", "would be in": ".env of this project", "key page": KEY_PAGES.get(k, "—")},
-                [{"code": "set", "label": "Set it in this project",
-                  "effect": "The key page opens in the browser and the project's .env in the text editor; .env is added "
-                            "to .gitignore. Paste your key (the same one, or a new one) after '='."},
-                 {"code": "later", "label": "Keep using ~/.env",
-                  "effect": "Nothing changes; the analysis reads the key from the home folder."}],
-                "set", "setup.py",
-                agent_note="Guide with references/keys.md; if the researcher already has a key, they can copy it from "
-                           "their own records; never read ~/.env for them."))
         if v["required"] and not v["present"]:
             items.append(_item(
                 f"setup.key:{k}", "AlphaGenome access key" if k == "ALPHAGENOME_API_KEY" else f"Key {k}",
                 f"The key {k} is not set. It is needed to fetch the predictions. Create it now? The agent guides you "
                 "step by step: a page opens for you to sign in and create the key, and a text file opens for you to "
                 "paste it; it never goes into the chat.",
-                "The key identifies you to the service; it is personal, kept in this project's .env (which git "
-                "ignores) and never shown.",
+                "The key identifies you to the service; it is personal, kept only in this project's .env (which git "
+                "ignores) and never shown." + (f" A key in {', '.join(v['unused_elsewhere'])} is not used." if v["unused_elsewhere"] else ""),
                 {"variable": k, "stored in": ".env of this project", "key page": KEY_PAGES.get(k, "—")},
                 [{"code": "set", "label": "Create and set the key",
                   "effect": "The key page opens in the browser and .env in the text editor; .env is added to .gitignore."},
@@ -548,7 +541,7 @@ def _ensure_ignored(ws: Path) -> str:
 
 def _open_key_file(ws: Path, name: str) -> int:
     where = key_where(ws, name)
-    if where in ("environment", "workspace .env"):
+    if where:
         print(f"{name} is already set ({where}); nothing was changed.")
         return 0
     env = ws / ".env"

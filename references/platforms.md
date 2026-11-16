@@ -46,7 +46,7 @@ What differs between systems, and what to tell the researcher. Read the section 
   With administrator rights, the distribution's package (`apt install nodejs npm`, `dnf install nodejs`)
   is fine, but this skill never runs `sudo`: the researcher (or IT) does it.
 - **Servers without a desktop**: `install setup.key:…` cannot open an editor; the researcher opens
-  `~/.env` with `nano ~/.env`, pastes the key after `=`, saves (Ctrl+O, Enter) and exits (Ctrl+X).
+  the project's `.env` with `nano .env` (from the project folder), pastes the key after `=`, saves (Ctrl+O, Enter) and exits (Ctrl+X).
 - **Old servers** with an old glibc may not run uv's Python; tell the researcher to ask IT, or to use a
   newer machine.
 

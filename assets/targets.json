@@ -25,7 +25,7 @@
   },
   "dependency_skills": {
     "uv": {"repo": "google-deepmind/science-skills", "purpose": "runs every script of the analysis with fixed package versions"},
-    "credentials": {"repo": "google-deepmind/science-skills", "purpose": "keeps the access keys in ~/.env without showing them"},
+    "credentials": {"repo": "google-deepmind/science-skills", "purpose": "is required by the DeepMind skills (the key itself goes in the project .env through this setup)"},
     "alphagenome-variant-impact-score": {"repo": "google-deepmind/science-skills", "purpose": "gives the gene structure, the list of AlphaGenome tracks and the impact score of each variant"},
     "alphagenome-single-variant-analysis": {"repo": "google-deepmind/science-skills", "purpose": "interprets the top variants with the AlphaGenome model"},
     "alphagenome-atlas-website-links": {"repo": "google-deepmind/science-skills", "purpose": "links each top variant to its AlphaGenome Atlas page"},

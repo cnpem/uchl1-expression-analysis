@@ -39,6 +39,7 @@ It only raises the NCBI request limit (dbSNP, ClinVar); without it the splicing 
 
 ## Where the keys live
 
-In the workspace's `.env` (the project folder). The setup adds `.env` to the project's `.gitignore` so it
-is never committed, since the AlphaGenome key is personal. The analysis skills look there first, then in
-`~/.env` (the home folder). Never read, print, copy or attach a `.env`.
+Only in the project's `.env` (the project folder): the analysis skills read keys from nowhere else (not
+`~/.env`, not environment variables), so each study runs with its own project's key. The setup adds `.env`
+to the project's `.gitignore` so it is never committed, since the AlphaGenome key is personal. A key left
+in `~/.env` is not used; the setup says so. Never read, print, copy or attach a `.env`.
