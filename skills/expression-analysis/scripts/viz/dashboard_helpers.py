@@ -65,7 +65,7 @@ def target_control_scatter(df: pl.DataFrame, profile: A.Profile, color_col: str,
                       scale=alt.Scale(domain=dom, range=rng) if dom is not None else alt.Undefined)
     lim = float(max(df["target_mean"].abs().max() or 0.01, df["control_mean"].abs().max() or 0.01)) * 1.05
     sc = alt.Scale(domain=[-lim, lim])
-    u = A.UNIT.get(profile.scorer, "log")
+    u = A.unit(profile)
     x = alt.X("target_mean:Q", title=f"Mudança no {profile.target_label} ({u})", scale=sc)
     y = alt.Y("control_mean:Q", title=f"Mudança no {profile.control_label} ({u})", scale=sc)
     base = alt.Chart(p)
@@ -252,9 +252,9 @@ def headline(kept: pl.DataFrame, effects: pl.DataFrame, profile: A.Profile, labe
         best = kept.sort(pl.col(col).abs() if profile.question == "either" else pl.col(col), descending=True, nulls_last=True).head(top)
         items = []
         for r in best.iter_rows(named=True):
-            t = A.pct(r["target_mean"], profile.scorer) if r["target_mean"] is not None else float("nan")
-            c = A.pct(r["control_mean"], profile.scorer) if r.get("control_mean") is not None else None
-            items.append(f"`{r['variant_id']}` ({_n(t, 1, True)}% no alvo" + (f", {_n(c, 1, True)}% no controle)" if c is not None else ")"))
+            t = A.effect_text(r["target_mean"], profile)
+            c = A.effect_text(r["control_mean"], profile) if r.get("control_mean") is not None else None
+            items.append(f"`{r['variant_id']}` ({t} no alvo" + (f", {c} no controle)" if c is not None else ")"))
         what = A.SCALES.get(profile.scorer, (None, "o sinal previsto"))[1]
         lines.append(f"Variantes que mais {q} {what} no alvo: " + "; ".join(items) + ".")
     # REF is the gene's predicted expression: the warning concerns RNA_SEQ effects on a gene that is off.

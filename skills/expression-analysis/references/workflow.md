@@ -117,8 +117,10 @@ the exploration, never from ad-hoc code:
    sample and the assays balanced with the target. Say what the new comparison asks, which may differ from
    the original question.
 3. Record it: `study.py decide --key cohort.control` (or `cohort.target`) with the new list, the terms
-   offered (`--option`) and the recommended one, and a note saying why the study was redefined. Then
-   `fetch tracks`, `cohorts`, `fetch scores`, `variants`, `master`, `contrast`, `report`, as in steps 7-13.
+   offered (`--option`) and the recommended one, the group's new name (`--group-label`) and a note saying
+   why the study was redefined. `decide` writes the new terms and name into `study.yaml`; do not edit it.
+   Then `fetch tracks`, `cohorts`, `fetch scores`, `variants`, `master`, `contrast`, `report`, as in steps
+   7-13. The contrast plan the skill generated follows the new groups by itself; do not delete it.
    Tissues taken out of a group can stay visible as context tissues on the dashboard. `decide` keeps the
    earlier answer in `previous` (value, note, date, options), and `report.md` lists it under
    *Redefinições*; never edit `decisions.yaml` to replace an answer.
@@ -128,19 +130,23 @@ the exploration, never from ad-hoc code:
 
 ## Step 1. Study from the exploration
 
-Ask the researcher, with the words of the summary page: which window (section 3, by its name; you
-pass its id to `--window`), which terms form the target and the control groups (section 4) with a short
-name for each group, and which kinds of prediction to compare (section 6; gene expression, `RNA_SEQ`,
-is always included). Then:
+Ask the researcher, with the words of the summary page, for the five answers the study needs: which
+window (section 3, by its name; you pass its id to `--window`), which terms form the target and the control
+groups (section 4) with a short name for each group, which kinds of prediction to compare (section 6; gene
+expression, `RNA_SEQ`, is always included) and what they look for in the target (`--question`: `repression`
+for a decrease, `increase`, or `either`). Ask for the missing ones together; an answer the researcher did not
+give is asked, never taken from the recommendation. `init` stops and lists any that is missing. Then:
 
 ```bash
-uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --origin-note "Requested by <researcher> on <date>: <question in one line>"
+uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --question repression --answer-note "<the researcher's words>" --origin-note "Requested by <researcher> on <date>: <question in one line>"
 uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --recommended "CL:AAAAAAA (<label>)" --step 1 --note "Chosen by the researcher from the exploration; why"
 uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --recommended "UBERON:CCCCCCC (<label>)" --step 1 --note "Chosen by the researcher; why"
 uv run SKILL/scripts/study.py validate --study-dir D
 ```
 
-`init --from-exploration` writes `study.yaml` (window policy from the option: `regulatory_unit`
+`init --from-exploration` records `study.window`, `study.scorers` and `analysis.question` in
+`decisions.yaml` with the options offered (the report lists them with the cohort answers; the dashboard opens
+on that question), writes `study.yaml` (window policy from the option: `regulatory_unit`
 with its `max_feature_gap_bp`, or `explicit` with the interval) and copies `gtf.json`,
 `regulatory.json`, the sequence, the OLS files and the catalogues of the chosen scorers into `raw/`,
 each with the manifest step that captured it (`copied_from`), so steps 2, 3, 5 and part of 7 need no

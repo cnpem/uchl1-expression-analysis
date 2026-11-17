@@ -176,16 +176,25 @@ search text or a scorer list), so the researcher can tell the three apart.
    (`explore --out OUT --activity-only` writes it for an older exploration). Then record the new groups with
    `decide` and recapture (`references/workflow.md`, *Changing the groups after the results*). Never rank
    tissues with your own code.
-1. **Study.** Ask the researcher, with the words of the exploration page, which window (by its name
-   on the page), which terms form the target and the control groups (with a short name for each group),
-   and which kinds of prediction to compare (gene expression is always included). `study.py init --from-exploration`,
-   then `decide` `cohort.target` and `cohort.control` with the terms offered (`--option`,
-   `--recommended`), and `study.py validate`.
+1. **Study.** Five answers are the researcher's and the study cannot start without them: the **window**
+   (by its name on the exploration page), the **target** and **control** groups (with a short name for
+   each), the **kinds of prediction** (gene expression is always included) and the **question** (a decrease,
+   an increase or any change in the target). Ask for all that are missing in one message, with the options
+   and the recommendation of the exploration page. If the researcher answers only some (for example, only
+   the groups), ask the rest before going on; never fill an answer from the recommendation, even when the
+   researcher seems in a hurry. `study.py init --from-exploration` refuses to run without `--window`,
+   `--target`, `--control`, `--scorers` and `--question`, and records `study.window`, `study.scorers` and
+   `analysis.question` with the options; then `decide` `cohort.target` and `cohort.control` with the
+   terms offered (`--option`, `--recommended`, `--group-label`), and `study.py validate`. Assays, sources,
+   the score (raw or quantile) and how a group's tissues are combined are not asked: everything is captured
+   and the researcher changes them on the dashboard (*Avançado*).
 2. **Gene structure** (`fetch gtf`) and 3. **Regulatory Build and sequence** (`fetch regulatory`,
    `fetch sequence`): already copied from the exploration; run them only for a study without one.
 4. **Locus and window.** `expression.py locus`; questions `locus.transcript`, `locus.feature_*`,
    `locus.no_feature_chain` (the rest of the window follows its definition, by rule). Show Figure 1.
-5. **Terms.** Also from the exploration; `fetch ols --query "…"` for a tissue added later.
+5. **Terms.** Also from the exploration; `fetch ols --query "…"` for a tissue added later. If the
+   researcher's text finds nothing, another spelling of the same name ("MCF7" for "MCF-7") is fine: say so and
+   put it in the `--note` of the cohort decision. A different term than the one they named is their choice: ask.
 6. **Descendants** (`fetch ols-term --curie C`) for a CURIE without tracks or without RNA_SEQ tracks.
 7. **Track catalogue.** `fetch tracks` (every study CURIE × scorer; zero-track pairs are recorded).
 8. **Cohorts.** `expression.py cohorts`; questions `cohort.unserved:*`, `cohort.no_rna_seq:*`. A
@@ -212,7 +221,7 @@ Copy this checklist into the conversation and tick it as you go:
 ```
 expression-analysis progress:
 - [ ] Step 0: check passes (anything missing set up by alphagenome-skills-setup); explore run; summary.md shown
-- [ ] Step 1: window, target, control, labels, scorers chosen by the researcher; init --from-exploration; cohort decisions recorded
+- [ ] Step 1: window, target, control, labels, scorers and question given by the researcher (all asked, none filled from the recommendation); init --from-exploration; cohort decisions recorded
 - [ ] Step 4: locus run; locus.* answered by the researcher; Figure 1 shown
 - [ ] Steps 6-8: fetch tracks; cohorts run; cohort.* answered (study.yaml updated on replace)
 - [ ] Steps 9-10: fetch avi and fetch scores, same window and pull

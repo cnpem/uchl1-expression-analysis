@@ -56,6 +56,12 @@ A mapping from key to entry:
 | `rule` | only for rules | the rule and what it affected, in words |
 | `previous` | only after a redefinition | earlier answers to the same key, oldest first: `value`, `value_label`, `answered_at`, `note`, `options`, `recommended` as they were; `decide` appends the old entry when the value changes |
 
+Researcher answers written by `study.py init --from-exploration` (step 1, with the options offered):
+`study.window` (the exploration's window id), `study.scorers` (the kinds of prediction) and `analysis.question`
+(`repression`, `increase` or `either`; the dashboard and the report's opening view use it). `cohort.target` and
+`cohort.control` are recorded with `decide`; answering them again writes the new terms (and `--group-label`)
+into `study.yaml`.
+
 Rules in use: `locus.multiple_tss_features` (`union`), `locus.exon1_overlap:{feature}`
 (`keep_full_unit`), `cohort.scorer_without_cohort:{scorer}` (`drop_scorer`), `variants.ref_mismatch:{pos}` and
 `variants.missing_in_atlas:{pos}` (`exclude_position`; above 1% of the window only after the researcher's

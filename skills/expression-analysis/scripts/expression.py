@@ -70,7 +70,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import deps
 import explore as core_explore
@@ -258,21 +258,76 @@ def run_workbench_metrics(study_dir: Path) -> None:
           f"Figure 3 {built['fig3_meta']['n_variants']} row(s) x {len(built['fig3_meta']['tissues'])} tissue(s).")
 
 
+def _opening_figures(study_dir: Path) -> list[str]:
+    """Draws the study's opening view (its groups and question, no filter) for report.md when the researcher has not
+    drawn a view with `figures`, or when that opening view is older than the variant table. Returns the files."""
+    from viz import report_figures
+
+    rec = report_figures.load_choices(study_dir)
+    choices = study_dir / report_figures.CHOICES_FILE
+    master = study_dir / core_master.MASTER_FILE
+    stale = rec is not None and rec.get("opening") and master.is_file() and \
+        master.stat().st_mtime > choices.stat().st_mtime
+    if rec is not None and not stale:
+        return []
+    args = argparse.Namespace(
+        study_dir=str(study_dir), scorer="RNA_SEQ", target=None, control=None, target_label=None, control_label=None,
+        question=None, score="raw", group_agg="mean", min_change_pct=0.0, max_control_pct=None, min_sigma=0.0,
+        assay=None, source=None, domain=None, one_alt=False, ref_floor=None, floor_applies="warn",
+        y_metric="target_mean", top_k=60, color_by="genomic_domain")
+    v = _dashboard_view(args)
+    locus = core_locus.load_locus(study_dir)
+    rec = report_figures.write_figures(
+        study_dir, v["data"], v["profile"], v["effects"], v["kept"], v["steps"], show_mode="all",
+        color_col="genomic_domain", highlight=v["kept"].head(5)["variant_id"].to_list(), labels=v["labels"],
+        window=(locus.window.start, locus.window.end), command=fetch.invocation() + " (visão inicial)", opening=True)
+    return [*rec["figures"].values(), report_figures.CHOICES_FILE]
+
+
 def report_cmd(args: argparse.Namespace) -> None:
     study_dir = Path(args.study_dir)
+    try:
+        drawn = _opening_figures(study_dir)
+    except (core_master.MasterError, core_locus.LocusError, study.StudyError, OSError, ValueError) as exc:
+        drawn = []
+        print(f"Warning: the opening view's figures could not be drawn ({exc}); report.md will have no dashboard figures.",
+              file=sys.stderr)
+    if drawn:
+        print(f"Figures of the opening view (groups and question of the study, no filter): {len(drawn) - 1} PNG in "
+              "figures/dashboard/.")
     try:
         path = core_report.write_report(study_dir)
     except (core_report.ReportError, core_contrast.ContrastError, core_master.MasterError, core_cohorts.CohortError,
             core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     print(f"Report: wrote {path}")
-    _record(study_dir, "13-report", ["report.md"])
+    fig1 = study_dir / core_report.FIG1_SVG
+    _record(study_dir, "13-report", ["report.md", *drawn, *([core_report.FIG1_SVG] if fig1.is_file() else [])])
 
 
 WORKBENCH_APP = SKILL_DIR / "assets" / "workbench.py"      # legacy triage workbench (reproduce stage metrics)
 DASHBOARD_APP = SKILL_DIR / "assets" / "dashboard.py"      # analysis dashboard (groups, question, filters chosen on the page)
 WORKBENCH_DEPS = list(deps.WORKBENCH_DEPS)
 DEFAULT_PORT = 2718
+
+
+def _wait_until_up(url: str, proc: Any, timeout_s: float = 600.0) -> bool:
+    """True once marimo answers on url/health; False if the process exits first or the wait times out."""
+    import time
+    import urllib.request
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            return False
+        try:
+            with urllib.request.urlopen(f"{url}/health", timeout=2) as resp:
+                if resp.status == 200:
+                    return True
+        except OSError:
+            pass
+        time.sleep(1)
+    return False
 
 
 def _free_port(preferred: int) -> int:
@@ -357,10 +412,17 @@ def dashboard_cmd(args: argparse.Namespace) -> None:
             sys.exit(130)
     app = _place_app(study_dir / ".workbench", source)
     cmd = [*base, "run", "--no-sandbox", str(app), "--headless", "--port", str(port), "--", "--study-dir", str(study_dir)]
-    print(f"Dashboard: open {url} in a browser (Ctrl+C here stops it).", flush=True)
+    print(f"Dashboard: starting on {url} (the first start can take a minute while the packages install)…", flush=True)
     code = 1
     try:
-        code = subprocess.call(cmd, cwd=study_dir, env=env)
+        proc = subprocess.Popen(cmd, cwd=study_dir, env=env)
+        # Only say it is up once marimo answers: an agent that starts it in the background reads this line.
+        if _wait_until_up(url, proc):
+            print(f"Dashboard READY: open {url} in a browser (Ctrl+C here stops it).", flush=True)
+        else:
+            print(f"Dashboard FAILED: marimo exited with code {proc.poll()} before answering on {url}; nothing is "
+                  "being served. Do not give the researcher the link; read the error above.", file=sys.stderr, flush=True)
+        code = proc.wait()
     except KeyboardInterrupt:
         code = 130
     finally:
@@ -574,7 +636,12 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
     p.add_argument("--target-label", help="Name of the target group (default: study.yaml)")
     p.add_argument("--control-label", help="Name of the control group (default: study.yaml)")
-    p.add_argument("--question", choices=["repression", "increase", "either"], default="either", help="Direction in the target")
+    p.add_argument("--question", choices=["repression", "increase", "either"],
+                   help="Direction in the target (default: the study's decision analysis.question, else either)")
+    p.add_argument("--score", choices=["raw", "quantile"], default="raw",
+                   help="Value compared: the model's raw score (default; percent changes) or the Atlas quantile")
+    p.add_argument("--group-agg", choices=["mean", "median"], default="mean",
+                   help="How each group's tissues are combined: mean (default) or median")
     p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
     p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
     p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control beyond this many noise sigmas, in the question's direction (both for either; 0 = off)")
@@ -588,6 +655,12 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--y-metric", default="target_mean",
                    choices=["target_mean", "target_toward", "control_mean", "diff", "diff_sigma", "avi_phred"],
                    help="Order of the list (the dashboard's 'Ordenar por')")
+
+
+def _decided_question(study_dir: Path) -> str:
+    """The researcher's question (decision analysis.question), or "either" for a study without it."""
+    entry = study.load_decisions(Path(study_dir)).get("analysis.question")
+    return entry.value if entry is not None and entry.value in ("repression", "increase", "either") else "either"
 
 
 def _dashboard_view(args: argparse.Namespace) -> dict:
@@ -610,12 +683,13 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
         control=args.control or sorted(set(reg.filter(reg["cohort"] == "control")["ontology_curie"].to_list())),
         target_label=args.target_label or cohorts.get("target", {}).get("label") or "Alvo",
         control_label=args.control_label or cohorts.get("control", {}).get("label") or "Controle",
-        assays=args.assay or [], sources=args.source or [], question=args.question,
+        assays=args.assay or [], sources=args.source or [], question=args.question or _decided_question(study_dir),
+        score=args.score, group_agg=args.group_agg,
         min_change_pct=args.min_change_pct, max_control_pct=args.max_control_pct,
         min_diff_sigma=args.min_sigma, ref_floor=args.ref_floor, ref_floor_applies=args.floor_applies,
         domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric,
         top_k=getattr(args, "top_k", None) or None, color_by=getattr(args, "color_by", "genomic_domain"))
-    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None)
+    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None, score=profile.score)
     # Same order of operations as the dashboard: controls below the expression floor leave before computing
     used = profile
     if profile.ref_floor is not None and profile.ref_floor_applies in ("control", "both"):
@@ -708,12 +782,13 @@ def summarize_cmd(args: argparse.Namespace) -> None:
                 out.append(f"| {labels.get(c, c)} | {role} | {H._n(r, 4)} | {H._n(100 * r / top, 1)}% | {state} |")
         out.append("")
     out += ["## Ruído entre medições do mesmo tecido", ""]
-    overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None)
+    overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None, score=profile.score)
     if overall is None:
         out.append("Não disponível (nenhum tecido com duas medições nas escolhas atuais); o filtro de ruído fica de fora.")
     else:
-        out.append(f"Duas medições do mesmo tecido discordam em até {H._n(A.pct(overall[0], scorer), 1)}% (p95) e "
-                   f"{H._n(A.pct(overall[1], scorer), 1)}% (p99), juntando todos os tecidos com duas ou mais medições.")
+        size = (lambda v: f"{H._n(A.pct(v, scorer), 1)}%") if A.uses_pct(profile) else (lambda v: f"{H._n(v, 3)} (quantil)")
+        out.append(f"Duas medições do mesmo tecido discordam em até {size(overall[0])} (p95) e "
+                   f"{size(overall[1])} (p99), juntando todos os tecidos com duas ou mais medições.")
     out += ["", "## Etapas dos filtros", "", "| etapa | variantes |", "|---|---|"]
     out += [f"| {s} | {n} |" for s, n in steps]
     # Order: the chosen metric (as in the dashboard's table); with the default metric and a direction, the
@@ -723,9 +798,12 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     top = kept.sort(pl.col(col) if signed else pl.col(col).abs(), descending=True, nulls_last=True).head(args.top)
     eff = [c for c in top.columns if c.startswith("eff_")]
     out += ["", f"## Primeiras {top.height} variantes", "",
-            "| variante | região | % alvo | % controle | " + " | ".join(f"% {labels.get(c[4:], c[4:])}" for c in eff) + " | modalidade AVI |",
+            (lambda m: f"| variante | região | {m} alvo | {m} controle | "
+             + " | ".join(f"{m} {labels.get(c[4:], c[4:])}" for c in eff))("%" if A.uses_pct(profile) else "quantil")
+            + " | modalidade AVI |",
             "|" + "---|" * (5 + len(eff))]
-    fmt = lambda v: "—" if v is None else H._n(A.pct(v, scorer), 1, True)
+    fmt = (lambda v: "—" if v is None else H._n(A.pct(v, scorer), 1, True)) if A.uses_pct(profile) else \
+        (lambda v: "—" if v is None else H._n(v, 3, True))
     for r in top.iter_rows(named=True):
         out.append(f"| {r['variant_id']} | {r['genomic_domain']} | {fmt(r['target_mean'])} | {fmt(r['control_mean'])} | "
                    + " | ".join(fmt(r[c]) for c in eff) + f" | {r['top_feature']} |")

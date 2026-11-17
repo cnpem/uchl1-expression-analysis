@@ -83,13 +83,16 @@ def _(A, data, mo):
 
 @app.cell
 def _(A, data, study_cfg):
-    # Starting point: the study's own groups, no filter
+    # Starting point: the study's own groups and the researcher's question (decision analysis.question), no filter
+    import study as _study
     _reg = data.registry
     _coh = study_cfg.data.get("cohorts", {})
+    _q = _study.load_decisions(data.study_dir).get("analysis.question")
     base = A.Profile(target=sorted(set(_reg.filter(_reg["cohort"] == "target")["ontology_curie"].to_list())),
                      control=sorted(set(_reg.filter(_reg["cohort"] == "control")["ontology_curie"].to_list())),
                      target_label=_coh.get("target", {}).get("label") or "Alvo",
-                     control_label=_coh.get("control", {}).get("label") or "Controle")
+                     control_label=_coh.get("control", {}).get("label") or "Controle",
+                     question=_q.value if _q is not None and _q.value in A.QUESTIONS else "either")
     return (base,)
 
 
@@ -152,15 +155,19 @@ def _(H, assays, base, data, labels, mo, sources):
                                value="Só as que passam nos filtros", label="Variantes nos gráficos")
     top_k = mo.ui.number(start=0, stop=data.master.height, step=1, value=base.top_k or 0,
                          label="Quantas mostrar (0 = todas)")
-    return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, max_control_pct, min_sigma,
-            min_target_pct, one_alt, question, ref_floor, show_mode, shown_pick, source_pick, target_name, target_pick, top_k,
-            use_floor, use_max_control, y_metric)
+    score_pick = mo.ui.dropdown(options={"Valor do modelo (mudança em %)": "raw", "Quantil do Atlas (−1 a 1)": "quantile"},
+                                value="Valor do modelo (mudança em %)", label="Pontuação")
+    group_pick = mo.ui.dropdown(options={"Média dos tecidos": "mean", "Mediana dos tecidos": "median"},
+                                value="Média dos tecidos", label="Valor de cada grupo")
+    return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, group_pick, max_control_pct,
+            min_sigma, min_target_pct, one_alt, question, ref_floor, score_pick, show_mode, shown_pick, source_pick,
+            target_name, target_pick, top_k, use_floor, use_max_control, y_metric)
 
 
 @app.cell
-def _(A, assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, max_control_pct,
-      min_sigma, min_target_pct, one_alt, question, ref_floor, scorer_pick, shown_pick, source_pick, target_name,
-      target_pick, top_k, use_floor, use_max_control, y_metric):
+def _(A, assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, group_pick, max_control_pct,
+      min_sigma, min_target_pct, one_alt, question, ref_floor, score_pick, scorer_pick, shown_pick, source_pick,
+      target_name, target_pick, top_k, use_floor, use_max_control, y_metric):
     profile = A.Profile(
         scorer=scorer_pick.value,
         target=list(target_pick.value), control=list(control_pick.value), shown=list(shown_pick.value),
@@ -170,13 +177,13 @@ def _(A, assay_pick, color_by, control_name, control_pick, domain_pick, floor_ap
         max_control_pct=float(max_control_pct.value or 0.0) if use_max_control.value else None,
         min_diff_sigma=float(min_sigma.value), ref_floor=float(ref_floor.value) if use_floor.value else None,
         ref_floor_applies=floor_applies.value, domains=list(domain_pick.value), one_alt_per_position=one_alt.value,
-        y_metric=y_metric.value, top_k=int(top_k.value) or None)
+        y_metric=y_metric.value, top_k=int(top_k.value) or None, score=score_pick.value, group_agg=group_pick.value)
     return (profile,)
 
 
 @app.cell
 def _(A, H, data, dataclasses, pl, profile, show_mode):
-    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None)
+    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None, score=profile.score)
     _p = profile
     if _p.ref_floor is not None and _p.ref_floor_applies in ("control", "both"):
         _flags = A.expression_flags(data, _p)
@@ -292,15 +299,15 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
     if one_alt.value:
         _df = _df.sort(pl.col(metric).abs(), descending=True, nulls_last=True).unique("position", keep="first")
     _dom, _rng = H.fixed_colors(color_by.value)
-    _unit = "" if metric in ("avi_phred", "diff_sigma") else f" ({A.UNIT.get(profile.scorer, 'log')})"
+    _unit = "" if metric in ("avi_phred", "diff_sigma") else f" ({A.unit(profile)})"
     _chart = build_unified_lollipop_canvas(
         _df, metric, y_metric.selected_key, color_by.value, max_lollipops=max(1, _df.height),
         selected_variant_ids=get_focus_ids(), crop_domain=_crop, full_domain=full_domain, target_label=profile.target_label,
         drag_mode=_mode, axis_title=[y_metric.selected_key + _unit], color_title=color_by.selected_key,
         color_domain=_dom, color_range=_rng, x_title="Posição no cromossomo (GRCh38)", lang="pt",
         head_size=point_size.value * 2, faded=("passa", "não passa"),
-        extra_tooltip=[("target_mean", f"Mudança no {profile.target_label} ({A.UNIT.get(profile.scorer, 'log')})", ".4f"),
-                       ("control_mean", f"Mudança no {profile.control_label} ({A.UNIT.get(profile.scorer, 'log')})", ".4f"),
+        extra_tooltip=[("target_mean", f"Mudança no {profile.target_label} ({A.unit(profile)})", ".4f"),
+                       ("control_mean", f"Mudança no {profile.control_label} ({A.unit(profile)})", ".4f"),
                        ("top_feature", "Modalidade AVI", None), ("passa", "Filtros", None)])
     canvas = mo.ui.anywidget(VariantCanvas(spec=chart_spec(_chart), selected=list(get_focus_ids()), crop=list(_crop),
                                            file_name=f"{study_cfg.data['study_id']}_janela_{metric}"))
@@ -380,11 +387,13 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
     _lo, _hi = get_crop()
     _rows = shown_df.filter(pl.col("position").is_between(_lo, _hi))
     _eff = [c for c in _rows.columns if c.startswith("eff_")]
-    _pct = lambda c: ((pl.lit(_base).pow(pl.col(c)) - 1) * 100).round(1)
+    _q = not A.uses_pct(profile)
+    _pct = (lambda c: pl.col(c).round(3)) if _q else (lambda c: ((pl.lit(_base).pow(pl.col(c)) - 1) * 100).round(1))
+    _mark = "quantil" if _q else "%"
     _show = _rows.select([pl.col("variant_id").alias("variante"), pl.col("genomic_domain").alias("região"),
                           pl.col("distance_to_tss").alias("dist. início do gene"),
-                          _pct("target_mean").alias(f"% {profile.target_label}"), _pct("control_mean").alias(f"% {profile.control_label}"),
-                          *[_pct(c).alias(f"% {labels.get(c[4:], c[4:]).split(' (')[0]}") for c in _eff],
+                          _pct("target_mean").alias(f"{_mark} {profile.target_label}"), _pct("control_mean").alias(f"{_mark} {profile.control_label}"),
+                          *[_pct(c).alias(f"{_mark} {labels.get(c[4:], c[4:]).split(' (')[0]}") for c in _eff],
                           pl.col("top_feature").alias("modalidade AVI"), pl.col("atlas_url").alias("Atlas"),
                           *([pl.col("passa").alias("filtros")] if show_mode.value == "all" else [])])
     _ids = _show["variante"].to_list()
@@ -394,8 +403,9 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
                                 label=f"{_show.height:,} variantes no trecho atual")
     _splice = _rows.height and "Splicing" in _rows.head(10)["top_feature"].to_list()
     mo.vstack([
-        mo.md(f"## Variantes\nMudança prevista em % d{A.SCALES.get(profile.scorer, (None, 'o sinal previsto'))[1]}, "
-              "por grupo e por tecido. Marque linhas para destacar."
+        mo.md((f"## Variantes\nQuantil do Atlas (−1 a 1) d{A.SCALES.get(profile.scorer, (None, 'o sinal previsto'))[1]}, " if _q else
+               f"## Variantes\nMudança prevista em % d{A.SCALES.get(profile.scorer, (None, 'o sinal previsto'))[1]}, ")
+              + "por grupo e por tecido. Marque linhas para destacar."
               + ("  \n**Atenção**: há variantes de modalidade AVI *Splicing* entre as primeiras: o efeito delas é provavelmente "
                  "de splicing, não de transcrição." if _splice else "")),
         variant_table,
@@ -440,11 +450,14 @@ def _(A, mo, steps):
 
 @app.cell
 def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, profile, steps, use_max_control):
-    _ov = A.noise_overall(data, profile.scorer, profile.assays or None, profile.sources or None)
-    _p95 = f"{H._n(A.pct(_ov[0], profile.scorer), 1)}%" if _ov is not None else "não disponível (nenhum tecido com duas medições)"
+    _ov = A.noise_overall(data, profile.scorer, profile.assays or None, profile.sources or None, score=profile.score)
+    _p95 = ("não disponível (nenhum tecido com duas medições)" if _ov is None else
+            f"{H._n(A.pct(_ov[0], profile.scorer), 1)}%" if A.uses_pct(profile) else f"{H._n(_ov[0], 3)} no quantil")
     mo.accordion({"Filtrar resultados": mo.vstack([
         mo.md("Todos começam desligados. Como referência, duas medições do **mesmo** tecido costumam discordar em até "
               f"**{_p95}** neste estudo (95% dos casos): mudanças menores que isso podem ser só diferença entre medições."),
+        *([mo.md("**Pontuação em quantil** (em *Avançado*): os filtros em % abaixo ficam desligados; o sentido da pergunta "
+                 "continua valendo para todo tecido do alvo.")] if not A.uses_pct(profile) else []),
         min_target_pct,
         mo.md("Cada tecido do alvo precisa mudar pelo menos isso, no sentido escolhido. Com vários tecidos, vale o que muda menos."),
         mo.hstack([use_max_control, max_control_pct], justify="start"),
@@ -461,8 +474,8 @@ def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, p
 
 
 @app.cell
-def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, labels, mo, noise, pl,
-      profile, ref_floor, scorer_pick, shown_pick, source_pick, target_name, tissues, use_floor):
+def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, group_pick, labels, mo, noise, pl,
+      profile, ref_floor, score_pick, scorer_pick, shown_pick, source_pick, target_name, tissues, use_floor):
     _t = tissues.select(pl.col("tissue").alias("tecido"), pl.col("ontology_curie").alias("termo"),
                         pl.col("study_cohort").replace({"target": "alvo", "control": "controle"}).alias("na captura"),
                         pl.col("tracks").alias("medições"), pl.col("ref_min").round(4).alias("REF mín"),
@@ -473,7 +486,7 @@ def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, labels
     else:
         _rows = [f"| até {r['hi']:.3f} | {r['p95']:.3f} | {r['p99']:.3f} | {r['sigma']:.3f} |" if r["hi"] != float("inf")
                  else f"| acima | {r['p95']:.3f} | {r['p99']:.3f} | {r['sigma']:.3f} |" for r in noise.iter_rows(named=True)]
-        _noise_md = (f"| tamanho da mudança ({A.UNIT.get(profile.scorer, 'log')}, em módulo) | p95 | p99 | σ |\n"
+        _noise_md = (f"| tamanho da mudança ({A.unit(profile)}, em módulo) | p95 | p99 | σ |\n"
                      "|---|---|---|---|\n" + "\n".join(_rows))
     _warn = [f"- **{labels.get(c, c)}**: abaixo do piso de expressão" for c, f in flags.items() if f == "below floor"]
     mo.accordion({"Avançado": mo.vstack([
@@ -484,6 +497,11 @@ def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, labels
         mo.md("### Medições que entram"),
         mo.md("Misturar polyA com total, ou ENCODE com GTEx, junta medições que às vezes discordam muito."),
         mo.hstack([assay_pick, source_pick], justify="start"),
+        mo.md("### Como os valores são calculados"),
+        mo.md("**Pontuação**: o valor do modelo é a mudança prevista (dá a % e os filtros em %); o quantil do Atlas é a posição "
+              "da variante entre as variantes comuns (−1 a 1), comparável entre tipos de predição e medições, mas sem %. "
+              "**Valor de cada grupo**: a média dos tecidos, ou a mediana, que pesa menos um tecido que destoa."),
+        mo.hstack([score_pick, group_pick], justify="start"),
         mo.md("### Expressão de referência"),
         mo.md("REF = expressão do gene prevista no tecido, sem a variante. Perto de 0,001 (o pseudocount do modelo) o gene está "
               "praticamente desligado e as mudanças previstas ficam instáveis. Na ativação ectópica, use \"Só avisar\"."),

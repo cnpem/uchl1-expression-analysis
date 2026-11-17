@@ -207,7 +207,12 @@ def _section_dashboard(study_dir: Path) -> list[str]:
     from viz import report_figures
 
     rec = report_figures.load_choices(study_dir)
-    lines = ["## Análise do pesquisador (dashboard)", ""]
+    opening = bool(rec and rec.get("opening"))
+    lines = ["## Visão inicial do estudo (dashboard)" if opening else "## Análise do pesquisador (dashboard)", ""]
+    if opening:
+        lines += ["Figuras da visão com que o dashboard abre: os grupos e a pergunta do estudo, sem filtros. Quando o "
+                  "pesquisador escolher outra visão no dashboard, `expression.py figures` com as escolhas dele substitui "
+                  "esta seção.", ""]
     if rec is None:
         return lines + ["Nenhuma visão do dashboard foi registrada para o relatório. Com as escolhas do pesquisador, "
                         "`expression.py figures --study-dir D …` desenha os gráficos do dashboard em `figures/dashboard/`; "
@@ -265,12 +270,16 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
              t["predicted_direction"], t["specificity_scope"], *[t[f"{n}_target_vs_control_diff"] for n in diffs])
             for t in top]
     lines += _table(headers, rows)
+    fig1 = _figure1_svg(study_dir)
     lines += ["", "Δ = média alvo menos média controle do escore bruto previsto (comparável apenas dentro de um scorer). "
-              "A Figura 1 (`figures/fig1_genomic_architecture.html`) mostra a janela; os gráficos interativos estão no "
-              "dashboard (`expression.py dashboard`).", ""]
+              "A Figura 1 mostra a janela (versão interativa em `figures/fig1_genomic_architecture.html`); os gráficos "
+              "interativos estão no dashboard (`expression.py dashboard`).", ""]
+    if fig1:
+        lines += ["**Figura 1. Arquitetura genômica da janela.** Gene, transcritos, elementos do Ensembl Regulatory Build "
+                  "e a janela analisada.", "", f"![Figura 1: Arquitetura genômica da janela]({fig1})", ""]
     links = study_dir / ATLAS_LINKS_FILE
     if links.is_file():
-        lines += ["### Links do Atlas", "", links.read_text(encoding="utf-8").strip(), ""]
+        lines += ["### Links do Atlas", "", _tight_tables(links.read_text(encoding="utf-8").strip()), ""]
     interprets = sorted((study_dir / "raw").glob(INTERPRET_GLOB))
     if interprets:
         lines += ["### Interpretação por variante (AlphaGenome)", ""]
@@ -280,6 +289,40 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
             lines += [f"`{path.name}`" + (f" (primeiras {MAX_INTERPRET_LINES} de {len(text)} linhas)" if clipped else ""),
                       "", "```", *text[:MAX_INTERPRET_LINES], "```", ""]
     return lines
+
+
+FIG1_HTML = "figures/fig1_genomic_architecture.html"
+FIG1_SVG = "figures/fig1_genomic_architecture.svg"
+
+
+def _figure1_svg(study_dir: Path) -> str | None:
+    """Figure 1 as an image for report.md: the SVG drawn inside the locus stage's HTML, written next to it (and
+    written again whenever the HTML is newer). None when there is no Figure 1."""
+    html, svg = study_dir / FIG1_HTML, study_dir / FIG1_SVG
+    if not html.is_file():
+        return None
+    if not svg.is_file() or svg.stat().st_mtime < html.stat().st_mtime:
+        text = html.read_text(encoding="utf-8")
+        a, b = text.find("<svg"), text.find("</svg>")
+        if a < 0 or b < 0:
+            return None
+        body = text[a:b + 6]
+        if "xmlns=" not in body[:300]:
+            body = body.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"', 1)
+        svg.write_text(body + "\n", encoding="utf-8")
+    return FIG1_SVG
+
+
+def _tight_tables(text: str) -> str:
+    """Drops blank lines between rows of a markdown table (they split it, and it no longer renders as a table)."""
+    lines = text.splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        if not line.strip() and out and out[-1].lstrip().startswith("|") and \
+                any(nxt.strip() for nxt in lines[i + 1:i + 2]) and lines[i + 1].lstrip().startswith("|"):
+            continue
+        out.append(line)
+    return "\n".join(out)
 
 
 def _section_skills(manifest: Mapping[str, Any]) -> list[str]:

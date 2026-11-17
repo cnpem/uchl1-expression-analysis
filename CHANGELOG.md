@@ -11,6 +11,17 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Added
 
+- **The researcher's step-1 answers are required.** `study.py init --from-exploration` refuses to create a
+  study without `--window`, `--target`, `--control`, `--scorers` and `--question`, lists what is missing,
+  and records `study.window`, `study.scorers` and `analysis.question` in `decisions.yaml` with the options
+  offered. The agent asks the missing ones together and never fills one from the recommendation.
+- **Score and group value on the dashboard** (*Avançado*: *Pontuação*, *Valor de cada grupo*;
+  `summarize`/`figures` `--score raw|quantile`, `--group-agg mean|median`). Quantiles switch off the %
+  filters, with a note in the filter steps.
+- **`report.md` always has figures.** Without a view drawn by the researcher, `report` draws the opening
+  view (the study's groups and question, no filter) under *Visão inicial do estudo*; Figure 1 is included
+  as an image (`figures/fig1_genomic_architecture.svg`).
+
 - **Decision history.** Deciding a key again with another value keeps the earlier answer in `previous`
   (value, label, date, note, options) in `decisions.yaml`; `report.md` lists them under *Redefinições*.
 - **Scope section in SKILL.md.** Questions beyond the screen (transcription factors, motifs, mechanism,
@@ -29,6 +40,17 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
   REF, as in the exploration). The floor can now be chosen from the numbers.
 
 ### Changed
+
+- **Redefining a group needs no manual step.** `decide cohort.target|cohort.control` writes the new terms
+  (and `--group-label`) into `study.yaml`, and a contrast plan the skill generated is generated again from
+  the current groups.
+- **The dashboard opens on the researcher's question** (`analysis.question`), and `summarize`/`figures`
+  use it when `--question` is not given.
+- `expression.py dashboard` prints `Dashboard READY` only after marimo answers, or `Dashboard FAILED`.
+
+### Fixed
+
+- The *Links do Atlas* table in `report.md` had blank lines between rows and did not render as a table.
 
 - **The noise filter follows the question** (*Alvo − controle acima do ruído*, `--min-sigma`): with
   repression the target must be below the control, with increase above, with either both ways. Before, a

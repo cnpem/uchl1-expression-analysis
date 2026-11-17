@@ -74,6 +74,8 @@ current value does:
 | *Tecidos capturados* (table) | every tissue with predictions in the study: group at capture, number of measurements, REF min and max, where the measurements come from | to find a CURIE, or a tissue to add to a group; a tissue not listed needs a new capture (your job) |
 | *Ruído do estudo* (table) | how much two measurements of the same tissue disagree, by size of change: p95, p99, σ | the reference for the thresholds; σ is the unit of the *acima do ruído* filter |
 | *Tipo de predição* | RNA-seq (expression of the whole gene), CAGE (transcription start), DNase / ATAC (open chromatin around the variant) | to ask about the mechanism near the variant rather than the gene's expression; groups may lose tissues without that prediction |
+| *Pontuação* | the model's value (a change, shown in %) or the Atlas quantile of the same prediction (the variant's rank among common variants, −1 to 1) | quantiles compare kinds of prediction and measurements on one scale; they are not a %, so the % filters are switched off (the filter steps say so) and the question still keeps every target tissue in the direction asked |
+| *Valor de cada grupo* | the mean of the group's tissues, or the median | the median weighs less a tissue that disagrees with the rest (for example, one cell line far from the others) |
 
 ## What the page does without saying
 
@@ -126,6 +128,8 @@ the researcher read them out) and map them:
 | *Quantas mostrar* | nothing: it only limits what is drawn; `--top N` lists the first N |
 | *Nome do grupo alvo / controle* | `--target-label`, `--control-label` |
 | *Tipo de predição* | `--scorer` |
+| *Pontuação* | `--score raw\|quantile` |
+| *Valor de cada grupo* | `--group-agg mean\|median` |
 
 Crop, highlights, colours, the point size, *Quantas mostrar* and *Variantes nos gráficos* change only what
 is drawn, not the numbers.
@@ -141,6 +145,15 @@ tissues) and writes `figures/dashboard/choices.json`. Then run `expression.py re
 gets a section *Análise do pesquisador (dashboard)* with the choices, the blue box, the filter steps and
 the figures with captions. Read that section back to the researcher. One view at a time: a new `figures`
 run replaces the previous one; the report warns when the figures are older than the variant table.
+
+Before the researcher draws a view, `report` draws the **opening view** itself (the study's groups and
+question, no filter, the first 60 variants, all shown) into the same folder, so `report.md` always has
+figures, under *Visão inicial do estudo (dashboard)*, plus Figure 1 as an image. A `figures` run with the
+researcher's choices replaces it.
+
+**Starting it.** `expression.py dashboard` prints `Dashboard READY: open <url>` only when marimo answers, or
+`Dashboard FAILED …` if it exits first. When it runs in the background, wait for one of those lines and give
+the link only after READY; on FAILED, say so and show the error.
 
 ## What each quantity means
 
