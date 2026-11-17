@@ -19,6 +19,15 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
   matched to the real options and shown, and only what is missing is asked; requests ahead of their step
   are listed and done at that step; hypotheses and context answer nothing by themselves; delegation must
   name the question (a general "go ahead" is not delegation).
+  - Step 0 asks for the tissues of both groups even when the request names some; tissues named only as
+    context or in a hypothesis are not groups. Tissues that arrive after the exploration are explored
+    before the study is created.
+  - No default by silence; picking "the recommended one" after seeing the options is an answer, not a
+    delegation; one recommendation per question.
+  - `decide` refuses `--recommended` for `cohort.target`/`cohort.control` (a group has no single
+    recommended term), and keeps the options' labels when a question is answered again with codes only.
+  - Tested with four simulated researchers (all answers upfront, "do everything", hypotheses, change of
+    mind): none of the 20 required answers was filled by the agent.
 - **The researcher's step-1 answers are required.** `study.py init --from-exploration` refuses to create a
   study without `--window`, `--target`, `--control`, `--scorers` and `--question`, lists what is missing,
   and records `study.window`, `study.scorers` and `analysis.question` in `decisions.yaml` with the options

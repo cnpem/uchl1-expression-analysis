@@ -155,15 +155,21 @@ what happens, and which one is recommended and why. With more than about six opt
 ones and offer the rest on request. Never show codes or keys. Record the answer with the chosen
 option's code: `study.py decide --study-dir D --key K --value CODE --step N --said "…" --note "…"` (one
 `--key` per key when several share an answer), and run the stage again. `--said` is required: the
-researcher's own words the answer comes from, copied from the conversation; the report shows them next to
-the answer. If you have nothing of theirs to quote, you have no answer: ask. The recommendation is the
+researcher's own words the answer comes from, copied from the conversation (only the sentences that
+carry the answer, joined with ` / `); the report shows them next to the answer. If you have nothing of
+theirs to quote, you have no answer: ask. Never announce a default ("if you say nothing, I go with *any
+change*"): silence is not an answer, and your reading of their words ("alterar" → *any change*) is a question
+until they confirm it. The recommendation is the
 stage's suggestion, not an answer. For a question you ask yourself (the choices of step 1), pass what you
 offered with `--option` (repeated) and `--recommended`.
 
 **Delegation is explicit.** Record a recommendation only when the researcher told you to choose *that*
 question or that set of questions ("use the recommended window", "pick the controls for me", "take the
-recommendations for everything you asked"); quote those words in `--said` and add `--delegated`. A
-general hurry is not delegation: "go ahead", "do everything", "just send me the top 10", "you know
+recommendations for everything you asked"); quote those words in `--said` and add `--delegated`. Picking
+"the recommended one" after seeing the options is their answer, not a delegation (no `--delegated`). Show one
+recommendation per question, the page's or the stage's; if their words point elsewhere, say so on its own line
+("you said *expression*: that is *RNA-seq only*"), and a delegated answer takes the recommendation you showed.
+A general hurry is not delegation: "go ahead", "do everything", "just send me the top 10", "you know
 better" before the question was asked. Then ask the missing answers once, together, saying it takes one
 reply, and go on without stopping again for them.
 
@@ -171,8 +177,10 @@ reply, and go on without stopping again for them.
 - *Answers given early* (in the first request, or before their step): keep them. When their step comes,
   show how you read each one against the real options ("you said *promoter* → window *Só o promotor que
   contém o TSS*, 245 pb") and ask only what is missing or does not map to one option. Do not ask again
-  what was clear, and record it with their original words in `--said`. A tissue named early is a search
-  text for step 0, not a group choice until the researcher sees the terms found for it.
+  what was clear, and record it with their original words in `--said`. A tissue the researcher names as
+  one to compare is a search text for step 0; it becomes a group once they have seen the terms found for it.
+  A tissue named only as context or inside a hypothesis ("in tumour cells such as MCF-7 it is methylated")
+  is neither a search text nor a group: ask for the tissues.
 - *Requests ahead of their step* (a filter, a ranking, a figure, a report, "the top 10"): say in one line
   that it comes after the step that makes it possible, keep a list of them, and do each one at its step
   (a dashboard view through `figures` and `report`). A request never answers an earlier question: to get
@@ -194,9 +202,15 @@ delegated (`delegated: true`) apart from those they gave, and any request they m
 that is still to do.
 
 0. **Exploration.** `expression.py check`; anything missing goes to `alphagenome-skills-setup`.
-   Ask the researcher only for the gene and the tissues or cell types in their own words, then
-   `expression.py explore`. If the first request already brings other answers (a window, the groups, the
-   question), keep them for step 1 and say so; do not act on them yet. Show `summary.md`: windows with size, SNVs and cost; candidate terms
+   Ask the researcher only for the gene and the tissues or cell types in their own words, for both
+   sides: where they want to know whether the variants change expression (target) and what to compare it
+   with (control), or that they want the exploration to show candidates first. Ask even when the request
+   names some tissues: a request that names only the target, or names tissues only as context, would be
+   explored again once the groups come. Then `expression.py explore`. If the first request already brings
+   other answers (a window, the groups, the question), keep them for step 1 and say so; do not act on them
+   yet. Tissues that reach you after the exploration (new groups at step 1, a redefinition) go through
+   `explore` again with every text (the other captures are reused), and the researcher sees the terms and
+   the gene's activity found for them before `init` or `decide`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
    gene's predicted activity per tissue, with a warning where it is below the floor. Do not ask
    for the study's choices before this page is shown, because they depend on it.
@@ -217,7 +231,8 @@ that is still to do.
    and `--said` (their words, joined with ` / ` when they came in several messages; `--delegated window`
    etc. for an answer they explicitly left to you), and records `study.window`, `study.scorers` and
    `analysis.question` with the options; then `decide` `cohort.target` and `cohort.control` with the
-   terms offered (`--option`, `--recommended`, `--group-label`, `--said`), and `study.py validate`. Assays, sources,
+   terms offered (`--option`, `--group-label`, `--said`; no `--recommended`: the page recommends a term per
+   text, not a group), and `study.py validate`. Assays, sources,
    the score (raw or quantile) and how a group's tissues are combined are not asked: everything is captured
    and the researcher changes them on the dashboard (*Avançado*).
 2. **Gene structure** (`fetch gtf`) and 3. **Regulatory Build and sequence** (`fetch regulatory`,

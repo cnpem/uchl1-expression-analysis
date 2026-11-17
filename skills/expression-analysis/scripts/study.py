@@ -947,6 +947,10 @@ def _offered(args: argparse.Namespace, pending_entry: dict | None, earlier: Deci
     """The options/recommended to store with a decision: --option/--recommended, else the pending entry's,
     else an earlier decision's of the same key, else none."""
     if args.option:
+        if (earlier is not None and earlier.options and all(isinstance(o, dict) for o in earlier.options)
+                and set(args.option) == set(option_codes(earlier.options))):
+            # the same question asked again with its codes only: keep the labels it was offered with
+            return {"options": earlier.options, "recommended": args.recommended}
         return {"options": list(args.option), "recommended": args.recommended}
     if pending_entry is not None:  # what the question offered (code and label), next to the answer
         return {"options": [{"code": o["code"], "label": o["label"]} for o in pending_entry.get("options") or []],
@@ -1007,6 +1011,11 @@ def decide(args: argparse.Namespace) -> None:
                          "an answer of your own. Nothing was recorded.")
     if args.recommended is not None and not args.option:
         raise StudyError("--recommended needs the options it was chosen from: pass each with --option")
+    groups = [k for k in keys if k in ("cohort.target", "cohort.control")]
+    if groups and args.recommended is not None:
+        raise StudyError(f"--recommended does not apply to {', '.join(groups)}: the exploration recommends one term per "
+                         "text the researcher gave, not a group. Pass the terms offered with --option and leave "
+                         "--recommended out. Nothing was recorded.")
     if args.option and args.recommended is not None and args.recommended not in args.option:
         raise StudyError(f"--recommended {args.recommended!r} is not one of the --option values {args.option}")
     try:

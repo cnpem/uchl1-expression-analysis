@@ -141,10 +141,14 @@ give is asked, never taken from the recommendation. `init` stops and lists any t
 
 ```bash
 uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --question repression --said "<the researcher's words / joined across messages>" --origin-note "Requested by <researcher> on <date>: <question in one line>"
-uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --recommended "CL:AAAAAAA (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher from the exploration; why"
-uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --recommended "UBERON:CCCCCCC (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher; why"
+uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher from the exploration; why"
+uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher; why"
 uv run SKILL/scripts/study.py validate --study-dir D
 ```
+
+The groups take no `--recommended` (`decide` refuses it): the page recommends one term per text the researcher
+gave, not a group. Groups or tissues given only now, after the exploration, go through `explore` again first
+(every text; the other captures are reused), so the researcher sees the terms and the gene's activity found.
 
 `init --from-exploration` records `study.window`, `study.scorers` and `analysis.question` in
 `decisions.yaml` with the options offered (the report lists them with the cohort answers; the dashboard opens
