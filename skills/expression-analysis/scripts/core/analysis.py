@@ -377,7 +377,8 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
         steps.append((label, df.height))
 
     has_control = "control_mean" in df.columns and df["control_mean"].null_count() < df.height
-    if p.domains:
+    # every region chosen is no filter (the dashboard sends them all when none is unticked)
+    if p.domains and not set(data.master["genomic_domain"].unique().to_list()) <= set(p.domains):
         step("domínios", pl.col("genomic_domain").is_in(p.domains))
     flags = expression_flags(data, p)
     if p.ref_floor is not None and p.ref_floor_applies in ("target", "both"):
@@ -422,22 +423,40 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
                 step(f"alvo − controle ≥ {s:g} σ do ruído (nos dois sentidos)", pl.col("diff_sigma").abs() >= s)
     metric = p.y_metric if p.y_metric in df.columns else "target_mean"
     if p.one_alt_per_position:
-        df = df.sort(pl.col(metric).abs(), descending=True, nulls_last=True).unique("position", keep="first", maintain_order=True)
+        df = df.sort(order_expr(metric, p.question), descending=True, nulls_last=True).unique(
+            "position", keep="first", maintain_order=True)
         steps.append(("uma alternativa por posição", df.height))
-    return df.sort(order_expr(metric), descending=True, nulls_last=True), steps
+    return df.sort(order_expr(metric, p.question), descending=True, nulls_last=True), steps
 
 
-def order_expr(metric: str) -> pl.Expr:
-    """Sort key of 'Ordenar por': the size of the change, except target_toward, which is already signed toward the
-    question (larger = more in the direction asked)."""
-    return pl.col(metric) if metric == "target_toward" else pl.col(metric).abs()
+SIGNED_METRICS = ("target_mean", "diff", "diff_sigma")  # ordered in the question's direction
 
 
-def first_k(df: pl.DataFrame, metric: str, k: int | None) -> pl.DataFrame:
+def order_expr(metric: str, question: str = "either") -> pl.Expr:
+    """Sort key of 'Ordenar por' (larger first). The change in the target and the target − control difference
+    are ordered in the direction asked: with an increase the largest rise (or the target furthest above the
+    control) comes first, with a repression the largest fall; with 'either' the size of the change. A variant
+    whose control changes more than the target therefore goes to the end, not to the top. target_toward is
+    already signed toward the question; the other metrics are ordered by size."""
+    if metric == "target_toward":
+        return pl.col(metric)
+    if metric in SIGNED_METRICS and question in ("increase", "repression"):
+        return pl.col(metric) * (1.0 if question == "increase" else -1.0)
+    return pl.col(metric).abs()
+
+
+def first_k(df: pl.DataFrame, metric: str, k: int | None, question: str = "either") -> pl.DataFrame:
     """The first `k` rows in the order of 'Ordenar por' (all when k is 0 or None). A display limit, not a filter."""
     metric = metric if metric in df.columns else "target_mean"
-    df = df.sort(order_expr(metric), descending=True, nulls_last=True)
+    df = df.sort(order_expr(metric, question), descending=True, nulls_last=True)
     return df.head(k) if k else df
+
+
+def without_tracks(data: StudyData, p: Profile) -> dict[str, list[str]]:
+    """Tissues of each group with no measurement under the chosen assays and sources: they leave the group's
+    value without any other sign, so the headline names them."""
+    have = set(tracks(data, p.scorer, p.assays or None, p.sources or None, p.score)["ontology_curie"].to_list())
+    return {"target": [c for c in p.target if c not in have], "control": [c for c in p.control if c not in have]}
 
 
 def funnel(steps: list[tuple[str, int]]) -> pl.DataFrame:

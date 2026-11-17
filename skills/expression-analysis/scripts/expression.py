@@ -636,6 +636,8 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--scorer", default="RNA_SEQ", help="RNA_SEQ (gene expression; default), CAGE, DNASE or ATAC")
     p.add_argument("--target", action="append", help="Target CURIE (repeatable; default: the study's target tissues)")
     p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
+    p.add_argument("--shown", action="append",
+                   help="Context tissue CURIE (repeatable): shown in the tables and figures, outside the group values")
     p.add_argument("--target-label", help="Name of the target group (default: study.yaml)")
     p.add_argument("--control-label", help="Name of the control group (default: study.yaml)")
     p.add_argument("--question", choices=["repression", "increase", "either"],
@@ -662,7 +664,7 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
 AGENT_VIEW = ".dashboard/agent_view.json"            # written by `view`; the open dashboard follows it
 RESEARCHER_VIEW = ".dashboard/researcher_view.json"  # written by the open dashboard: what is on screen now
 # option (argparse dest) -> key in the view files (the fields of core.analysis.Profile, plus how to show)
-VIEW_KEYS = {"scorer": "scorer", "target": "target", "control": "control", "target_label": "target_label",
+VIEW_KEYS = {"scorer": "scorer", "target": "target", "control": "control", "shown": "shown", "target_label": "target_label",
              "control_label": "control_label", "question": "question", "score": "score", "group_agg": "group_agg",
              "min_change_pct": "min_change_pct", "max_control_pct": "max_control_pct", "min_sigma": "min_diff_sigma",
              "assay": "assays", "source": "sources", "domain": "domains", "one_alt": "one_alt_per_position",
@@ -711,6 +713,20 @@ def view_cmd(args: argparse.Namespace) -> None:
         given["ref_floor"] = None
     if args.clear_highlight:
         given["highlight"] = []
+    for flag, key in (("no_control", "control"), ("no_shown", "shown"), ("all_domains", "domains"),
+                      ("all_assays", "assays"), ("all_sources", "sources")):
+        if getattr(args, flag):
+            given[key] = []  # an empty selection: no control or context tissue; every region, assay or source
+    if args.full_window:
+        given["window"] = "full"
+    elif args.window:
+        given["window"] = sorted(args.window)
+    if args.reset:  # the opening view also clears the highlights and shows the whole window
+        given.setdefault("highlight", [])
+        given.setdefault("window", "full")
+        sent_reset = not (set(given) - {"highlight", "window"})
+    else:
+        sent_reset = False
     if not given and not args.reset:
         view = _researcher_view(study_dir)
         print(json.dumps(view, indent=1, ensure_ascii=False))
@@ -728,7 +744,8 @@ def view_cmd(args: argparse.Namespace) -> None:
     body = {"sent_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "message": args.message or "", "choices": choices}
     out.write_text(json.dumps(body, indent=1), encoding="utf-8")  # ASCII JSON, written in place: the page watches this file
-    changed = ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in given.items()) or "the study's opening view"
+    changed = "the study's opening view (highlights cleared, whole window)" if sent_reset else \
+        ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in given.items())
     print(f"Sent to the dashboard ({AGENT_VIEW}): {changed}"
           + (" on top of the study's opening view." if args.reset or not seen else " on top of what is on screen."))
     print("The open page follows by itself (no reload). Read it back with expression.py view."
@@ -763,6 +780,7 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
         control=args.control or sorted(set(reg.filter(reg["cohort"] == "control")["ontology_curie"].to_list())),
         target_label=args.target_label or cohorts.get("target", {}).get("label") or "Alvo",
         control_label=args.control_label or cohorts.get("control", {}).get("label") or "Controle",
+        shown=getattr(args, "shown", None) or [],
         assays=args.assay or [], sources=args.source or [], question=args.question or _decided_question(study_dir),
         score=args.score, group_agg=args.group_agg,
         min_change_pct=args.min_change_pct, max_control_pct=args.max_control_pct,
@@ -821,11 +839,11 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     effects, kept, steps, labels = v["effects"], v["kept"], v["steps"], v["labels"]
     used = v["used"]
     scorer = profile.scorer
-    toward = args.question != "either"
     desc = H.describe_tissues(data, scorer)
     what = A.SCALES.get(scorer, (None, "o sinal previsto"))[1]
     out = [f"# {config.gene_symbol}: resumo da visão do dashboard ({scorer}; % d{what})", "",
-           H.headline(kept, effects, profile, labels, A.ref_by_tissue(data)), "", "## Grupos e medições", ""]
+           H.headline(kept, effects, profile, labels, A.ref_by_tissue(data), missing=A.without_tracks(data, profile)),
+           "", "## Grupos e medições", ""]
     for role, curies, name in (("Alvo", profile.target, profile.target_label), ("Controle", profile.control, profile.control_label)):
         out.append(f"**{role} ({name})**")
         out += [f"- {labels.get(c, c)} ({c}): {desc.get(c, 'sem medições deste tipo')}" for c in curies] or ["- nenhum"]
@@ -871,11 +889,8 @@ def summarize_cmd(args: argparse.Namespace) -> None:
                    f"{size(overall[1])} (p99), juntando todos os tecidos com duas ou mais medições.")
     out += ["", "## Etapas dos filtros", "", "| etapa | variantes |", "|---|---|"]
     out += [f"| {s} | {n} |" for s, n in steps]
-    # Order: the chosen metric (as in the dashboard's table); with the default metric and a direction, the
-    # headline's order (the change in the direction asked, in the target tissue that changes least)
-    col = "target_toward" if (toward and args.y_metric == "target_mean") else args.y_metric
-    signed = col == "target_toward"
-    top = kept.sort(pl.col(col) if signed else pl.col(col).abs(), descending=True, nulls_last=True).head(args.top)
+    # Order: the one of 'Ordenar por', as in the dashboard's table and headline (kept comes sorted by it)
+    top = kept.head(args.top)
     eff = [c for c in top.columns if c.startswith("eff_")]
     out += ["", f"## Primeiras {top.height} variantes", "",
             (lambda m: f"| variante | região | {m} alvo | {m} controle | "
@@ -1115,7 +1130,17 @@ def main() -> None:
     p.add_argument("--no-max-control", action="store_true", help="Switch off the limit of change in the control")
     p.add_argument("--no-floor", action="store_true", help="Switch off the reference expression floor")
     p.add_argument("--clear-highlight", action="store_true", help="Remove the highlights")
-    p.add_argument("--reset", action="store_true", help="Start from the study's opening view instead of what is on screen")
+    p.add_argument("--no-control", action="store_true", help="No control tissue (the control filters are then listed as ignored)")
+    p.add_argument("--no-shown", action="store_true", help="No context tissue")
+    p.add_argument("--all-domains", action="store_true", help="Every region of the window")
+    p.add_argument("--all-assays", action="store_true", help="Every assay")
+    p.add_argument("--all-sources", action="store_true", help="Every data source")
+    p.add_argument("--window", nargs=2, type=int, metavar=("START", "END"),
+                   help="Stretch of the window to show (GRCh38 positions), as the page's 'Recortar'")
+    p.add_argument("--full-window", action="store_true", help="Show the whole window again ('Janela inteira')")
+    p.add_argument("--reset", action="store_true",
+                   help="Start from the study's opening view instead of what is on screen (also clears the highlights "
+                        "and shows the whole window, unless --highlight or --window is given)")
     p.add_argument("--message", help="One line shown to the researcher on the page, saying what this view is")
     p.set_defaults(func=view_cmd)
 

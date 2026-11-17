@@ -137,7 +137,8 @@ recording command to run.
 | `expression.py contrast [--propose]` | Step 12: the triage's contrast (plan generated from the groups when absent) → tissue contrast, top variants; `--propose` only writes the plan for a maintainer |
 | `expression.py report` | Step 13: `report.md` (study, decisions, results, skills used, limits, citations) |
 | `expression.py dashboard [--port N] [--export-html P] [--edit] [--legacy]` | Step 14: analysis dashboard (a free port if N is busy; prints the URL), a static HTML export, the marimo editor for maintainers (`--edit`, changes the skill's `assets/dashboard.py`) or the previous workbench (`--legacy`) |
-| `expression.py summarize --study-dir D [choices…]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
+| `expression.py view --study-dir D [choices…] [--reset] [--message "…"]` | Link with the open dashboard: without choices, prints what the researcher has on screen; with them, the page moves to that view without reloading (`references/dashboard.md`) |
+| `expression.py summarize --study-dir D [choices… \| --from-dashboard]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
 | `expression.py figures --study-dir D [choices…] [--top-k K] [--show kept\|all] [--highlight V…]` | The dashboard's charts for those choices as PNG in `figures/dashboard/`, with `choices.json`; `report` then shows them |
 | `expression.py regions [--only NAME]` | Prints the regulatory search region, the window and `max_window` (the fetch commands use them already) |
 | `expression.py reproduce --reference uchl1 [--until S] [--keep DIR]` | Re-runs the stages on the bundled reference and compares with `expected.json` |
@@ -257,11 +258,13 @@ that is still to do.
     link (tell them to reload the page if you restart it), with the short presentation of that file: the
     three choices, the row of how to show, where filters and *Avançado* are. When they open *Avançado* or
     ask about a field, explain it with the field table there, including what the page does without saying
-    (empty = all, ignored filters, display limits). When they ask about what they see, run
-    `expression.py summarize` with the same choices and explain from its numbers; do not describe results
-    you have not computed. When they settle on a view, run `expression.py figures` with its choices, then
+    (empty = all, ignored filters, display limits). When they ask about what they see, read it with
+    `expression.py view` and run `expression.py summarize --from-dashboard`, then explain from its numbers;
+    do not describe results you have not computed. To show them a view, say what you will change and why,
+    then send it with `expression.py view <choices> --message "…"`: the open page follows, and they can
+    change it further. When they settle on a view, run `expression.py figures --from-dashboard`, then
     `expression.py report` again, so `report.md` shows that view's figures with the choices behind them;
-    the dashboard itself saves nothing.
+    the dashboard itself saves no analysis.
 
 Copy this checklist into the conversation and tick it as you go:
 
@@ -353,6 +356,8 @@ OUT/exploration/                     # step 0, before any study
   processed/                         # this skill's outputs (locus, registry, master, contrast, top variants)
   figures/                           # fig1_genomic_architecture.html, dashboard.html (export), variants/ (step 13),
                                      # dashboard/ (step 14: the researcher's view as PNG + choices.json, shown in report.md)
+  .dashboard/                        # link with the open dashboard: researcher_view.json (what is on screen),
+                                     # agent_view.json (the view sent with expression.py view)
   report.md                          # Portuguese report
 ```
 

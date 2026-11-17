@@ -295,7 +295,7 @@ def _(A, data, locus, mo, scorer_pick):
 def _(agent_choices, agent_view, mo):
     # Says when the view on screen was set by the agent, with its message
     _note = None
-    if agent_choices:
+    if agent_choices or agent_view.get("sent_at"):  # also a view that only went back to the opening one
         _when = str(agent_view.get("sent_at") or "")[:16].replace("T", " ")
         _msg = str(agent_view.get("message") or "").strip()
         _note = mo.callout(mo.md(f"**Visão enviada pelo agente**{f' ({_when} UTC)' if _when else ''}"
@@ -330,11 +330,12 @@ def _(control_pick, descriptions, mo, question, show_mode, target_pick, top_k, y
 
 
 @app.cell
-def _(H, effects, kept, labels, mo, profile, ref_tissue):
+def _(A, H, data, effects, kept, labels, mo, profile, ref_tissue):
     if not profile.target:
         _out = mo.callout(mo.md("Escolha pelo menos um tecido do alvo."), kind="warn")
     else:
-        _out = mo.callout(mo.md(H.headline(kept, effects, profile, labels, ref_tissue)), kind="info")
+        _out = mo.callout(mo.md(H.headline(kept, effects, profile, labels, ref_tissue,
+                                           missing=A.without_tracks(data, profile))), kind="info")
     _out
     return
 
@@ -356,14 +357,24 @@ def _(center_crop_on_positions, data, full_domain, mo, pl):
 
 
 @app.cell
-def _(agent_choices, center_crop_on_positions, data, full_domain, pl, set_crop, set_focus_ids):
-    # Highlights sent by the agent. Only the setters are used here (no state is read), so this runs when the
-    # agent's view changes and never when the researcher moves the window or the highlights.
+def _(agent_choices, data, full_domain, pl, set_crop, set_focus_ids):
+    # Highlights and the stretch of the window sent by the agent. Only the setters are used here (no state is
+    # read), so this runs when the agent's view changes and never when the researcher moves the window or the
+    # highlights. Highlights leave the stretch as it is; the stretch changes only when the agent sends one.
     if isinstance(agent_choices.get("highlight"), list):
         _ids = data.master.filter(pl.col("variant_id").is_in(agent_choices["highlight"]))
         set_focus_ids(_ids["variant_id"].to_list())
-        if _ids.height:
-            set_crop(center_crop_on_positions(_ids["position"].to_list(), tuple(full_domain), full_domain, margin_bp=10))
+    _w = agent_choices.get("window")
+    if _w == "full":
+        set_crop(tuple(full_domain))
+    elif isinstance(_w, list) and len(_w) == 2:
+        try:
+            _lo, _hi = sorted(int(x) for x in _w)
+            _lo, _hi = max(_lo, full_domain[0]), min(_hi, full_domain[1])
+            if _hi > _lo:
+                set_crop((_lo, _hi))
+        except (TypeError, ValueError):
+            pass
     return
 
 
@@ -396,7 +407,7 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
     _mode = "crop" if get_crop_mode() else "pan"
     _df = shown_df
     if one_alt.value:
-        _df = _df.sort(pl.col(metric).abs(), descending=True, nulls_last=True).unique("position", keep="first")
+        _df = _df.sort(A.order_expr(metric, profile.question), descending=True, nulls_last=True).unique("position", keep="first")
     _dom, _rng = H.fixed_colors(color_by.value)
     _unit = "" if metric in ("avi_phred", "diff_sigma") else f" ({A.unit(profile)})"
     _chart = build_unified_lollipop_canvas(
@@ -491,7 +502,10 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
     _mark = "quantil" if _q else "%"
     _show = _rows.select([pl.col("variant_id").alias("variante"), pl.col("genomic_domain").alias("região"),
                           pl.col("distance_to_tss").alias("dist. início do gene"),
-                          _pct("target_mean").alias(f"{_mark} {profile.target_label}"), _pct("control_mean").alias(f"{_mark} {profile.control_label}"),
+                          _pct("target_mean").alias(f"{_mark} {profile.target_label}"),
+                          # without a control tissue there is no control value: no column, instead of "None"
+                          *([_pct("control_mean").alias(f"{_mark} {profile.control_label}")]
+                            if _rows.height and _rows["control_mean"].null_count() < _rows.height else []),
                           *[_pct(c).alias(f"{_mark} {labels.get(c[4:], c[4:]).split(' (')[0]}") for c in _eff],
                           pl.col("top_feature").alias("modalidade AVI"), pl.col("atlas_url").alias("Atlas"),
                           *([pl.col("passa").alias("filtros")] if show_mode.value == "all" else [])])

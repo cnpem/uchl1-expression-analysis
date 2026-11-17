@@ -11,6 +11,13 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Added
 
+- **Link between the agent and the open dashboard** (`expression.py view`, `references/dashboard.md`).
+  The page writes what the researcher has on screen to `.dashboard/researcher_view.json` and follows
+  `.dashboard/agent_view.json`: `view` without choices prints the screen; with choices, the page moves to
+  that view without reloading, on top of what is on screen (`--reset`: on top of the opening view), with
+  a line showing the agent's `--message`. `summarize` and `figures` take `--from-dashboard`. The link can
+  also send context tissues (`--shown`), highlights and the stretch of the window (`--window`,
+  `--full-window`), and switch selections off (`--no-control`, `--all-domains`, …). Live dashboard only.
 - **Each answer carries the researcher's words.** `study.py decide` and `init --from-exploration` require
   `--said` (the researcher's words the answer comes from) and take `--delegated` when the researcher
   explicitly left the choice to the agent; `decisions.yaml` stores `said` and `delegated`, and the report's
@@ -58,6 +65,15 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Changed
 
+- **'Ordenar por' follows the question.** The change in the target and the target − control differences
+  are ordered in the direction asked (largest rise first with an increase, largest fall with a
+  repression), not by absolute value: a variant whose control changes more than the target no longer
+  comes first. `summarize` lists its first variants in this same order.
+- **The blue box names the first variants in the order of 'Ordenar por'**, the same as the table's first
+  rows (before: the ones whose least-changing target tissue changed most, whatever the order chosen). It
+  also names the tissues that left a group for lack of measurements with the chosen assays and sources,
+  and words the floor warning by the floor chosen.
+- With every region ticked, *domínios* is no longer listed as a filter step.
 - **Redefining a group needs no manual step.** `decide cohort.target|cohort.control` writes the new terms
   (and `--group-label`) into `study.yaml`, and a contrast plan the skill generated is generated again from
   the current groups.
@@ -67,6 +83,8 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Fixed
 
+- The variants table showed `None` in the control column when no control tissue was chosen; the column is
+  now left out.
 - **Terms named exactly as an Atlas sample are found.** The exploration recommends the catalogue term whose
   sample name matches the researcher's text written any way ("MCF-7" = "MCF7", "T-cell" = "T cell"), even
   when the ontology search ranks it low, misses it or no longer knows it. Such a term enters the cohorts
