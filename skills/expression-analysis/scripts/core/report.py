@@ -148,15 +148,30 @@ def _section_decisions(study_dir: Path, meta: Mapping[str, Any]) -> list[str]:
         label = option_label(options, code)
         return f"{label} (`{code}`)" if label else f"`{code}`"
 
+    def origin(e: Any) -> str:
+        if not e.said:
+            return "—"
+        words = " ".join(str(e.said).split())
+        words = words if len(words) <= 160 else words[:157] + "…"
+        return f"Delegada ao agente: “{words}”" if e.delegated else f"“{words}”"
+
     if asked:
         lines += ["### Escolhas do pesquisador", "",
                   "Respostas registradas em `decisions.yaml`, com as opções oferecidas e a recomendada; o código entre "
-                  "crases é o valor gravado. \"—\" quando a pergunta não tinha opções fixas:", ""]
+                  "crases é o valor gravado. \"—\" quando a pergunta não tinha opções fixas. *Nas palavras do "
+                  "pesquisador* cita de onde veio cada resposta; \"Delegada ao agente\" quando o pesquisador pediu ao "
+                  "agente que escolhesse:", ""]
         rows = [(e.workflow_step, f"`{key}`",
                  "; ".join(shown(e.options, c) for c in option_codes(e.options)) if e.options else "—",
                  shown(e.options, e.recommended) if e.recommended is not None else "—",
-                 shown(e.options, e.value), e.note or "—", e.answered_at[:10]) for key, e in asked]
-        lines += _table(["Passo", "Decisão", "Opções", "Recomendada", "Escolhida", "Nota", "Data"], rows)
+                 shown(e.options, e.value), origin(e), e.note or "—", e.answered_at[:10]) for key, e in asked]
+        lines += _table(["Passo", "Decisão", "Opções", "Recomendada", "Escolhida", "Nas palavras do pesquisador", "Nota",
+                         "Data"], rows)
+        delegated = [key for key, e in asked if e.delegated]
+        if delegated:
+            lines += ["", f"**{len(delegated)} resposta(s) delegada(s) ao agente:** "
+                      + ", ".join(f"`{k}`" for k in delegated) + ". O pesquisador pediu que o agente escolhesse; as "
+                      "palavras dele estão na tabela."]
     redefined = [(k, e) for k, e in ordered if e.previous]
     if redefined:
         lines += ["", "### Redefinições", "",

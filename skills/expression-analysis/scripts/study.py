@@ -65,8 +65,12 @@ STUDY_SUBDIRS = ("raw", "processed", "figures")
 MIN_WINDOW = 1000
 DECISION_FIELDS = ("value", "workflow_step", "asked_at", "answered_at", "note")
 OFFERED_FIELDS = ("options", "recommended")  # optional in decisions.yaml, always together
-TRACE_FIELDS = ("value_label", "decided_by", "rule", "previous")  # optional in decisions.yaml (absent in older studies)
-PREVIOUS_FIELDS = ("value", "value_label", "answered_at", "note", "options", "recommended", "decided_by")
+TRACE_FIELDS = ("value_label", "decided_by", "rule", "previous", "said", "delegated")  # optional (absent in older studies)
+PREVIOUS_FIELDS = ("value", "value_label", "answered_at", "note", "options", "recommended", "decided_by", "said", "delegated")
+STEP1_DELEGABLE = {"window": "study.window", "scorers": "study.scorers", "question": "analysis.question"}
+SAID_HELP = ("the researcher's own words for this answer, copied from the conversation (not paraphrased; several "
+             "messages may be joined with ' / '). An answer the researcher gave before being asked counts: quote it. "
+             "If they told you to choose, quote that and pass --delegated")
 DECIDED_BY = ("researcher", "skill")
 # Plain names of the prediction types (Atlas scorers) for texts the researcher reads
 PREDICTION_NAMES = {"RNA_SEQ": "gene expression (RNA-seq)", "RNA_SEQ_ACTIVE": "gene activity (RNA-seq)",
@@ -334,6 +338,11 @@ class DecisionEntry:
         previous: Earlier answers to the same key, oldest first, when the decision was redefined (e.g. the
             groups changed after the results). Each keeps its value, label, time, note and the options it was
             chosen from, so the report shows what changed and why. None when never redefined.
+        said: The researcher's own words the answer comes from, copied from the conversation (None in older
+            studies and for the skill's rules). The report shows it next to the answer, so a choice the agent made
+            without the researcher has nothing to quote and stands out.
+        delegated: True when the researcher told the agent to choose (e.g. "use the recommended window"); `said`
+            then quotes that instruction and the report lists the answer as delegated.
     """
 
     value: Any
@@ -347,6 +356,8 @@ class DecisionEntry:
     decided_by: str = "researcher"
     rule: str | None = None
     previous: list[dict[str, Any]] | None = None
+    said: str | None = None
+    delegated: bool = False
 
 
 def load_decisions(study_dir: Path) -> dict[str, DecisionEntry]:
@@ -402,9 +413,11 @@ def _write_decisions(study_dir: Path, decisions: dict[str, DecisionEntry]) -> No
         if entry.options is None:  # decided without a pending question: no offered fields
             for f in OFFERED_FIELDS:
                 del body[key][f]
-        for f in ("value_label", "rule", "previous"):  # optional trace fields stay out when empty (older files unchanged)
+        for f in ("value_label", "rule", "previous", "said"):  # optional trace fields stay out when empty (older files unchanged)
             if body[key][f] is None:
                 del body[key][f]
+        if not entry.delegated:
+            del body[key]["delegated"]
         if entry.decided_by == "researcher":
             del body[key]["decided_by"]
     _atomic_write(study_dir / DECISIONS_FILE, yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=1000))
@@ -775,6 +788,7 @@ def _record_answers(study_dir: Path, args: argparse.Namespace, data: dict, score
     """Writes the researcher's step-1 answers (window, kinds of prediction, question) with what was offered."""
     now = _now()
     note = args.answer_note or "Resposta do pesquisador no passo 1 (a partir da exploração)"
+    delegated = {STEP1_DELEGABLE[d] for d in (args.delegated or [])}
     windows = [{"code": w["id"], "label": w["label"]} for w in data["windows"]]
     explored = [{"code": s, "label": SCORER_LABELS.get(s, s)} for s in data["scorers"]]
     entries = {
@@ -788,7 +802,8 @@ def _record_answers(study_dir: Path, args: argparse.Namespace, data: dict, score
             decisions[key] = DecisionEntry(value=value, workflow_step=1, asked_at=now, answered_at=now, note=note,
                                            options=options, recommended=rec,
                                            value_label=option_label(options, value) if isinstance(value, str) else None,
-                                           previous=_history(decisions.get(key), value))
+                                           previous=_history(decisions.get(key), value),
+                                           said=args.said.strip(), delegated=key in delegated)
         _write_decisions(study_dir, decisions)
 
 
@@ -801,6 +816,8 @@ def init_from_exploration(args: argparse.Namespace) -> None:
     if skill_kind() != "expression":
         raise StudyError("--from-exploration is for expression studies")
     missing = missing_answers(args)
+    if not (args.said or "").strip():
+        missing.append(f"--said: {SAID_HELP}")
     if missing:
         raise StudyError("the study needs the researcher's answers to step 1, and these were not given:\n  "
                          + "\n  ".join(missing) + "\nAsk the researcher (all of them in one message, with the options of "
@@ -975,7 +992,8 @@ def _history(old: DecisionEntry | None, answer: Any) -> list[dict[str, Any]] | N
     if old.value != answer:
         snap = {f: getattr(old, f) for f in PREVIOUS_FIELDS}
         hist.append({f: v for f, v in snap.items()
-                     if v is not None and v != "" and not (f == "decided_by" and v == "researcher")})
+                     if v is not None and v != "" and not (f == "decided_by" and v == "researcher")
+                     and not (f == "delegated" and v is False)})
     return hist or None
 
 
@@ -984,6 +1002,9 @@ def decide(args: argparse.Namespace) -> None:
     if not study_dir.is_dir():
         raise StudyError(f"study directory {study_dir} not found")
     keys = list(dict.fromkeys(args.key))
+    if not (args.said or "").strip():
+        raise StudyError(f"--said is required: {SAID_HELP}. If the researcher has not answered, ask them; never record "
+                         "an answer of your own. Nothing was recorded.")
     if args.recommended is not None and not args.option:
         raise StudyError("--recommended needs the options it was chosen from: pass each with --option")
     if args.option and args.recommended is not None and args.recommended not in args.option:
@@ -1023,6 +1044,8 @@ def decide(args: argparse.Namespace) -> None:
                 answered_at=now,
                 note=args.note or "",
                 value_label=option_label(offered.get("options"), answer),
+                said=args.said.strip(),
+                delegated=bool(args.delegated),
                 **offered,
             )
         _write_decisions(study_dir, decisions)
@@ -1074,7 +1097,7 @@ def pending(args: argparse.Namespace) -> None:
             effect = f": {o['effect']}" if o.get("effect") else ""
             print(f"      - {o['label']}{rec}{effect}  [code: {o['code']}]")
         print(f"    Record (agent): study.py decide --study-dir D --key \"{item['key']}\" --value CODE "
-              f"--step {item.get('workflow_step')} --note \"<the researcher's reason>\"")
+              f"--step {item.get('workflow_step')} --said \"<the researcher's words>\" --note \"<their reason>\"")
     print("\nSeveral keys with the same answer go in one decide call, one --key each.")
 
 
@@ -1106,7 +1129,10 @@ def main() -> None:
     p.add_argument("--scorers", nargs="+", help="--from-exploration: kinds of prediction the researcher chose (required)")
     p.add_argument("--question", choices=["repression", "increase", "either"],
                    help="--from-exploration: what the researcher looks for in the target (required)")
-    p.add_argument("--answer-note", help="--from-exploration: note stored with the step-1 answers (the researcher's words)")
+    p.add_argument("--answer-note", help="--from-exploration: note stored with the step-1 answers")
+    p.add_argument("--said", help=f"--from-exploration (required): {SAID_HELP}")
+    p.add_argument("--delegated", nargs="+", choices=sorted(STEP1_DELEGABLE),
+                   help="--from-exploration: answers the researcher explicitly told you to choose (quoted in --said)")
     p.add_argument("--study-id", help="--from-exploration: study id (default: lower-case gene symbol)")
     p.add_argument("--origin-note", help="--from-exploration: origin note of the manifest (who asked what, when)")
     p.set_defaults(func=init)
@@ -1127,6 +1153,9 @@ def main() -> None:
                         "for each option. Stored as `options` next to the answer")
     p.add_argument("--recommended", help="The option recommended to the researcher (one of --option)")
     p.add_argument("--group-label", help="With cohort.target / cohort.control: the group's short name, written to study.yaml")
+    p.add_argument("--said", help=f"Required: {SAID_HELP}")
+    p.add_argument("--delegated", action="store_true",
+                   help="The researcher explicitly told you to choose this one (their words in --said)")
     p.set_defaults(func=decide)
 
     p = sub.add_parser("require", help="Exit 1 with the missing-decision message if the key has no answer")

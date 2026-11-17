@@ -53,6 +53,8 @@ A mapping from key to entry:
 | `options`, `recommended` | together, when the question offered options | what was offered (`{code, label}`; bare codes in older studies) and the recommended code |
 | `value_label` | when the value is one of the options | the label the researcher saw |
 | `decided_by` | only for rules | `skill`: applied by a fixed rule, without asking (absent = the researcher) |
+| `said` | researcher answers (absent in older studies) | the researcher's own words the answer comes from, copied from the conversation (`--said`); shown in the report |
+| `delegated` | only when true | the researcher explicitly told the agent to choose (`--delegated`); `said` quotes that instruction |
 | `rule` | only for rules | the rule and what it affected, in words |
 | `previous` | only after a redefinition | earlier answers to the same key, oldest first: `value`, `value_label`, `answered_at`, `note`, `options`, `recommended` as they were; `decide` appends the old entry when the value changes |
 

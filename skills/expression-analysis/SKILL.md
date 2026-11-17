@@ -153,21 +153,50 @@ say. Ask one question at a time (or questions of the same kind together), in the
 the title, the question, why it matters, the names with their identifiers, each option's label and
 what happens, and which one is recommended and why. With more than about six options, show the first
 ones and offer the rest on request. Never show codes or keys. Record the answer with the chosen
-option's code: `study.py decide --study-dir D --key K --value CODE --step N --note "…"` (one `--key`
-per key when several share an answer), and run the stage again. The recommendation is the stage's
-suggestion, not an answer. For a question you ask yourself (the choices of step 1), pass what you
-offered with `--option` (repeated) and `--recommended`. When the researcher has delegated ("take the
-recommended options"), record the recommendation and say so in the note.
+option's code: `study.py decide --study-dir D --key K --value CODE --step N --said "…" --note "…"` (one
+`--key` per key when several share an answer), and run the stage again. `--said` is required: the
+researcher's own words the answer comes from, copied from the conversation; the report shows them next to
+the answer. If you have nothing of theirs to quote, you have no answer: ask. The recommendation is the
+stage's suggestion, not an answer. For a question you ask yourself (the choices of step 1), pass what you
+offered with `--option` (repeated) and `--recommended`.
+
+**Delegation is explicit.** Record a recommendation only when the researcher told you to choose *that*
+question or that set of questions ("use the recommended window", "pick the controls for me", "take the
+recommendations for everything you asked"); quote those words in `--said` and add `--delegated`. A
+general hurry is not delegation: "go ahead", "do everything", "just send me the top 10", "you know
+better" before the question was asked. Then ask the missing answers once, together, saying it takes one
+reply, and go on without stopping again for them.
+
+**The researcher talks freely; the workflow keeps its order.**
+- *Answers given early* (in the first request, or before their step): keep them. When their step comes,
+  show how you read each one against the real options ("you said *promoter* → window *Só o promotor que
+  contém o TSS*, 245 pb") and ask only what is missing or does not map to one option. Do not ask again
+  what was clear, and record it with their original words in `--said`. A tissue named early is a search
+  text for step 0, not a group choice until the researcher sees the terms found for it.
+- *Requests ahead of their step* (a filter, a ranking, a figure, a report, "the top 10"): say in one line
+  that it comes after the step that makes it possible, keep a list of them, and do each one at its step
+  (a dashboard view through `figures` and `report`). A request never answers an earlier question: to get
+  there, the earlier answers are still asked.
+- *Explanations, hypotheses and context* (what they expect, why the gene matters, a mechanism): use them
+  to phrase the questions and the final answer; they answer nothing by themselves. A hypothesis does not
+  choose a group or the question unless the researcher says so; if it seems to, ask ("you expect it to
+  go up in neurons: is the question *increase in the target*?").
+- *A change of mind* at any point (other groups, another question): it is a redefinition. Record the new
+  answer with `decide` (the old one stays in `previous`) and follow *Changing the groups after the
+  results* in `references/workflow.md`.
 
 **Final answer.** List, in the researcher's language: the decisions they made (question, options,
 recommended, chosen, reason, identifiers); the rules the skill applied (`decided_by: skill` in
 `decisions.yaml`: what was left out and why, summarising many of a kind, e.g. "5 positions left out:
 chr…"); and the choices you made that no stage raised (e.g. a
-search text or a scorer list), so the researcher can tell the three apart.
+search text or a scorer list), so the researcher can tell the three apart. Name the answers they
+delegated (`delegated: true`) apart from those they gave, and any request they made ahead of its step
+that is still to do.
 
 0. **Exploration.** `expression.py check`; anything missing goes to `alphagenome-skills-setup`.
    Ask the researcher only for the gene and the tissues or cell types in their own words, then
-   `expression.py explore`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
+   `expression.py explore`. If the first request already brings other answers (a window, the groups, the
+   question), keep them for step 1 and say so; do not act on them yet. Show `summary.md`: windows with size, SNVs and cost; candidate terms
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
    gene's predicted activity per tissue, with a warning where it is below the floor. Do not ask
    for the study's choices before this page is shown, because they depend on it.
@@ -182,10 +211,13 @@ search text or a scorer list), so the researcher can tell the three apart.
    an increase or any change in the target). Ask for all that are missing in one message, with the options
    and the recommendation of the exploration page. If the researcher answers only some (for example, only
    the groups), ask the rest before going on; never fill an answer from the recommendation, even when the
-   researcher seems in a hurry. `study.py init --from-exploration` refuses to run without `--window`,
-   `--target`, `--control`, `--scorers` and `--question`, and records `study.window`, `study.scorers` and
+   researcher seems in a hurry. Answers given before this step count once they are matched to the
+   options and the researcher has seen the match (see *The researcher talks freely* above). `study.py init
+   --from-exploration` refuses to run without `--window`, `--target`, `--control`, `--scorers`, `--question`
+   and `--said` (their words, joined with ` / ` when they came in several messages; `--delegated window`
+   etc. for an answer they explicitly left to you), and records `study.window`, `study.scorers` and
    `analysis.question` with the options; then `decide` `cohort.target` and `cohort.control` with the
-   terms offered (`--option`, `--recommended`, `--group-label`), and `study.py validate`. Assays, sources,
+   terms offered (`--option`, `--recommended`, `--group-label`, `--said`), and `study.py validate`. Assays, sources,
    the score (raw or quantile) and how a group's tissues are combined are not asked: everything is captured
    and the researcher changes them on the dashboard (*Avançado*).
 2. **Gene structure** (`fetch gtf`) and 3. **Regulatory Build and sequence** (`fetch regulatory`,
@@ -221,7 +253,8 @@ Copy this checklist into the conversation and tick it as you go:
 ```
 expression-analysis progress:
 - [ ] Step 0: check passes (anything missing set up by alphagenome-skills-setup); explore run; summary.md shown
-- [ ] Step 1: window, target, control, labels, scorers and question given by the researcher (all asked, none filled from the recommendation); init --from-exploration; cohort decisions recorded
+- [ ] Step 1: window, target, control, labels, scorers and question given by the researcher (early answers matched and shown; the rest asked together; none filled from the recommendation unless explicitly delegated); init --from-exploration with --said; cohort decisions recorded
+- [ ] Requests made ahead of their step listed, and each done at its step
 - [ ] Step 4: locus run; locus.* answered by the researcher; Figure 1 shown
 - [ ] Steps 6-8: fetch tracks; cohorts run; cohort.* answered (study.yaml updated on replace)
 - [ ] Steps 9-10: fetch avi and fetch scores, same window and pull
@@ -229,7 +262,7 @@ expression-analysis progress:
 - [ ] Step 12: contrast run
 - [ ] Step 13: atlas links (and interpretations) fetched; report.md written and read back
 - [ ] Step 14: dashboard opened and presented (choices, how to show, filters, Avançado); questions answered from `summarize`; the researcher's view drawn with `figures` and `report` run again
-- [ ] Final answer: researcher decisions, the skill's rules and agent choices in separate lists
+- [ ] Final answer: researcher decisions (delegated ones named), the skill's rules and agent choices in separate lists; requests still to do
 ```
 
 ## Scope

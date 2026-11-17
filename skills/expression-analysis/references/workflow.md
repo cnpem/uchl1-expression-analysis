@@ -59,15 +59,17 @@ it back) and never overwrite a researcher's answer. Report them to the researche
 
 ```bash
 uv run SKILL/scripts/study.py pending --study-dir D
-uv run SKILL/scripts/study.py decide --study-dir D --key "locus.exon1_overlap:FEATURE" --value keep_full_unit --step 4 --note "Question as shown; the researcher's reason"
+uv run SKILL/scripts/study.py decide --study-dir D --key "locus.exon1_overlap:FEATURE" --value keep_full_unit --step 4 --said "<the researcher's words>" --note "Question as shown; the researcher's reason"
 ```
 
 `--value` is parsed as YAML, so a list is written `"[UBERON:0000955, UBERON:0002107]"`. Quote keys
 (they contain `:`). Several keys with the same answer go in one call, one `--key` each. Then run the
 stage again. `decide` copies the question's `options` and `recommended` into `decisions.yaml`, so the
 record shows what was offered next to what was chosen; for a question you ask yourself, pass what you
-offered with `--option` (once per option) and `--recommended`. If the researcher delegated the choice,
-record the recommendation and write that in the note. A key must look like
+offered with `--option` (once per option) and `--recommended`. `--said` (required) quotes the
+researcher's words the answer comes from, as they wrote them; the report shows them next to the answer. If
+the researcher explicitly told you to choose this question, record the recommendation, quote that
+instruction in `--said` and add `--delegated` (a general "go ahead" is not delegation: see SKILL.md). A key must look like
 `<area>.<topic>[:<subject>]` (as `pending` prints it); `decide` refuses anything else.
 
 ## Step 0. Exploration
@@ -117,7 +119,7 @@ the exploration, never from ad-hoc code:
    sample and the assays balanced with the target. Say what the new comparison asks, which may differ from
    the original question.
 3. Record it: `study.py decide --key cohort.control` (or `cohort.target`) with the new list, the terms
-   offered (`--option`) and the recommended one, the group's new name (`--group-label`) and a note saying
+   offered (`--option`) and the recommended one, the group's new name (`--group-label`), the researcher's words (`--said`) and a note saying
    why the study was redefined. `decide` writes the new terms and name into `study.yaml`; do not edit it.
    Then `fetch tracks`, `cohorts`, `fetch scores`, `variants`, `master`, `contrast`, `report`, as in steps
    7-13. The contrast plan the skill generated follows the new groups by itself; do not delete it.
@@ -138,9 +140,9 @@ for a decrease, `increase`, or `either`). Ask for the missing ones together; an 
 give is asked, never taken from the recommendation. `init` stops and lists any that is missing. Then:
 
 ```bash
-uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --question repression --answer-note "<the researcher's words>" --origin-note "Requested by <researcher> on <date>: <question in one line>"
-uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --recommended "CL:AAAAAAA (<label>)" --step 1 --note "Chosen by the researcher from the exploration; why"
-uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --recommended "UBERON:CCCCCCC (<label>)" --step 1 --note "Chosen by the researcher; why"
+uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --question repression --said "<the researcher's words / joined across messages>" --origin-note "Requested by <researcher> on <date>: <question in one line>"
+uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --recommended "CL:AAAAAAA (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher from the exploration; why"
+uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --recommended "UBERON:CCCCCCC (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher; why"
 uv run SKILL/scripts/study.py validate --study-dir D
 ```
 
@@ -380,4 +382,5 @@ Reproducing the reference (`expression.py reproduce --reference uchl1`): after a
 | `QC failed for N variant(s)` (`master`) | raw files disagree | check that steps 3, 9 and 10 used the same window and pull |
 | An OLS or Ensembl fetch that never ends | a stale `polite-http` reservation | the fetch resets the skill's own lock folder; a call made outside the skill uses the system temp folder |
 | `'X' is not an answer to 'K'` (`decide`) | the value is not one of the codes the question offered | record one of the codes it lists (`pending` shows label and code) |
+| `--said is required` (`decide`, `init`) | no words of the researcher were passed for the answer | quote what they wrote; if they have not answered, ask (never record an answer of your own) |
 | `Reference 'uchl1': … mismatch` (`reproduce`) | a code or data change moved a reference number | read the stage/metric table it prints before changing anything |

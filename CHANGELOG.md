@@ -11,6 +11,14 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Added
 
+- **Each answer carries the researcher's words.** `study.py decide` and `init --from-exploration` require
+  `--said` (the researcher's words the answer comes from) and take `--delegated` when the researcher
+  explicitly left the choice to the agent; `decisions.yaml` stores `said` and `delegated`, and the report's
+  *Escolhas do pesquisador* table shows them (*Nas palavras do pesquisador*), listing delegated answers apart.
+- **The researcher talks freely; the workflow keeps its order** (SKILL.md). Answers given early are kept,
+  matched to the real options and shown, and only what is missing is asked; requests ahead of their step
+  are listed and done at that step; hypotheses and context answer nothing by themselves; delegation must
+  name the question (a general "go ahead" is not delegation).
 - **The researcher's step-1 answers are required.** `study.py init --from-exploration` refuses to create a
   study without `--window`, `--target`, `--control`, `--scorers` and `--question`, lists what is missing,
   and records `study.window`, `study.scorers` and `analysis.question` in `decisions.yaml` with the options
