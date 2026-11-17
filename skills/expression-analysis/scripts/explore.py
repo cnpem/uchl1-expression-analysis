@@ -158,6 +158,11 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(text).lower()).strip()
 
 
+def _same_name(a: str, b: str) -> bool:
+    """Same name written another way: case, hyphens and spaces do not count ("MCF-7" = "MCF7", "T-cell" = "T cell")."""
+    return _norm(a).replace(" ", "") == _norm(b).replace(" ", "")
+
+
 def _catalogue(atlas_tracks: Path, scorers: tuple[str, ...]) -> pl.DataFrame:
     df = pl.read_csv(atlas_tracks, separator="\t", infer_schema_length=0)
     for col in ("assay_title", "data_source", "biosample_name", "biosample_type"):
@@ -193,14 +198,26 @@ def term_table(ols_file: Path, text: str, cat: pl.DataFrame, scorers: tuple[str,
         candidates.append({"curie": curie, "label": h.label, "ontology": curie.split(":")[0],
                            "definition": (h.description[0] if h.description else ""), **_served(cat, curie, scorers)})
     want = _norm(text)
-    exact = [c for c in candidates if _norm(c["label"]) == want]
-    recommended = (exact or [c for c in candidates if c["per_scorer"].get("RNA_SEQ")] or candidates or [None])[0]
+    # The Atlas catalogue names its samples; a sample with the researcher's own name (written any way) is the term
+    # they mean, even when the ontology search ranks it low, misses it, or knows it no more (cell lines).
+    in_cat = {}
+    for curie, name in cat.select("ontology_curie", "biosample_name").unique().iter_rows():
+        if name and _same_name(name, text) and curie not in in_cat:
+            in_cat[curie] = name
+    for curie, name in in_cat.items():
+        if curie not in seen:
+            candidates.insert(0, {"curie": curie, "label": name, "ontology": curie.split(":")[0],
+                                  "definition": "", "source": "atlas_catalogue", **_served(cat, curie, scorers)})
+    by_cat = [c for c in candidates if c["curie"] in in_cat and c["per_scorer"].get("RNA_SEQ")]
+    exact = [c for c in candidates if _same_name(c["label"], text) and c["per_scorer"].get("RNA_SEQ")] or \
+        [c for c in candidates if _norm(c["label"]) == want]
+    recommended = (by_cat or exact or [c for c in candidates if c["per_scorer"].get("RNA_SEQ")] or candidates or [None])[0]
     words = want.split()
     related = []
     if words:
         names = cat.select("ontology_curie", "biosample_name").unique()
         for curie, name in names.iter_rows():
-            if curie in seen or not name:
+            if curie in seen or curie in in_cat or not name:
                 continue
             if all(w in _norm(name).split() for w in words):
                 related.append({"curie": curie, "label": name, **_served(cat, curie, scorers)})
@@ -341,9 +358,12 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
         rec = next((c for c in table["candidates"] if c["curie"] == table["recommended"]), None)
         if rec is not None and not rec["per_scorer"].get("RNA_SEQ"):
             tf = f"raw/ols_term_{fetch.curie_file(rec['curie'])}.json"
-            if not have(tf):
-                fetch.ols_term(ws, rec["curie"])
-            table["descendants"] = served_descendants(root / tf, cat, tuple(scorers))
+            try:  # a term the ontology no longer knows must not stop the other tissues
+                if not have(tf):
+                    fetch.ols_term(ws, rec["curie"])
+                table["descendants"] = served_descendants(root / tf, cat, tuple(scorers))
+            except (fetch.FetchError, models.DependencyOutputError, OSError, ValueError) as exc:
+                table["descendants_error"] = f"{rec['curie']}: {str(exc).splitlines()[0][:200]}"
         terms.append(table)
 
     variant = baseline_variant(tx, root / seq_name)
@@ -467,13 +487,17 @@ def render_summary(d: dict[str, Any]) -> str:
         rec = next((c for c in t["candidates"] if c["curie"] == t["recommended"]), None)
         if rec is not None:
             n_rna = rec["per_scorer"].get("RNA_SEQ", {}).get("tracks", 0)
-            reason = ("o nome coincide com o texto citado" if _norm(rec["label"]) == _norm(t["text"]) else
+            reason = ("é a amostra do catálogo do Atlas com o nome citado" if rec.get("source") == "atlas_catalogue" else
+                      "o nome coincide com o texto citado" if _same_name(rec["label"], t["text"]) else
                       "é o primeiro resultado com trilhas de RNA-seq")
             L.append(f"\nRecomendado: **{rec['curie']} ({rec['label']})**, porque {reason}"
                      + (f"; tem {n_rna} trilha(s) de RNA-seq" if n_rna else "; **não tem trilha de RNA-seq**") + ".")
             if n_rna == 1:
                 L.append("Só uma trilha de RNA-seq: o tecido fica sem réplica; considere juntar termos irmãos ou "
                          "descendentes da tabela.")
+        if t.get("descendants_error"):
+            L.append(f"\nA ontologia não devolveu os termos mais específicos do recomendado ({t['descendants_error']}); "
+                     "os outros tecidos seguiram normalmente.")
         if t["descendants"]:
             L.append("\nDescendentes com trilhas (substitutos possíveis do termo recomendado):\n")
             L.append("| Termo | Nome | " + " | ".join(scorers) + " | Atividade do gene |\n|---|---|"

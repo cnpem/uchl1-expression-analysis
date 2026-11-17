@@ -63,7 +63,8 @@ Researcher answers written by `study.py init --from-exploration` (step 1, with t
 into `study.yaml`.
 
 Rules in use: `locus.multiple_tss_features` (`union`), `locus.exon1_overlap:{feature}`
-(`keep_full_unit`), `cohort.scorer_without_cohort:{scorer}` (`drop_scorer`), `variants.ref_mismatch:{pos}` and
+(`keep_full_unit`), `cohort.scorer_without_cohort:{scorer}` (`drop_scorer`), `cohort.term_without_ols:{curie}`
+(`atlas_catalogue`: a study term the Atlas serves but the ontology no longer knows, named as in the catalogue), `variants.ref_mismatch:{pos}` and
 `variants.missing_in_atlas:{pos}` (`exclude_position`; above 1% of the window only after the researcher's
 `variants.exclusion_limit` = `exclude_all`), `contrast.plan` (`generated`, with the plan's sha256 in
 `note`; `existing` when the `contrasts.yaml` in the study was written or edited outside the skill). They are evaluated again on every run and removed when they no

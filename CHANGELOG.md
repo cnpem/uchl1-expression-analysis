@@ -50,6 +50,15 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Fixed
 
+- **Terms named exactly as an Atlas sample are found.** The exploration recommends the catalogue term whose
+  sample name matches the researcher's text written any way ("MCF-7" = "MCF7", "T-cell" = "T cell"), even
+  when the ontology search ranks it low, misses it or no longer knows it. Such a term enters the cohorts
+  with the catalogue's name, as the rule `cohort.term_without_ols:{curie}`.
+- A failed lookup of a term's descendants is noted in the exploration (`descendants_error`) instead of
+  stopping the other tissues; an OLS record with `in_subset: null` is read as no subsets.
+- `study.py init --from-exploration` leaves out raw files of the exploration without a manifest step (the
+  error reply of a failed search) and says so, instead of refusing to create the study; `cohorts` skips
+  unreadable OLS files of terms the study does not use.
 - The *Links do Atlas* table in `report.md` had blank lines between rows and did not render as a table.
 
 - **The noise filter follows the question** (*Alvo − controle acima do ruído*, `--min-sigma`): with

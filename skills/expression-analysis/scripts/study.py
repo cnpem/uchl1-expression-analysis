@@ -856,14 +856,16 @@ def init_from_exploration(args: argparse.Namespace) -> None:
 
     explored = json.loads((root / "manifest.json").read_text(encoding="utf-8"))["steps"]
     copied = 0
+    untraced: list[str] = []
     for src in sorted((root / "raw").iterdir()):
         cat = _CATALOGUE.match(src.name)
         if not (any(r.match(src.name) for r in _EXPLORATION_RAW) or (cat and cat.group(1) in scorers)):
             continue
         rel = f"raw/{src.name}"
         step = next((s for s in explored if rel in s.get("outputs", [])), None)
-        if step is None:
-            raise StudyError(f"{src} has no step in {root / 'manifest.json'}; it cannot be traced, so it is not copied")
+        if step is None:  # e.g. the error reply of a search that failed: it cannot be traced, so it stays out
+            untraced.append(src.name)
+            continue
         shutil.copy2(src, study_dir / rel)
         manifest.add_step(study_dir, manifest.ManifestStep(
             step=step["step"], skill=step["skill"], command=step["command"], outputs=[rel],
@@ -887,7 +889,8 @@ def init_from_exploration(args: argparse.Namespace) -> None:
     print(f"Created {target} (study_id {args.study_id or gene.lower()}, window {window['region']} [{args.window}], "
           f"scorers {scorers}, question {args.question}) and copied {copied} exploration file(s) into raw/ with their "
           "manifest steps. Recorded study.window, study.scorers and analysis.question in decisions.yaml. Record the "
-          "groups with study.py decide (cohort.target, cohort.control with the options shown), then run study.py validate.")
+          "groups with study.py decide (cohort.target, cohort.control with the options shown), then run study.py validate."
+          + (f" Left out (no manifest step in the exploration, e.g. a failed search): {', '.join(untraced)}." if untraced else ""))
 
 
 # --- CLI ------------------------------------------------------------------------------------

@@ -250,6 +250,9 @@ a question's "For the agent" line asks for `fetch ols-term`, run it and `cohorts
 
 Rule (not asked): `cohort.scorer_without_cohort:{scorer}`, a prediction type without measurements in
 one group is left out (`drop_scorer`, `decided_by: skill`); an `abort` recorded earlier still stops.
+Rule (not asked): `cohort.term_without_ols:{curie}`, a study term the Atlas catalogue serves but the ontology
+no longer knows (cell lines renamed or retired, e.g. some EFO cell lines) enters with the catalogue's sample
+name (`atlas_catalogue`).
 
 Recording `replace:{curie}` also writes the new CURIE into `study.yaml` (a comment at its end keeps the
 original and the decision), so `study.yaml` stays the request the study ran on. After `replace:` or
