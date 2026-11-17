@@ -65,6 +65,7 @@ Workflow helper (no analysis; it spares the agent hand arithmetic):
 """
 
 import argparse
+import datetime
 import json
 import os
 import shutil
@@ -396,6 +397,7 @@ def dashboard_cmd(args: argparse.Namespace) -> None:
                 versions["export_outside_study"] = str(out)
             _record(study_dir, step, [out.relative_to(study_dir).as_posix()] if inside else [], versions=versions)
         sys.exit(code)
+    env["EXPRESSION_DASHBOARD_LINK"] = "1"  # live page: follows .dashboard/agent_view.json, writes researcher_view.json
     port = _free_port(args.port)
     if port != args.port:
         print(f"Port {args.port} is busy; using {port}.")
@@ -657,6 +659,82 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
                    help="Order of the list (the dashboard's 'Ordenar por')")
 
 
+AGENT_VIEW = ".dashboard/agent_view.json"            # written by `view`; the open dashboard follows it
+RESEARCHER_VIEW = ".dashboard/researcher_view.json"  # written by the open dashboard: what is on screen now
+# option (argparse dest) -> key in the view files (the fields of core.analysis.Profile, plus how to show)
+VIEW_KEYS = {"scorer": "scorer", "target": "target", "control": "control", "target_label": "target_label",
+             "control_label": "control_label", "question": "question", "score": "score", "group_agg": "group_agg",
+             "min_change_pct": "min_change_pct", "max_control_pct": "max_control_pct", "min_sigma": "min_diff_sigma",
+             "assay": "assays", "source": "sources", "domain": "domains", "one_alt": "one_alt_per_position",
+             "ref_floor": "ref_floor", "floor_applies": "ref_floor_applies", "y_metric": "y_metric", "top_k": "top_k",
+             "show": "show_mode", "color_by": "color_by", "highlight": "highlight"}
+
+
+def _researcher_view(study_dir: Path) -> dict:
+    """What the researcher has on screen in the open dashboard (written by the page on every change)."""
+    path = Path(study_dir) / RESEARCHER_VIEW
+    if not path.is_file():
+        _stage_error(RuntimeError(
+            f"{path} not found: the dashboard has not been opened on this study since it started writing its view. "
+            "Open it with expression.py dashboard (and the page in a browser), then run this again."))
+    try:
+        view = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        _stage_error(RuntimeError(f"{path} could not be read ({exc}); run this again"))
+    if not isinstance(view, dict) or not isinstance(view.get("choices"), dict):
+        _stage_error(RuntimeError(f"{path} has no choices; reload the dashboard page"))
+    return view
+
+
+def _use_dashboard_choices(args: argparse.Namespace) -> None:
+    """--from-dashboard: the options take the values the researcher has on screen (other choice options are ignored)."""
+    choices = _researcher_view(Path(args.study_dir))["choices"]
+    for dest, key in VIEW_KEYS.items():
+        if key in choices:
+            value = choices[key]
+            if dest == "top_k":
+                value = value or 0
+            setattr(args, dest, value)
+    print(f"Choices taken from the open dashboard ({RESEARCHER_VIEW}).", file=sys.stderr)
+
+
+def view_cmd(args: argparse.Namespace) -> None:
+    """Without choices: prints what the researcher has on screen. With choices: sends them to the open dashboard,
+    on top of what is on screen (--reset: on top of the study's opening view); the page follows without reloading."""
+    study_dir = Path(args.study_dir).resolve()
+    if not (study_dir / study.STUDY_FILE).is_file():
+        _stage_error(RuntimeError(f"{study_dir} is not a study directory"))
+    given = {VIEW_KEYS[d]: v for d, v in vars(args).items() if d in VIEW_KEYS}
+    if args.no_max_control:
+        given["max_control_pct"] = None
+    if args.no_floor:
+        given["ref_floor"] = None
+    if args.clear_highlight:
+        given["highlight"] = []
+    if not given and not args.reset:
+        view = _researcher_view(study_dir)
+        print(json.dumps(view, indent=1, ensure_ascii=False))
+        print(f"\n{view.get('n_pass')} of {view.get('n_total')} variant(s) pass these choices (as of {view.get('updated_at')}). "
+              "To explain or draw exactly this view: expression.py summarize / figures --from-dashboard.", file=sys.stderr)
+        return
+    choices: dict = {}
+    seen = (study_dir / RESEARCHER_VIEW).is_file()
+    if not args.reset and seen:
+        choices = dict(_researcher_view(study_dir)["choices"])
+        choices.pop("highlight", None)  # the researcher's highlights stay as they are unless the agent sends some
+    choices.update(given)
+    out = study_dir / AGENT_VIEW
+    out.parent.mkdir(exist_ok=True)
+    body = {"sent_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "message": args.message or "", "choices": choices}
+    out.write_text(json.dumps(body, indent=1), encoding="utf-8")  # ASCII JSON, written in place: the page watches this file
+    changed = ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in given.items()) or "the study's opening view"
+    print(f"Sent to the dashboard ({AGENT_VIEW}): {changed}"
+          + (" on top of the study's opening view." if args.reset or not seen else " on top of what is on screen."))
+    print("The open page follows by itself (no reload). Read it back with expression.py view."
+          if seen else "No open dashboard was seen on this study yet; the view applies when it is opened.")
+
+
 def _decided_question(study_dir: Path) -> str:
     """The researcher's question (decision analysis.question), or "either" for a study without it."""
     entry = study.load_decisions(Path(study_dir)).get("analysis.question")
@@ -670,6 +748,8 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
     from core import analysis as A
 
     study_dir = Path(args.study_dir)
+    if getattr(args, "from_dashboard", False):
+        _use_dashboard_choices(args)
     try:
         data = A.load_study_data(study_dir)
         config = study.load_study(study_dir)
@@ -1013,8 +1093,31 @@ def main() -> None:
                                    "direction, no filter. Writes nothing; prints Markdown.")
     p.add_argument("--study-dir", required=True, help="Study directory")
     _choice_args(p)
+    p.add_argument("--from-dashboard", action="store_true",
+                   help="Use the choices the researcher has on screen in the open dashboard (other choice options are ignored)")
     p.add_argument("--top", type=int, default=10, help="Variants listed (default 10)")
     p.set_defaults(func=summarize_cmd)
+
+    p = sub.add_parser("view", help="Link with the open dashboard: read what the researcher has on screen, or send a view to it",
+                       description="Without choice options: prints what the researcher has on screen now. With them: the open "
+                                   "dashboard moves to these choices, on top of what is on screen (--reset: on top of the "
+                                   "study's opening view), without reloading the page.")
+    p.add_argument("--study-dir", required=True, help="Study directory")
+    _choice_args(p)
+    p.add_argument("--top-k", type=int, help="'Quantas mostrar' (0 = all)")
+    p.add_argument("--show", choices=["kept", "all"], help="'Variantes nos gráficos'")
+    p.add_argument("--color-by", choices=["genomic_domain", "passa", "sentido", "ensembl_transcript_region", "top_feature"],
+                   help="'Cor no gráfico da janela'")
+    p.add_argument("--highlight", action="append", help="Variant ID to highlight (repeatable)")
+    for action in p._actions:  # only the options given are sent: no default takes part
+        if action.dest not in ("help", "study_dir"):
+            action.default = argparse.SUPPRESS
+    p.add_argument("--no-max-control", action="store_true", help="Switch off the limit of change in the control")
+    p.add_argument("--no-floor", action="store_true", help="Switch off the reference expression floor")
+    p.add_argument("--clear-highlight", action="store_true", help="Remove the highlights")
+    p.add_argument("--reset", action="store_true", help="Start from the study's opening view instead of what is on screen")
+    p.add_argument("--message", help="One line shown to the researcher on the page, saying what this view is")
+    p.set_defaults(func=view_cmd)
 
     p = sub.add_parser("figures", help="Workflow step 14: the dashboard's charts for given choices, as PNG for report.md",
                        description="Same choices as summarize (and the dashboard), plus how to show them. Writes "
@@ -1030,6 +1133,8 @@ def main() -> None:
     p.add_argument("--highlight", action="append", help="Variant ID to highlight (repeatable), as in the dashboard")
     p.add_argument("--auto-highlight", type=int, default=5,
                    help="Without --highlight, highlight the first N that pass, in that order (default 5; 0 = none)")
+    p.add_argument("--from-dashboard", action="store_true",
+                   help="Use the choices, the way of showing and the highlights the researcher has on screen in the open dashboard")
     p.set_defaults(func=figures_cmd)
 
     p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")

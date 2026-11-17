@@ -7,8 +7,13 @@
 See first, refine later: the page opens on the result for the study's own groups with no filter, a
 sentence saying what it shows, and only three choices in view (question, target tissues, control
 tissues). Filters and advanced options (group names, tracks, expression floor, presentation) are in
-sections that open on demand. Nothing here calls the network or writes to the study; the agent reproduces
-any view with `expression.py summarize` (same computation, same options) to explain it.
+sections that open on demand. Nothing here calls the network; the agent reproduces any view with
+`expression.py summarize` (same computation, same options) to explain it.
+
+Link with the agent (live dashboard only, never in an export): the page writes what the researcher has on
+screen to `.dashboard/researcher_view.json`, and follows `.dashboard/agent_view.json`, which the agent writes
+with `expression.py view`: when that file changes, the controls move to the view the agent sent, without
+reloading the page. Nothing else is written to the study.
 
 Open: `expression.py dashboard --study-dir DIR` (app) or `... --edit` (marimo editor; edits this file).
 """
@@ -49,6 +54,9 @@ def _():
     study_cfg = study_mod.load_study(study_dir)
     full_domain = (locus.window.start, locus.window.end)
     ref_tissue = A.ref_by_tissue(data)
+    # The link with the agent is on only for the live dashboard (expression.py dashboard sets the variable)
+    live_link = os.environ.get("EXPRESSION_DASHBOARD_LINK") == "1"
+    link_cache = {"agent_view": {}}  # last agent view read, kept when the file is caught half-written
 
     def save_buttons(chart, name, width=1100):
         """PNG (4x, for posters) and SVG (vector, for papers) of a chart as drawn now (filters, window and
@@ -69,21 +77,55 @@ def _():
                         mimetype="image/svg+xml", label="Salvar SVG"),
         ], justify="start")
     return (A, H, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
-            data, dataclasses, figure_svg, full_domain, locus, mo, pl, ref_tissue, save_buttons, study_cfg, study_dir)
+            data, dataclasses, figure_svg, full_domain, link_cache, live_link, locus, mo, pl, ref_tissue, save_buttons,
+            study_cfg, study_dir)
 
 
 @app.cell
-def _(A, data, mo):
+def _(live_link, mo, study_dir):
+    # Link with the agent: the file the agent writes (expression.py view). Watching it makes the cells that read
+    # it run again when it changes.
+    view_dir = study_dir / ".dashboard"
+    agent_file = None
+    if live_link:
+        view_dir.mkdir(exist_ok=True)
+        _path = view_dir / "agent_view.json"
+        if not _path.exists():
+            _path.write_text("{}", encoding="utf-8")
+        agent_file = mo.watch.file(_path)
+    return agent_file, view_dir
+
+
+@app.cell
+def _(agent_file, link_cache):
+    import json as _json
+    if agent_file is not None:
+        try:
+            _read = _json.loads(agent_file.read_text() or "null")
+            if isinstance(_read, dict):
+                link_cache["agent_view"] = _read
+        except ValueError:  # caught half-written: keep the last view read
+            pass
+    agent_view = link_cache["agent_view"]
+    agent_choices = agent_view.get("choices") if isinstance(agent_view.get("choices"), dict) else {}
+    return agent_choices, agent_view
+
+
+@app.cell
+def _(A, agent_choices, data, mo):
     # Advanced: scorer (shown in the "Avançado" section; read here because it sets the tissues and tracks)
     scorers = sorted(set(data.registry["scorer"].to_list()))
-    scorer_pick = mo.ui.dropdown(options=scorers, value="RNA_SEQ" if "RNA_SEQ" in scorers else scorers[0],
+    _default = "RNA_SEQ" if "RNA_SEQ" in scorers else scorers[0]
+    scorer_pick = mo.ui.dropdown(options=scorers,
+                                 value=agent_choices["scorer"] if agent_choices.get("scorer") in scorers else _default,
                                  label="Tipo de predição")
     return (scorer_pick,)
 
 
 @app.cell
-def _(A, data, study_cfg):
-    # Starting point: the study's own groups and the researcher's question (decision analysis.question), no filter
+def _(A, agent_choices, data, dataclasses, study_cfg):
+    # Starting point: the study's own groups and the researcher's question (decision analysis.question), no filter;
+    # then the view the agent sent, when there is one (only valid values are taken)
     import study as _study
     _reg = data.registry
     _coh = study_cfg.data.get("cohorts", {})
@@ -93,6 +135,34 @@ def _(A, data, study_cfg):
                      target_label=_coh.get("target", {}).get("label") or "Alvo",
                      control_label=_coh.get("control", {}).get("label") or "Controle",
                      question=_q.value if _q is not None and _q.value in A.QUESTIONS else "either")
+
+    def _number(value, low, high):
+        try:
+            return min(max(float(value), low), high)
+        except (TypeError, ValueError):
+            return None
+
+    _lists = ("target", "control", "shown", "assays", "sources", "domains")
+    _enums = {"question": A.QUESTIONS, "score": A.SCORES, "group_agg": A.GROUP_AGGS,
+              "ref_floor_applies": ("warn", "control", "target", "both")}
+    _take = {}
+    for _k, _v in agent_choices.items():
+        if _k in _lists and isinstance(_v, list):
+            _take[_k] = [str(x) for x in _v]
+        elif _k in _enums and _v in _enums[_k]:
+            _take[_k] = _v
+        elif _k in ("target_label", "control_label", "color_by", "y_metric") and isinstance(_v, str) and _v.strip():
+            _take[_k] = _v
+        elif _k == "one_alt_per_position":
+            _take[_k] = bool(_v)
+        elif _k in ("min_change_pct", "min_diff_sigma") and _number(_v, 0.0, 500.0 if _k == "min_change_pct" else 20.0) is not None:
+            _take[_k] = _number(_v, 0.0, 500.0 if _k == "min_change_pct" else 20.0)
+        elif _k in ("max_control_pct", "ref_floor"):  # null switches the filter off
+            _take[_k] = None if _v is None else _number(_v, 0.0, 500.0 if _k == "max_control_pct" else 100.0)
+        elif _k == "top_k":
+            _n = _number(_v, 0, data.master.height) if _v is not None else None
+            _take[_k] = int(_n) if _n else None
+    base = dataclasses.replace(base, **_take)
     return (base,)
 
 
@@ -109,7 +179,7 @@ def _(A, H, data, scorer_pick):
 
 
 @app.cell
-def _(H, assays, base, data, labels, mo, sources):
+def _(H, agent_choices, assays, base, data, labels, mo, sources):
     _opts = {v: k for k, v in labels.items()}
     _pick = lambda xs: [labels[x] for x in xs if x in labels]
     # --- the three main choices
@@ -152,13 +222,16 @@ def _(H, assays, base, data, labels, mo, sources):
     color_by = mo.ui.dropdown(options=_colors, value=next((k for k, v in _colors.items() if v == base.color_by), "Domínio genômico"),
                               label="Cor no gráfico da janela")
     show_mode = mo.ui.dropdown(options={"Só as que passam nos filtros": "kept", "Todas (as que não passam em cinza)": "all"},
-                               value="Só as que passam nos filtros", label="Variantes nos gráficos")
+                               value="Todas (as que não passam em cinza)" if agent_choices.get("show_mode") == "all"
+                               else "Só as que passam nos filtros", label="Variantes nos gráficos")
     top_k = mo.ui.number(start=0, stop=data.master.height, step=1, value=base.top_k or 0,
                          label="Quantas mostrar (0 = todas)")
     score_pick = mo.ui.dropdown(options={"Valor do modelo (mudança em %)": "raw", "Quantil do Atlas (−1 a 1)": "quantile"},
-                                value="Valor do modelo (mudança em %)", label="Pontuação")
+                                value="Quantil do Atlas (−1 a 1)" if base.score == "quantile" else "Valor do modelo (mudança em %)",
+                                label="Pontuação")
     group_pick = mo.ui.dropdown(options={"Média dos tecidos": "mean", "Mediana dos tecidos": "median"},
-                                value="Média dos tecidos", label="Valor de cada grupo")
+                                value="Mediana dos tecidos" if base.group_agg == "median" else "Média dos tecidos",
+                                label="Valor de cada grupo")
     return (assay_pick, color_by, control_name, control_pick, domain_pick, floor_applies, group_pick, max_control_pct,
             min_sigma, min_target_pct, one_alt, question, ref_floor, score_pick, show_mode, shown_pick, source_pick,
             target_name, target_pick, top_k, use_floor, use_max_control, y_metric)
@@ -219,6 +292,20 @@ def _(A, data, locus, mo, scorer_pick):
 
 
 @app.cell
+def _(agent_choices, agent_view, mo):
+    # Says when the view on screen was set by the agent, with its message
+    _note = None
+    if agent_choices:
+        _when = str(agent_view.get("sent_at") or "")[:16].replace("T", " ")
+        _msg = str(agent_view.get("message") or "").strip()
+        _note = mo.callout(mo.md(f"**Visão enviada pelo agente**{f' ({_when} UTC)' if _when else ''}"
+                                 + (f": {_msg}" if _msg else ".")
+                                 + " As escolhas abaixo foram ajustadas; você pode mudá-las normalmente."), kind="neutral")
+    _note
+    return
+
+
+@app.cell
 def _(control_pick, descriptions, mo, question, show_mode, target_pick, top_k, y_metric):
     _desc = lambda xs: "  \n".join(f"- {descriptions.get(c, '')}" for c in xs if descriptions.get(c))
     mo.vstack([
@@ -266,6 +353,18 @@ def _(center_crop_on_positions, data, full_domain, mo, pl):
             positions = data.master.filter(pl.col("variant_id").is_in(ids))["position"].to_list()
             set_crop(center_crop_on_positions(positions, get_crop(), full_domain, margin_bp=10))
     return get_crop, get_crop_mode, get_focus_ids, select_variants, set_crop, set_crop_mode, set_focus_ids
+
+
+@app.cell
+def _(agent_choices, center_crop_on_positions, data, full_domain, pl, set_crop, set_focus_ids):
+    # Highlights sent by the agent. Only the setters are used here (no state is read), so this runs when the
+    # agent's view changes and never when the researcher moves the window or the highlights.
+    if isinstance(agent_choices.get("highlight"), list):
+        _ids = data.master.filter(pl.col("variant_id").is_in(agent_choices["highlight"]))
+        set_focus_ids(_ids["variant_id"].to_list())
+        if _ids.height:
+            set_crop(center_crop_on_positions(_ids["position"].to_list(), tuple(full_domain), full_domain, margin_bp=10))
+    return
 
 
 @app.cell
@@ -545,6 +644,22 @@ def _(H, get_crop, get_focus_ids, kept, labels, matrix_order, matrix_rows, metri
             _chart,
             save_buttons(_chart, f"{study_cfg.data['study_id']}_matriz")])
     mo.accordion({"Comparar todos os tecidos (matriz variante × tecido)": _body})
+    return
+
+
+@app.cell
+def _(dataclasses, effects, get_crop, get_focus_ids, kept, live_link, profile, show_mode, view_dir):
+    # What the researcher has on screen now, for the agent (expression.py view, summarize --from-dashboard)
+    if live_link:
+        import datetime as _dt
+        import json as _json
+        _view = {"updated_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "choices": {**dataclasses.asdict(profile), "show_mode": show_mode.value,
+                             "highlight": list(get_focus_ids())},
+                 "window_shown": list(get_crop()), "n_pass": kept.height, "n_total": effects.height}
+        _tmp = view_dir / "researcher_view.json.tmp"
+        _tmp.write_text(_json.dumps(_view, indent=1), encoding="utf-8")
+        _tmp.replace(view_dir / "researcher_view.json")
     return
 
 
