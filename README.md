@@ -4,9 +4,29 @@ Agent skill for comparing AlphaGenome-predicted regulatory and expression effect
 
 > **Research use only.** All outputs are predicted molecular impacts used to prioritise experiments, never measurements, clinical classifications or diagnoses.
 
+This repository holds two skills:
+
+| Skill | What it is for |
+|---|---|
+| [`expression-analysis`](skills/expression-analysis/SKILL.md) | the analysis itself |
+| [`alphagenome-skills-setup`](skills/alphagenome-skills-setup/SKILL.md) | prepares the computer for it (and for `splicing-analysis`), for researchers who never used a terminal |
+
 ## Installation
 
-Install the skill with the Skills CLI:
+### First time on this computer: the setup skill
+
+Install the setup skill and ask the agent, for example, "prepare my computer to use expression-analysis":
+
+```bash
+npx skills add cnpem/uchl1-expression-analysis --skill alphagenome-skills-setup --copy
+```
+
+It checks what is there and installs each missing piece (uv, Node.js, `expression-analysis`, its dependency
+skills, the terms of use, the AlphaGenome key in the project's `.env`) only after the researcher approves
+that item, then runs `check` and the offline `reproduce`. Details in
+[`skills/alphagenome-skills-setup/SKILL.md`](skills/alphagenome-skills-setup/SKILL.md).
+
+### The analysis skill only
 
 ```bash
 npx skills add cnpem/uchl1-expression-analysis --skill expression-analysis
@@ -16,7 +36,7 @@ Or copy `skills/expression-analysis` into `.claude/skills/`, `.agents/skills/`, 
 
 ## Prerequisites & Dependencies
 
-Run the prerequisite check (prints missing skills and install commands; never installs anything automatically):
+Run the prerequisite check (prints what is missing; never installs anything, which is the setup skill's job):
 
 ```bash
 uv run skills/expression-analysis/scripts/expression.py check
@@ -26,7 +46,7 @@ External dependency skills (installed separately by the researcher as needed):
 - From `google-deepmind/science-skills`: `uv`, `credentials`, `alphagenome-variant-impact-score`, `alphagenome-single-variant-analysis`, `alphagenome-atlas-website-links`, `embl-ebi-ols`, `ensembl-database`
 - From `K-Dense-AI/scientific-agent-skills`: `alphagenome`
 
-Set `ALPHAGENOME_API_KEY` in `~/.env` (see the `credentials` skill) and create required `.licenses/` acknowledgement files only after reviewing each dependency's terms of use.
+Set `ALPHAGENOME_API_KEY` in the project's `.env` (the only place the key is read from; keep `.env` out of git) and create the required `.licenses/` acknowledgement files only after reviewing each dependency's terms of use. The setup skill guides both.
 
 ## Quick Start
 
@@ -42,6 +62,9 @@ See [`skills/expression-analysis/SKILL.md`](skills/expression-analysis/SKILL.md)
 ## Versions
 
 The skill version is `metadata.version` in [`SKILL.md`](skills/expression-analysis/SKILL.md); each study records it in its manifest and report. What changed in each version, and the versioning rules, are in [`CHANGELOG.md`](CHANGELOG.md). Released versions are tagged `vX.Y.Z`.
+
+`alphagenome-skills-setup` has its own version (`metadata.version` in its [`SKILL.md`](skills/alphagenome-skills-setup/SKILL.md)) and
+[changelog](skills/alphagenome-skills-setup/CHANGELOG.md); its tags are `setup-vX.Y.Z`.
 
 ## Notes on Reference Data & License
 

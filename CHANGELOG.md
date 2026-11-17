@@ -11,6 +11,10 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Added
 
+- **`alphagenome-skills-setup` ships in this repository** (`skills/alphagenome-skills-setup`, its own version
+  and [changelog](skills/alphagenome-skills-setup/CHANGELOG.md)): it prepares a researcher's computer for
+  this skill (uv, Node.js, dependency skills, terms of use, the key in the project's `.env`), one approved
+  item at a time, and ends with `check` and the offline `reproduce`.
 - **The researcher's step-1 answers are required.** `study.py init --from-exploration` refuses to create a
   study without `--window`, `--target`, `--control`, `--scorers` and `--question`, lists what is missing,
   and records `study.window`, `study.scorers` and `analysis.question` in `decisions.yaml` with the options

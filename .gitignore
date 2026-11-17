@@ -21,3 +21,8 @@ exploration/
 evals/
 analysis/
 run-log.tsv
+
+# Written by alphagenome-skills-setup in a workspace
+.alphagenome-setup/
+environment-report.md
+skills-lock.json
