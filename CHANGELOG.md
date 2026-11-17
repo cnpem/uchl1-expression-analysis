@@ -9,6 +9,14 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-17
+
+The researcher's decisions become part of the study, and the agent and the open dashboard can see and move
+each other's view. This version changes the questions asked and the study files (`decisions.yaml` gains
+`said`, `delegated` and `previous`; `study.py init --from-exploration` and `decide` have new required
+options), and the order of the dashboard's lists. A study made with 0.3.0 still opens; its numbers do not
+change, but lists ordered by a difference come in another order.
+
 ### Added
 
 - **Link between the agent and the open dashboard** (`expression.py view`, `references/dashboard.md`).
@@ -264,6 +272,7 @@ First version:
 - **Changes to the files shared with the splicing skill** (`study.py`, `manifest.py`, `models.py`,
   `reference.py`) go to both repositories.
 
-[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/cnpem/uchl1-expression-analysis/releases/tag/v0.1.0
