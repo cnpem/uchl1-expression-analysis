@@ -158,7 +158,7 @@ run `expression.py summarize --study-dir D --from-dashboard`: it takes the choic
 computation and prints the headline, the measurements of each tissue, the noise, the filter steps and
 the top variants. Explain from those numbers; never describe values you have not computed. If they want
 a view kept, draw it for the report with `figures` (next section) and write its choices in your answer:
-the dashboard saves nothing.
+the dashboard saves no analysis.
 
 With the page closed (or for a view that is not on screen), pass the choices yourself:
 
@@ -210,6 +210,9 @@ the link only after READY; on FAILED, say so and show the error.
 
 ## What each quantity means
 
+The scores themselves (formula, sign, window) are defined by the `alphagenome` dependency skill: see
+*Where each score is defined* in `references/interpretation.md` before explaining one.
+
 - **Change (%)**: RNA_SEQ is a natural-log fold change of the whole gene's predicted expression;
   CAGE, DNASE and ATAC are log2 ratios of the signal around the variant. The page shows both as a
   percent change of that quantity.
@@ -248,7 +251,7 @@ the link only after READY; on FAILED, say so and show the error.
 
 Predicted effects, not measurements; research use only. SNVs only (no indels or rearrangements) inside
 the chosen window. The groups compare the tracks the Atlas has; a tissue with one measurement has no
-noise of its own. Quantiles are ranks against the genome, not effect sizes. The static export
-(`--export-html`) shows the opening view, not the researcher's choices, and has no link with you. The charts
-are drawn in the browser with vega-embed, loaded from `esm.sh`: a computer without internet access shows the
-page without the two interactive charts.
+noise of its own. Quantiles are ranks among common variants (per prediction type and per track), not effect sizes. The static export
+(`--export-html`) shows the opening view, not the researcher's choices, and has no link with you. As the code
+is written (`scripts/viz/variant_canvas.py`), the two interactive charts load vega-embed from `esm.sh` in the
+browser, so they may not draw on a computer without internet access; this was not tested.

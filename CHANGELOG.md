@@ -91,6 +91,22 @@ change, but lists ordered by a difference come in another order.
 
 ### Fixed
 
+- **Statements that the sources contradict** (terminology review of 18/11/2026; wording only, no number
+  changes):
+  - the exploration's "atividade" is no longer described as the gene's activity "sem variante": it is the
+    `RNA_SEQ_ACTIVE` score of one probe SNV, the larger of its two alleles; the pages say that this SNV
+    was scored, that the 5% cut is this skill's convention and not absence of the transcript, and that
+    tracks of different assays and sources are not directly comparable;
+  - two tracks of one term are no longer called replicates (they differ in assay or source);
+  - quantiles are ranks among common variants, not "against the genome", and a large quantile is an
+    unusual score, not a strong effect;
+  - `summarize` no longer presents 5% of the study's largest REF as the exploration's rule.
+- **Documentation brought up to the code**: `README.md` (key in the project's `.env`; `check` installs
+  nothing), `references/workflow.md` step 14 (`view`, `--from-dashboard`), `references/formats.md` (the
+  two files of `.dashboard/`), SKILL.md (commands, common mistakes), `references/dependency_outputs.md`
+  (the baseline file is copied into a study).
+- **Where each score is defined**: `references/interpretation.md` now sends the agent to the `alphagenome`
+  dependency skill's scorer table before it explains a score.
 - The variants table showed `None` in the control column when no control tissue was chosen; the column is
   now left out.
 - **Terms named exactly as an Atlas sample are found.** The exploration recommends the catalogue term whose

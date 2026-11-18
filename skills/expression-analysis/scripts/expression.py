@@ -7,7 +7,7 @@
 
 Subcommands:
   check      Verify prerequisites (uv, dependency skills, licence files, API keys).
-             Prints what is missing and the install command; never installs anything. --json
+             Prints what is missing and hands it to alphagenome-skills-setup; never installs anything. --json
              lists them as questions for the setup.
   locus      Workflow step 4: transcript, TSS, exon 1 and regulatory window from raw/gtf.json,
              raw/regulatory.json and raw/sequence_*.txt. Writes processed/locus.json,
@@ -859,10 +859,12 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     else:
         top = max(ref.values())
         floor = profile.ref_floor
-        out += ["REF é a expressão do gene prevista no tecido, sem variante (escala do AlphaGenome; o pseudocount do modelo é "
-                "0,001). Onde o gene está quase desligado, mudanças pequenas viram % grandes e instáveis. Compare os tecidos "
-                "pela coluna '% do maior REF': a exploração chama de 'não expresso' o que fica abaixo de 5% do maior REF "
-                f"(aqui, {H._n(0.05 * top, 3)}); 0,01 (10× o pseudocount) é só o limite absoluto mínimo. O piso (`--ref-floor N`) usa "
+        out += ["REF é a expressão do gene prevista no tecido com o alelo de referência (escala do AlphaGenome, 'sinal de "
+                "leitura normalizado', sem unidade oficial; a pseudocontagem da pontuação RNA_SEQ é 0,001). Onde o REF é muito "
+                "baixo, a mudança em % de uma variante pode ser grande mesmo com uma mudança absoluta mínima. A coluna '% do "
+                f"maior REF' é relativa ao maior REF entre os tecidos deste estudo (5% dele = {H._n(0.05 * top, 3)}). A exploração "
+                "usa outro corte: 5% do maior valor do gene no catálogo inteiro (`exploration/activity.md`), que pode ser mais "
+                "alto. 0,01 (10× a pseudocontagem) é só o limite absoluto mínimo. O piso (`--ref-floor N`) usa "
                 "o valor de REF: `--floor-applies warn` só avisa, `control` "
                 "tira do cálculo os controles abaixo dele, `target` não deixa passar nada se um tecido do alvo estiver "
                 "abaixo, `both` faz os dois.", "",
@@ -1162,7 +1164,7 @@ def main() -> None:
                    help="Use the choices, the way of showing and the highlights the researcher has on screen in the open dashboard")
     p.set_defaults(func=figures_cmd)
 
-    p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")
+    p = sub.add_parser("check", help="Verify prerequisites; name what is missing (alphagenome-skills-setup installs it)")
     p.add_argument("--json", action="store_true",
                    help="Print the missing prerequisites as questions (same shape as study.py pending --json)")
     p.set_defaults(func=check)

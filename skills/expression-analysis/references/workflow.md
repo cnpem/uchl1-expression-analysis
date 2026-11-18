@@ -99,7 +99,7 @@ and why each part matters for the choice:
 | Section | Holds | Why |
 |---|---|---|
 | 3. Windows | 3-5 windows derived from the features (regulatory unit at the TSS through exon 1, with gaps bridged, the TSS feature alone, TSS ± 500 bp, all promoters/enhancers of the region), with size, SNVs = 3 × bp, Atlas rows per scorer and features included or left out | the window is the set of variants every conclusion rests on, and its size is the cost |
-| 4. Terms | per tissue text: OLS candidates (UBERON, CL, EFO, CLO) with tracks per scorer, data source and RNA-seq protocol; catalogue terms whose name contains the text (subtypes, cell lines); served descendants of a term without RNA-seq tracks | a term without tracks cannot be contrasted; one track means no replicate |
+| 4. Terms | per tissue text: OLS candidates (UBERON, CL, EFO, CLO) with tracks per scorer, data source and RNA-seq protocol; catalogue terms whose name contains the text (subtypes, cell lines); served descendants of a term without RNA-seq tracks | a term without tracks cannot be contrasted; one track leaves nothing to compare it with (two tracks of a term differ in assay or source: they are not replicates) |
 | 5. Baseline | `RNA_SEQ_ACTIVE` of the gene per tissue, relative to its maximum, with a warning below the floor | a gene that is silent in the target makes predicted fold changes large and unreliable there |
 | 6. Scorers | which recommended terms each scorer serves | a scorer without tracks in one group is dropped later |
 | 7. Limits | SNVs only (indels through the model API, `score_variants.py` of the `alphagenome` skill), window scope | what the study cannot answer |
@@ -335,6 +335,10 @@ uv run SKILL/scripts/expression.py report --study-dir D
 
 ```bash
 uv run SKILL/scripts/expression.py dashboard --study-dir D
+uv run SKILL/scripts/expression.py view --study-dir D
+uv run SKILL/scripts/expression.py summarize --study-dir D --from-dashboard --top 10
+uv run SKILL/scripts/expression.py view --study-dir D --min-sigma 1 --message "<what this view is>"
+uv run SKILL/scripts/expression.py figures --study-dir D --from-dashboard
 uv run SKILL/scripts/expression.py summarize --study-dir D --question repression --top 10
 uv run SKILL/scripts/expression.py dashboard --study-dir D --export-html D/figures/dashboard.html
 uv run SKILL/scripts/expression.py figures --study-dir D --question repression --target CL:AAAAAAA --control UBERON:BBBBBBB --top-k 100 --show all
@@ -348,7 +352,14 @@ is printed: two pages opened while it starts can break the first session (a matp
 server output; reload the page). If you restart it, tell the
 researcher to reload the page: an old page is refused by the new server ("Unauthorized").
 
-The dashboard writes nothing to the study. To explain what the researcher sees, run `summarize` with
+While it is open, the page and you share two files in `D/.dashboard/`: the page writes what the researcher
+has on screen (`researcher_view.json`) and follows the view you send (`agent_view.json`). `view` without
+choices prints the screen; with choices, the page moves to that view without reloading (only what you pass
+changes; `--reset` starts from the opening view). `summarize` and `figures` take `--from-dashboard` to use
+the choices on screen. The page must be open in a browser for the link to work; `references/dashboard.md`
+(*Link with the page*) has the rules. Nothing else is written to the study.
+
+To explain what the researcher sees, run `summarize --from-dashboard`, or, with the page closed, with
 the same choices (`--target`/`--control` CURIEs, `--question`, `--min-change-pct`, `--max-control-pct`,
 `--min-sigma`, `--ref-floor`, `--floor-applies`, `--assay`, `--source`, `--domain`, `--one-alt`,
 `--y-metric`, `--scorer`): it runs the dashboard's

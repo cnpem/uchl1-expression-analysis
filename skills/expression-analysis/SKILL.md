@@ -46,7 +46,8 @@ How the work is split, and why:
   experiments. It is not a measurement, not a clinical classification and never a diagnosis.
 
 Read `references/workflow.md` for the complete commands and the questions of each step,
-`references/interpretation.md` before reporting results, `references/dashboard.md` before opening the
+`references/interpretation.md` before reporting results or explaining what a score is (it points to the
+`alphagenome` dependency skill, where each score is defined), `references/dashboard.md` before opening the
 dashboard or answering a question about it, `references/formats.md` for the fields of the study files
 (exploration, questions, decisions, contrast plan), and `references/dependency_outputs.md` when a
 dependency output fails validation.
@@ -139,7 +140,7 @@ recording command to run.
 | `expression.py dashboard [--port N] [--export-html P] [--edit] [--legacy]` | Step 14: analysis dashboard (a free port if N is busy; prints the URL), a static HTML export, the marimo editor for maintainers (`--edit`, changes the skill's `assets/dashboard.py`) or the previous workbench (`--legacy`) |
 | `expression.py view --study-dir D [choices…] [--reset] [--message "…"]` | Link with the open dashboard: without choices, prints what the researcher has on screen; with them, the page moves to that view without reloading (`references/dashboard.md`) |
 | `expression.py summarize --study-dir D [choices… \| --from-dashboard]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
-| `expression.py figures --study-dir D [choices…] [--top-k K] [--show kept\|all] [--highlight V…]` | The dashboard's charts for those choices as PNG in `figures/dashboard/`, with `choices.json`; `report` then shows them |
+| `expression.py figures --study-dir D [choices… \| --from-dashboard] [--top-k K] [--show kept\|all] [--highlight V…]` | The dashboard's charts for those choices as PNG in `figures/dashboard/`, with `choices.json`; `report` then shows them |
 | `expression.py regions [--only NAME]` | Prints the regulatory search region, the window and `max_window` (the fetch commands use them already) |
 | `expression.py reproduce --reference uchl1 [--until S] [--keep DIR]` | Re-runs the stages on the bundled reference and compares with `expected.json` |
 | `study.py validate / pending [--json] / decide / require / window` | Study file, researcher decisions, open questions, `--print-max-window` |
@@ -320,10 +321,14 @@ about 20 s each; run them sequentially.
 - **Editing `raw/`.** The `gtf` starts are 0-based as written; every stage normalises them once.
 - **Mixing scores of different Atlas pulls or windows.** `avi_region.parquet` and every
   `scores_{S}.tsv` describe one window captured together; re-capture all of them or none.
-- **Reading a predicted effect in a tissue where the gene is silent as tissue-specific.** Low
-  baseline activity inflates predicted fold changes; check the exploration's activity table.
-- **Explaining the dashboard from memory.** Its numbers depend on the researcher's current choices; run
-  `summarize` with the same choices and quote it, and use the wording of `references/dashboard.md`.
+- **Reading a predicted effect in a tissue where the gene's predicted level is very low as tissue-specific.**
+  A large % there can be a minimal absolute change; check the exploration's activity table and give the level.
+- **Defining a score from memory.** What `RNA_SEQ`, `RNA_SEQ_ACTIVE` or a quantile is comes from the
+  `alphagenome` dependency skill (`references/interpretation.md`, *Where each score is defined*); read it first.
+- **Explaining the dashboard from memory.** Its numbers depend on the researcher's current choices; read the
+  screen with `view`, run `summarize --from-dashboard` and quote it, and use the wording of `references/dashboard.md`.
+- **Moving the researcher's page without saying so, or assuming a view arrived.** Say what you will change and
+  why before `view`, give it a `--message`, and read the screen back; with the page closed the view only waits.
 - **Presenting a filter as a clinical threshold.** A minimum % change, a multiple of the noise, AVI
   Phred 20 or a large Δ rank predicted effects; none is a pathogenicity cut-off.
 - **Writing your own scripts in the study folder.** Ad-hoc code in `D/` is not in the manifest and is

@@ -890,8 +890,8 @@ def init_from_exploration(args: argparse.Namespace) -> None:
                              "captured_at": step.get("recorded_at", "")},
             recorded_at=manifest._now(), decision_keys=[]))
         copied += 1
-    # The reference expression (REF) of the exploration's baseline variant: the dashboard reads it from raw/
-    # to tell where the gene is predicted to be off. Optional (older explorations have none).
+    # The RNA_SEQ_ACTIVE scores of the exploration's probe SNV: the dashboard reconstructs the reference
+    # expression (REF) from them, to tell where the gene's predicted level is low. Optional (older explorations have none).
     rel_src = "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"
     step = next((s for s in explored if rel_src in s.get("outputs", [])), None)
     if (root / rel_src).is_file() and step is not None:

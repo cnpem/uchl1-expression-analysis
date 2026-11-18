@@ -1,6 +1,6 @@
 """Dashboard figures for the report (`expression.py figures`, Workflow step 14).
 
-The dashboard saves nothing. When the researcher settles on a view, the agent passes the same choices to
+The dashboard saves no analysis. When the researcher settles on a view, the agent passes the same choices to
 `expression.py figures`, which runs the dashboard's computation (core.analysis) and draws the same charts
 (dashboard_helpers, workbench_helpers) as static PNG files. `report.md` then shows them with the choices
 that produced them, so every figure in the report can be redrawn and checked in the dashboard.

@@ -121,7 +121,8 @@ on `−`. Only `+`-strand genes were recorded so far; the `−` branch follows t
   --gene G -o …` for one SNV in the middle of exon 1 (REF from the sequence): one row per RNA-seq track
   with the gene's predicted activity (`raw_score`); same columns as `scores_{S}.tsv`.
 
-Neither is copied into a study; the files of `OUT/exploration/raw/` are, with their manifest steps.
+Of the two, only the baseline file is copied into a study, as `raw/scores_RNA_SEQ_ACTIVE_baseline.tsv` (the
+dashboard reconstructs REF from it); the files of `OUT/exploration/raw/` are copied too, with their manifest steps.
 
 ## `regulatory.json` — Ensembl Regulatory Build (step 3)
 

@@ -4,7 +4,8 @@ Cheap, read-only queries that show the researcher what the data allow before any
 study.yaml: the gene structure, the Regulatory Build around it, 3-5 candidate windows derived from those
 features, the ontology terms that match each tissue or cell named, which of them have Atlas tracks (per
 scorer, with data source and assay), and how strongly the gene itself is predicted to be active in each
-tissue (`RNA_SEQ_ACTIVE`). No variant is scored. Everything goes to `<out>/exploration/` with its own
+tissue (`RNA_SEQ_ACTIVE` of one probe SNV inside the gene, the only variant scored; no variant of a window is
+scored). Everything goes to `<out>/exploration/` with its own
 manifest; `study.py init --from-exploration` reuses the captures without repeating a call.
 
 Outputs (in `<out>/exploration/`):
@@ -289,13 +290,18 @@ def write_activity(root: Path, floor: float = 0.05) -> Path:
     top = float(t["activity"].max() or 0.0)
     variant = df["variant"][0] if "variant" in df.columns else "?"
     L = [f"# Atividade prevista do gene em todos os tecidos e células do catálogo ({t.height})", "",
-         f"Atividade do gene sem variante (`RNA_SEQ_ACTIVE` da variante {variant}), média das medições de cada termo, e "
-         f"relativa ao termo mais ativo ({top:.3g}). Abaixo de {_pct(floor)} do máximo, o gene é tratado como **não "
-         "expresso**: ali, mudanças pequenas viram % grandes e instáveis. Use esta lista para escolher, ou trocar depois "
+         f"Atividade prevista do gene: pontuação `RNA_SEQ_ACTIVE` de uma variante de sondagem ({variant}), isto é, o maior "
+         "entre os alelos REF e ALT da cobertura média de RNA-seq prevista nos éxons do gene. A tabela traz a média das "
+         f"trilhas de cada termo e o valor relativo ao termo de maior média ({top:.3g}). Abaixo de {_pct(floor)} desse "
+         "máximo, a coluna *Expresso* diz **não**: é um corte desta skill, relativo ao máximo do próprio gene e sem "
+         "calibração; não quer dizer que o transcrito esteja ausente. Onde o valor é muito baixo, a mudança em % de uma "
+         "variante pode ser grande mesmo com uma mudança absoluta mínima. Use esta lista para escolher, ou trocar depois "
          "dos resultados, os tecidos do alvo e do controle; um termo novo precisa de captura (passos 7 a 10).", "",
-         "Os valores são a atividade da variante de referência (o maior entre REF e ALT dela); para os tecidos que já estão "
-         "num estudo, `summarize` mostra o REF exato. A diferença é pequena porque a variante de referência quase não muda "
-         "a expressão.", "",
+         "O valor é igual ao da sequência de referência quando a variante de sondagem não aumenta a expressão, e maior "
+         "caso contrário; a exploração não mede essa diferença. Para os tecidos que já estão num estudo, `summarize` "
+         "mostra o nível com o alelo de referência (REF), reconstruído das duas pontuações. As trilhas de um termo podem "
+         "ser de ensaios (polyA, total) e fontes (ENCODE, GTEx) diferentes, cujos valores não são diretamente "
+         "comparáveis: as colunas *Ensaios* e *Fontes* dizem o que entrou em cada média.", "",
          "| # | Termo | Nome | Tipo | Atividade | Relativa | Expresso | Ensaios | Fontes | Medições |",
          "|---|---|---|---|---|---|---|---|---|---|"]
     for i, r in enumerate(t.iter_rows(named=True), 1):
@@ -435,7 +441,8 @@ def render_summary(d: dict[str, Any]) -> str:
     L.append(f"# Exploração do gene {d['gene']}: opções antes de definir o estudo\n")
     L.append("Esta página resume consultas **só de leitura** (estrutura do gene, elementos regulatórios, termos de "
              "ontologia, catálogo de trilhas do AlphaGenome Atlas e a atividade prevista do gene em cada tecido). "
-             "Nenhuma variante foi pontuada ainda. Com base nela, o pesquisador escolhe a janela, os tecidos alvo e "
+             "Só uma variante de sondagem foi pontuada, para ler o nível do gene em cada tecido; nenhuma variante da "
+             "janela foi pontuada ainda. Com base nela, o pesquisador escolhe a janela, os tecidos alvo e "
              "controle e os tipos de sinal (scorers); só então o estudo é criado. Tudo aqui é predição de modelo, para "
              "priorizar experimentos, não medida nem diagnóstico.\n")
     L.append("## 1. O gene\n")
@@ -493,8 +500,8 @@ def render_summary(d: dict[str, Any]) -> str:
             L.append(f"\nRecomendado: **{rec['curie']} ({rec['label']})**, porque {reason}"
                      + (f"; tem {n_rna} trilha(s) de RNA-seq" if n_rna else "; **não tem trilha de RNA-seq**") + ".")
             if n_rna == 1:
-                L.append("Só uma trilha de RNA-seq: o tecido fica sem réplica; considere juntar termos irmãos ou "
-                         "descendentes da tabela.")
+                L.append("Só uma trilha de RNA-seq: não há outra trilha do mesmo termo para comparar; considere juntar "
+                         "termos irmãos ou descendentes da tabela.")
         if t.get("descendants_error"):
             L.append(f"\nA ontologia não devolveu os termos mais específicos do recomendado ({t['descendants_error']}); "
                      "os outros tecidos seguiram normalmente.")
@@ -554,8 +561,9 @@ def render_summary(d: dict[str, Any]) -> str:
              "(`score_variants.py` da skill `alphagenome`, API do modelo, ~10-20 s por variante); varredura saturada "
              "de indels fica fora por custo.\n"
              "- Só a janela escolhida é mutada: elementos distantes (enhancers a dezenas de kb, íntrons) ficam fora.\n"
-             "- Termos com uma única trilha não têm réplica; fontes diferentes (ENCODE, GTEx) e protocolos diferentes "
-             "(polyA, total) entre alvo e controle são declarados no relatório.\n"
+             "- Termos com uma única trilha não têm outra para comparar. Duas trilhas do mesmo termo diferem em ensaio "
+             "(polyA, total) ou fonte (ENCODE, GTEx): não são réplicas. Essas diferenças entre alvo e controle são "
+             "declaradas no relatório.\n"
              "- Tudo é predição de modelo para priorizar experimentos; não é medida, nem classificação clínica.\n")
     L.append("## 8. O que o pesquisador decide agora\n")
     L.append("1. A janela (seção 3).\n2. Quais termos formam o grupo **alvo** e quais o **controle** (seção 4), e um "

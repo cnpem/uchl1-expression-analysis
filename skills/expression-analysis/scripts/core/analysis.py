@@ -212,7 +212,8 @@ def reference_expression(data: StudyData) -> pl.DataFrame | None:
 
 def tissue_table(data: StudyData, scorer: str) -> pl.DataFrame:
     """One row per ontology term with tracks of the scorer: name, cohort in the study, track count,
-    assays, sources, replicate available, and reference expression (min and max over its RNA_SEQ tracks)."""
+    assays, sources, whether it has two or more tracks (column `replicate`: a second track of another assay or
+    source, not an experimental replicate), and reference expression (min and max over its RNA_SEQ tracks)."""
     t = tracks(data, scorer)
     g = (t.group_by("ontology_curie")
          .agg(pl.col("biosample_name").first().alias("tissue"),
