@@ -2,7 +2,7 @@
 name: expression-analysis
 description: "Explores a human gene with AlphaGenome before any study is fixed (gene structure, Regulatory Build, candidate windows with their cost, UBERON/CL/EFO terms with Atlas tracks per tissue, the gene's predicted baseline expression per tissue), then compares the predicted effects of every SNV in the chosen window between target and control tissues or cell types, with a Portuguese report and an interactive dashboard where the researcher picks groups, question and filters. Routes to the DeepMind science skills (GENCODE, OLS, Atlas AVI and track catalogue, Ensembl) and to the K-Dense AlphaGenome Atlas scores. Use it whenever someone asks which variants in a gene change expression in one tissue versus another, whether a gene is expressed in a tissue according to AlphaGenome, which tissues or windows can be studied for a gene, wants a saturation-mutagenesis or promoter/enhancer variant triage, or mentions tissue-specific regulatory effects with AlphaGenome, even without saying 'expression analysis'. Research use only."
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # expression-analysis
@@ -23,7 +23,7 @@ researcher, in a Portuguese `summary.md`, which windows are possible and what ea
 ontology terms match the tissues they named and whether the Atlas has tracks for them, and whether
 the gene is expressed there at all. The researcher chooses from that page; only then is the study
 created. Asking before the data are in hand makes the researcher choose blind, and every later
-surprise (a term without tracks, a tissue where the gene is silent) becomes another interruption.
+surprise (a term without tracks, a tissue where the gene's predicted level is very low) becomes another interruption.
 
 How the work is split, and why:
 
@@ -36,7 +36,7 @@ How the work is split, and why:
   shell syntax has to be adapted between PowerShell, bash and zsh.
 - **The researcher decides, the agent asks.** When the data leave a choice open that changes which
   variants and tissues the conclusions rest on (which transcript, how far the window goes, a tissue
-  without Atlas measurements), the stage stops with exit 1 and `N decision(s) needed`, and writes the
+  without Atlas tracks), the stage stops with exit 1 and `N decision(s) needed`, and writes the
   question with its options, their effects and a recommendation. Ask it in the researcher's language
   and record their answer; do not pick one yourself. Technical checks and choices that do not change
   the steered analysis are applied by fixed rules and recorded as the skill's (`decided_by: skill`).
@@ -46,8 +46,9 @@ How the work is split, and why:
   experiments. It is not a measurement, not a clinical classification and never a diagnosis.
 
 Read `references/workflow.md` for the complete commands and the questions of each step,
-`references/interpretation.md` before reporting results or explaining what a score is (it points to the
-`alphagenome` dependency skill, where each score is defined), `references/dashboard.md` before opening the
+`references/glossary.md` before explaining any number (one name, definition, unit and status per quantity;
+generated from `assets/terms.yaml`), `references/interpretation.md` before reporting results or explaining
+what a score is (it points to the `alphagenome` dependency skill, where each score is defined), `references/dashboard.md` before opening the
 dashboard or answering a question about it, `references/formats.md` for the fields of the study files
 (exploration, questions, decisions, contrast plan), and `references/dependency_outputs.md` when a
 dependency output fails validation.
@@ -139,8 +140,9 @@ recording command to run.
 | `expression.py report` | Step 13: `report.md` (study, decisions, results, skills used, limits, citations) |
 | `expression.py dashboard [--port N] [--export-html P] [--edit] [--legacy]` | Step 14: analysis dashboard (a free port if N is busy; prints the URL), a static HTML export, the marimo editor for maintainers (`--edit`, changes the skill's `assets/dashboard.py`) or the previous workbench (`--legacy`) |
 | `expression.py view --study-dir D [choices…] [--reset] [--message "…"]` | Link with the open dashboard: without choices, prints what the researcher has on screen; with them, the page moves to that view without reloading (`references/dashboard.md`) |
-| `expression.py summarize --study-dir D [choices… \| --from-dashboard]` | The dashboard's view as text for the same choices (groups, question, filters): headline, measurements, noise, filter steps, top variants. Writes nothing |
+| `expression.py summarize --study-dir D [choices… \| --from-dashboard]` | The dashboard's view as text for the same choices (groups, question, filters): headline, tracks, between-track disagreement, filter steps, top variants. Writes nothing |
 | `expression.py figures --study-dir D [choices… \| --from-dashboard] [--top-k K] [--show kept\|all] [--highlight V…]` | The dashboard's charts for those choices as PNG in `figures/dashboard/`, with `choices.json`; `report` then shows them |
+| `expression.py terms [--write-glossary]` | Term registry (`assets/terms.yaml`): checks that every entry has a source, that `references/glossary.md` is current and that no deprecated name is left in the code or the documentation; `--write-glossary` regenerates the glossary (maintainers) |
 | `expression.py regions [--only NAME]` | Prints the regulatory search region, the window and `max_window` (the fetch commands use them already) |
 | `expression.py reproduce --reference uchl1 [--until S] [--keep DIR]` | Re-runs the stages on the bundled reference and compares with `expected.json` |
 | `study.py validate / pending [--json] / decide / require / window` | Study file, researcher decisions, open questions, `--print-max-window` |
@@ -203,7 +205,17 @@ search text or a scorer list), so the researcher can tell the three apart. Name 
 delegated (`delegated: true`) apart from those they gave, and any request they made ahead of its step
 that is still to do.
 
+**Explaining a number** (any step, the chat and the final answer). Follow *How to explain a number* in
+`references/interpretation.md`: the glossary's Portuguese name; what it is, relative to what, its unit (or
+that it has none) and its status; the value from a command, never from memory; "not established" for an
+undecided entry; the reference and alternative levels next to a large percentage in a tissue of very low
+level; and the model's stated limit on tissue specificity with any claim that an effect is the target's own.
+
 0. **Exploration.** `expression.py check`; anything missing goes to `alphagenome-skills-setup`.
+   The gene is its HGNC symbol (`explore --gene`). When the researcher names a disease, a protein or an alias
+   ("PKU", "phenylalanine hydroxylase"), say which gene you take it to be (*PAH*) and confirm before exploring; a disease
+   with several genes is a question, not a choice for you. Write the symbol in italics (`references/glossary.md`,
+   *Writing conventions*).
    Ask the researcher only for the gene and the tissues or cell types in their own words, for both
    sides: where they want to know whether the variants change expression (target) and what to compare it
    with (control), or that they want the exploration to show candidates first. Ask even when the request
@@ -212,12 +224,14 @@ that is still to do.
    other answers (a window, the groups, the question), keep them for step 1 and say so; do not act on them
    yet. Tissues that reach you after the exploration (new groups at step 1, a redefinition) go through
    `explore` again with every text (the other captures are reused), and the researcher sees the terms and
-   the gene's activity found for them before `init` or `decide`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
+   the gene's predicted expression level found for them before `init` or `decide`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
-   gene's predicted activity per tissue, with a warning where it is below the floor. Do not ask
+   gene's predicted expression level per tissue, with a warning where it is below the floor. Explain that level
+   with *The exploration's expression level* in `references/interpretation.md` (a prediction of the probe SNV's
+   larger allele, no official unit, not TPM, comparable only within one kind of track). Do not ask
    for the study's choices before this page is shown, because they depend on it.
    To change the groups after the results (a redefinition), go back to the exploration:
-   `exploration/activity.md` lists every catalogue term with the gene's activity, kind of sample and assays
+   `exploration/activity.md` lists every catalogue term with the gene's predicted expression level, kind of sample and assays
    (`explore --out OUT --activity-only` writes it for an older exploration). Then record the new groups with
    `decide` and recapture (`references/workflow.md`, *Changing the groups after the results*). Never rank
    tissues with your own code.
@@ -248,7 +262,7 @@ that is still to do.
 7. **Track catalogue.** `fetch tracks` (every study CURIE × scorer; zero-track pairs are recorded).
 8. **Cohorts.** `expression.py cohorts`; questions `cohort.unserved:*`, `cohort.no_rna_seq:*`. A
    `replace:` answer also updates `study.yaml`; then `fetch tracks` for the new CURIE and run `cohorts`
-   again. A prediction type without measurements in one group is left out by rule.
+   again. A prediction type without tracks in one group is left out by rule.
 9. **Saturation and AVI** (`fetch avi`) and 10. **Scores per tissue** (`fetch scores`), together.
 11. **Variants and Tier 1.** `expression.py variants` (positions the Atlas does not match are left out
     by rule), then `master` (two QC gates).
@@ -282,6 +296,7 @@ expression-analysis progress:
 - [ ] Step 13: atlas links (and interpretations) fetched; report.md written and read back
 - [ ] Step 14: dashboard opened and presented (choices, how to show, filters, Avançado); questions answered from `summarize`; the researcher's view drawn with `figures` and `report` run again
 - [ ] Final answer: researcher decisions (delegated ones named), the skill's rules and agent choices in separate lists; requests still to do
+- [ ] Every number explained with the glossary's name, its unit and status, from a command; levels given next to large percentages; open points said as open
 ```
 
 ## Scope
@@ -323,13 +338,15 @@ about 20 s each; run them sequentially.
   `scores_{S}.tsv` describe one window captured together; re-capture all of them or none.
 - **Reading a predicted effect in a tissue where the gene's predicted level is very low as tissue-specific.**
   A large % there can be a minimal absolute change; check the exploration's activity table and give the level.
-- **Defining a score from memory.** What `RNA_SEQ`, `RNA_SEQ_ACTIVE` or a quantile is comes from the
-  `alphagenome` dependency skill (`references/interpretation.md`, *Where each score is defined*); read it first.
+- **Defining a score from memory, or naming a quantity your own way.** What each number is, its unit and its
+  status are in `references/glossary.md`; use the Portuguese name written there, and say "not established" for
+  an entry marked undecided. The full definition of a score is in the `alphagenome` dependency skill
+  (`references/interpretation.md`, *Where each score is defined*).
 - **Explaining the dashboard from memory.** Its numbers depend on the researcher's current choices; read the
   screen with `view`, run `summarize --from-dashboard` and quote it, and use the wording of `references/dashboard.md`.
 - **Moving the researcher's page without saying so, or assuming a view arrived.** Say what you will change and
   why before `view`, give it a `--message`, and read the screen back; with the page closed the view only waits.
-- **Presenting a filter as a clinical threshold.** A minimum % change, a multiple of the noise, AVI
+- **Presenting a filter as a clinical threshold.** A minimum % change, a multiple of the between-track disagreement, AVI
   Phred 20 or a large Δ rank predicted effects; none is a pathogenicity cut-off.
 - **Writing your own scripts in the study folder.** Ad-hoc code in `D/` is not in the manifest and is
   mistaken for the skill's output; use the commands here, and keep out-of-scope work outside `D/` (*Scope*).
@@ -347,7 +364,7 @@ about 20 s each; run them sequentially.
 ```
 OUT/exploration/                     # step 0, before any study
   summary.md                         # Portuguese options page for the researcher
-  activity.md                        # every catalogue term with the gene's predicted activity (choosing groups)
+  activity.md                        # every catalogue term with the gene's predicted expression level (choosing groups)
   exploration.json                   # the same options, read by study.py init --from-exploration
   raw/                               # captures with the study's file names (copied into the study)
   atlas/                             # atlas_tracks.tsv (sources, assays), scores_RNA_SEQ_ACTIVE_baseline.tsv

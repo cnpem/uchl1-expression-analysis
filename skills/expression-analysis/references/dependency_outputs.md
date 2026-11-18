@@ -43,13 +43,17 @@ client (`alphagenome.atlas`) and `alphagenome.data.genome` still work, so `alpha
 `atlas_query.py` and `alphagenome_atlas_links.py` run; `interpret_splicing.py` (and every model-API
 script) needs `uv run --with "alphagenome<2" …` (resolved 0.11.0).
 
-**Keys.** The key lives only in the project's `.env` (`deps.env_file()`); the fetch passes that file with
-`--env-file` to every script that needs it (the DeepMind scripts would otherwise look in `~/.env`). The
-K-Dense scripts read only the
-environment, so the fetch runs them as `uv run --env-file <home>/.env …` with the path expanded in
-Python and written with `/` (uv drops the backslashes of a Windows path given to `--env-file`). uv
-loads the file into the process environment; no shell sources it, and the key never appears on a
-command line or in the manifest.
+**Keys.** The key lives only in the project's `.env` (`deps.env_file()`). Every Atlas and model capture runs as
+`uv run --env-file <the project's .env> …` (catalogue, exploration level, AVI, scores, interpretation and the
+links), with the path expanded in Python and written with `/` (uv drops the backslashes of a Windows path given
+to `--env-file`). uv loads the file into the process environment; no shell sources it, and the key never
+appears on a command line or in the manifest. Two rules keep other copies of the key out:
+- the key variables of the inherited environment (`ALPHAGENOME_API_KEY`, `ALPHA_GENOME_API_KEY`,
+  `NCBI_API_KEY`) are dropped before a dependency runs (`deps.clean_env`), because `uv run --env-file` keeps a
+  variable that is already set, so an exported key would win over the project's;
+- a capture that needs the key refuses before it runs when the project's `.env` does not set it. The DeepMind
+  scripts also load `~/.env`, but that load never overrides a variable already set, so it has no effect on the
+  key the project provides.
 
 **polite-http.** The OLS and Ensembl scripts pace requests through a lock file per host holding the
 monotonic time of the next free slot. A file left by a process with another clock can hold a slot
@@ -119,7 +123,7 @@ on `−`. Only `+`-strand genes were recorded so far; the `−` branch follows t
   when the server sends them). It adds the source and assay that the AVI catalogue lacks.
 - `scores_RNA_SEQ_ACTIVE_baseline.tsv` — `atlas_query.py scores --variant V --scorers RNA_SEQ_ACTIVE
   --gene G -o …` for one SNV in the middle of exon 1 (REF from the sequence): one row per RNA-seq track
-  with the gene's predicted activity (`raw_score`); same columns as `scores_{S}.tsv`.
+  with the gene's predicted expression level (`raw_score`); same columns as `scores_{S}.tsv`.
 
 Of the two, only the baseline file is copied into a study, as `raw/scores_RNA_SEQ_ACTIVE_baseline.tsv` (the
 dashboard reconstructs REF from it); the files of `OUT/exploration/raw/` are copied too, with their manifest steps.
@@ -221,7 +225,7 @@ these must hold values (null, empty or NaN fails); none of the recorded outputs 
 ## `scores_{S}.tsv` — per-tissue track scores (step 10)
 
 ```bash
-uv run --env-file <home>/.env --with alphagenome==2.0.0 .claude/skills/alphagenome/scripts/atlas_query.py scores \
+uv run --env-file <project>/.env --with alphagenome==2.0.0 .claude/skills/alphagenome/scripts/atlas_query.py scores \
   --interval W --max-window M --scorers S --ontology C1 C2 … [--gene G] -o raw/scores_{S}.tsv
 ```
 

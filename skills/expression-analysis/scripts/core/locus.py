@@ -420,7 +420,7 @@ def select_transcript(transcripts: list[GtfTranscript], gene_symbol: str,
                 code=t.transcript_id,
                 label=f"{t.transcript_id} ({'MANE Select, ' if t.is_mane_select else ''}{t.transcript_type.replace('_', '-')}, "
                       f"coding sequence {_cds_length(t):,} bp)",
-                effect=f"The gene starts at {t.chromosome}:{_tss(t):,} (strand {'+' if _strand(t) == 1 else '-'}); "
+                effect=f"The gene starts at {t.chromosome}:{_tss(t)} (strand {'+' if _strand(t) == 1 else '-'}); "
                        "the window, exon 1 and the start codon follow this transcript.") for t in pool]
             options.append(Option(code="abort", label="Stop to check the gene",
                                   effect="Nothing is computed; check the gene symbol or capture the gene structure again."))
@@ -477,7 +477,7 @@ def derive_regulatory_unit_window(
     """
     exploring = decisions is None
     decisions = decisions or {}
-    feat = lambda f: f"{f.id} ({f.description}, {chromosome}:{f.start:,}-{f.end:,})"
+    feat = lambda f: f"{f.id} ({f.description}, {chromosome}:{f.start}-{f.end})"
     s = _strand(tx)
     ex1 = _first_exon(tx)
     tss_o = _tss(tx) * s
@@ -491,7 +491,7 @@ def derive_regulatory_unit_window(
         return None, [], [_question(
             NO_CHAIN_KEY,
             f"No {' or '.join(sorted(wanted))} region of the Ensembl Regulatory Build contains or touches the start of "
-            f"{tx.transcript_id} ({chromosome}:{_tss(tx):,}), so the window cannot be built from regulatory regions. "
+            f"{tx.transcript_id} ({chromosome}:{_tss(tx)}), so the window cannot be built from regulatory regions. "
             "Which window should the study use?",
             [Option(code="set_explicit_interval", label="Use a window from the exploration page",
                     effect="You choose one of the exploration's windows that does not depend on regulatory regions "
@@ -499,7 +499,7 @@ def derive_regulatory_unit_window(
                            "from this step."),
              STOP_WINDOW], "set_explicit_interval",
             title="No regulatory region at the start of the gene", why=WINDOW_WHY,
-            identifiers={"transcript": tx.transcript_id, "gene start": f"{chromosome}:{_tss(tx):,}",
+            identifiers={"transcript": tx.transcript_id, "gene start": f"{chromosome}:{_tss(tx)}",
                          "regions searched": ", ".join(sorted(wanted))})]
 
     triggers: list[PendingDecision] = []
@@ -512,20 +512,20 @@ def derive_regulatory_unit_window(
         touching = all(oriented[f.id][0] <= tss_o <= oriented[f.id][1] + 1 for f in anchors)
         if touching:  # by definition of the window: every region at the start of the gene is part of it
             found_rules.append({"key": MULTIPLE_TSS_KEY, "value": "union", "rule": (
-                f"{len(anchors)} regulatory regions contain or touch the start of the gene ({chromosome}:{_tss(tx):,}): "
-                f"{listed}. All of them are kept, so the window starts from {chromosome}:{lo:,}-{hi:,}.")})
+                f"{len(anchors)} regulatory regions contain or touch the start of the gene ({chromosome}:{_tss(tx)}): "
+                f"{listed}. All of them are kept, so the window starts from {chromosome}:{lo}-{hi}.")})
         else:  # some reach the start of the gene only through the allowed gap: a real choice
             triggers.append(_question(
                 MULTIPLE_TSS_KEY,
-                f"{len(anchors)} regulatory regions lie at or near the start of the gene ({chromosome}:{_tss(tx):,}), "
+                f"{len(anchors)} regulatory regions lie at or near the start of the gene ({chromosome}:{_tss(tx)}), "
                 f"some only within the {max_gap_bp:,} bp the study allows between regions: {listed}. Should the window "
                 "start from all of them together?",
                 [Option(code="union", label="Use all of them together",
-                        effect=f"The core of the window spans {chromosome}:{lo:,}-{hi:,} ({_span(lo, hi)})."),
+                        effect=f"The core of the window spans {chromosome}:{lo}-{hi} ({_span(lo, hi)})."),
                  STOP_WINDOW], "union",
                 title="Several regulatory regions near the start of the gene", why=WINDOW_WHY,
                 identifiers={"regions": ", ".join(sorted(f.id for f in anchors)),
-                             "gene start": f"{chromosome}:{_tss(tx):,}"}))
+                             "gene start": f"{chromosome}:{_tss(tx)}"}))
         chain = sorted(anchors, key=lambda f: oriented[f.id][0])
 
     used = {f.id for f in chain}
@@ -567,8 +567,8 @@ def derive_regulatory_unit_window(
             overlap = min(hi, ex1_o[1]) - ex1_o[0] + 1
             found_rules.append({"key": f"locus.exon1_overlap:{f.id}", "value": "keep_full_unit", "rule": (
                 f"Region {feat(f)} overlaps the first {overlap:,} bp of exon 1 of {tx.transcript_id} "
-                f"({chromosome}:{ex1.start:,}-{ex1.end:,}); the window keeps all of exon 1, and those bases count as both "
-                f"{f.description} and exon 1. Window {chromosome}:{a:,}-{b:,} ({_span(a, b)}).")})
+                f"({chromosome}:{ex1.start}-{ex1.end}); the window keeps all of exon 1, and those bases count as both "
+                f"{f.description} and exon 1. Window {chromosome}:{a}-{b} ({_span(a, b)}).")})
     if rules is not None:
         rules.extend(found_rules)
     return Interval(start=a, end=b), chain, triggers

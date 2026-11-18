@@ -38,7 +38,9 @@ def _():
     scripts_dir = Path(os.environ.get("EXPRESSION_ANALYSIS_SCRIPTS") or Path(__file__).resolve().parent.parent / "scripts")
     if str(scripts_dir) not in sys.path:
         sys.path.insert(0, str(scripts_dir))
+    import nomenclature as N
     import study as study_mod
+    import terms as T
     from core import analysis as A
     from core import locus as core_locus
     from viz import dashboard_helpers as H
@@ -76,7 +78,7 @@ def _():
             mo.download(data=lambda: vlc.vegalite_to_svg(_spec()).encode("utf-8"), filename=f"{name}.svg",
                         mimetype="image/svg+xml", label="Salvar SVG"),
         ], justify="start")
-    return (A, H, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
+    return (A, H, N, T, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
             data, dataclasses, figure_svg, full_domain, link_cache, live_link, locus, mo, pl, ref_tissue, save_buttons,
             study_cfg, study_dir)
 
@@ -173,7 +175,7 @@ def _(A, H, data, scorer_pick):
     _t = A.tracks(data, scorer_pick.value)
     assays = sorted(set(_t["assay_title"].drop_nulls().to_list()))
     sources = sorted(set(_t["data_source"].drop_nulls().to_list()))
-    labels = {r["ontology_curie"]: f"{r['tissue']} ({r['tracks']} {'medições' if r['tracks'] > 1 else 'medição'})"
+    labels = {r["ontology_curie"]: f"{r['tissue']} ({r['tracks']} {'trilhas' if r['tracks'] > 1 else 'trilha'})"
               for r in tissues.iter_rows(named=True)}
     return assays, descriptions, labels, sources, tissues
 
@@ -197,7 +199,7 @@ def _(H, agent_choices, assays, base, data, labels, mo, sources):
                                    value=base.max_control_pct if base.max_control_pct is not None else 2.0,
                                    label="Mudança máxima no controle (%)")
     min_sigma = mo.ui.number(start=0.0, stop=20.0, step=0.5, value=base.min_diff_sigma,
-                             label="Alvo − controle acima do ruído (× σ; 0 = desligado)")
+                             label="Alvo − controle acima da discordância entre trilhas (× a típica; 0 = desligado)")
     _domains = data.master.sort("position")["genomic_domain"].unique(maintain_order=True).to_list()
     domain_pick = mo.ui.multiselect(options=_domains, value=[d for d in base.domains if d in _domains] or _domains,
                                     label="Regiões da janela (vazio = todas)")
@@ -278,8 +280,8 @@ def _(A, H, data, dataclasses, pl, profile, show_mode):
 def _(A, data, locus, mo, scorer_pick):
     _what = A.SCALES.get(scorer_pick.value, (None, "o sinal previsto"))[1]
     mo.vstack([
-        mo.md(f"# *{locus.gene_symbol}*: quais variantes mudam {_what}\n"
-              f"Janela `{locus.chromosome}:{locus.window.start:,}-{locus.window.end:,}` · {data.master.height:,} variantes testadas "
+        mo.md(f"# {N.gene(locus.gene_symbol)}: quais variantes mudam {_what}\n"
+              f"Janela `{locus.chromosome}:{locus.window.start}-{locus.window.end}` · {N.count(data.master.height)} variantes testadas "
               "(todas as trocas de uma base) · predições do AlphaGenome, uso somente em pesquisa."),
         mo.accordion({"Como usar": mo.md(
             "A página já abre com o resultado para os grupos do estudo, sem filtros. Mude as três escolhas logo abaixo e veja o "
@@ -312,7 +314,7 @@ def _(control_pick, descriptions, mo, question, show_mode, target_pick, top_k, y
         question,
         mo.hstack([target_pick, control_pick], justify="start", gap=2),
         mo.hstack([y_metric, top_k, show_mode], justify="start", gap=2),
-        mo.accordion({"De onde vêm as medições destes tecidos": mo.md(
+        mo.accordion({"De onde vêm as trilhas destes tecidos": mo.md(
             "**Alvo**  \n" + (_desc(target_pick.value) or "nenhum tecido escolhido")
             + "\n\n**Controle**  \n" + (_desc(control_pick.value) or "nenhum tecido escolhido")
             + "\n\nGTEx e ENCODE são os projetos que mediram a expressão usada para treinar o modelo: GTEx mede tecidos de adultos "
@@ -423,7 +425,7 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
                                            file_name=f"{study_cfg.data['study_id']}_janela_{metric}"))
     _rel = sorted(((_crop[0] - locus.tss) * locus.strand, (_crop[1] - locus.tss) * locus.strand))
     mo.vstack([
-        mo.md(f"## Ao longo da janela\n{_df.height:,} variantes" + (f" (as {profile.top_k:,} primeiras em *Ordenar por*)"
+        mo.md(f"## Ao longo da janela\n{N.count(_df.height)} variantes" + (f" (as {N.count(profile.top_k)} primeiras em *Ordenar por*)"
               if profile.top_k and _df.height >= profile.top_k else "") + f" · trecho de {_crop[1] - _crop[0] + 1} pb "
               f"({_rel[0]:+d} a {_rel[1]:+d} pb do início do gene). Clique numa variante para destacá-la."),
         mo.accordion({"Mapa da janela (gene, promotor, éxon 1)": mo.Html(figure_svg(locus, footprint_blocks(locus))),
@@ -500,7 +502,9 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
     _q = not A.uses_pct(profile)
     _pct = (lambda c: pl.col(c).round(3)) if _q else (lambda c: ((pl.lit(_base).pow(pl.col(c)) - 1) * 100).round(1))
     _mark = "quantil" if _q else "%"
-    _show = _rows.select([pl.col("variant_id").alias("variante"), pl.col("genomic_domain").alias("região"),
+    _show = _rows.select([pl.col("variant_id").alias("variante"),
+                          pl.col("variant_id").map_elements(lambda v: N.hgvs_g(v) or "—", return_dtype=pl.Utf8).alias("HGVS (g.)"),
+                          pl.col("genomic_domain").alias("região"),
                           pl.col("distance_to_tss").alias("dist. início do gene"),
                           _pct("target_mean").alias(f"{_mark} {profile.target_label}"),
                           # without a control tissue there is no control value: no column, instead of "None"
@@ -513,7 +517,7 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
     variant_table = mo.ui.table(_show.to_dicts(), selection="multi",
                                 initial_selection=[i for i, v in enumerate(_ids) if v in set(get_focus_ids())], page_size=12,
                                 on_change=lambda rows: select_variants([r["variante"] for r in rows or []]),
-                                label=f"{_show.height:,} variantes no trecho atual")
+                                label=f"{N.count(_show.height)} variantes no trecho atual")
     _splice = _rows.height and "Splicing" in _rows.head(10)["top_feature"].to_list()
     mo.vstack([
         mo.md((f"## Variantes\nQuantil do Atlas (−1 a 1) d{A.SCALES.get(profile.scorer, (None, 'o sinal previsto'))[1]}, " if _q else
@@ -542,14 +546,16 @@ def _(H, data, get_focus_ids, labels, mo, pick_by_id, pl, profile, save_buttons,
     else:
         _long = H.track_effects(data, profile, _ids, labels)
         _links = data.master.filter(pl.col("variant_id").is_in(_ids)).select("variant_id", "atlas_url", "genomic_domain", "top_feature")
-        _md = "  \n".join(f"**{r['variant_id']}** · {r['genomic_domain']} · modalidade AVI {r['top_feature']} · "
+        _md = "  \n".join(f"**{r['variant_id']}** ({N.hgvs_g(r['variant_id']) or '—'}) · {r['genomic_domain']} · "
+                          f"modalidade AVI {r['top_feature']} · "
                           f"[ver no AlphaGenome Atlas]({r['atlas_url']})" for r in _links.iter_rows(named=True))
         _body = mo.vstack([
             mo.md(_md),
-            mo.md("Uma barra por medição. Barras do mesmo tecido que discordam muito indicam medição instável naquele tecido."),
+            mo.md("Uma barra por trilha. Barras do mesmo tecido que discordam muito indicam trilhas que discordam naquele tecido "
+                  "(ensaios ou fontes diferentes)."),
             *([_bars := H.variant_tissue_bars(_long, profile),
                save_buttons(_bars, f"{study_cfg.data['study_id']}_variantes_por_tecido", width=900)]
-              if _long.height else [mo.md("Sem medições para os tecidos escolhidos.")]),
+              if _long.height else [mo.md("Sem trilhas para os tecidos escolhidos.")]),
         ])
     mo.vstack([mo.md(f"## Variantes destacadas ({len(_ids)})"), pick_by_id, _body])
     return
@@ -564,11 +570,12 @@ def _(A, mo, steps):
 @app.cell
 def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, profile, steps, use_max_control):
     _ov = A.noise_overall(data, profile.scorer, profile.assays or None, profile.sources or None, score=profile.score)
-    _p95 = ("não disponível (nenhum tecido com duas medições)" if _ov is None else
+    _p95 = ("não disponível (nenhum tecido com duas trilhas)" if _ov is None else
             f"{H._n(A.pct(_ov[0], profile.scorer), 1)}%" if A.uses_pct(profile) else f"{H._n(_ov[0], 3)} no quantil")
     mo.accordion({"Filtrar resultados": mo.vstack([
-        mo.md("Todos começam desligados. Como referência, duas medições do **mesmo** tecido costumam discordar em até "
-              f"**{_p95}** neste estudo (95% dos casos): mudanças menores que isso podem ser só diferença entre medições."),
+        mo.md("Todos começam desligados. Como referência, duas trilhas do **mesmo** tecido (de ensaios ou fontes diferentes) "
+              f"costumam discordar em até **{_p95}** neste estudo (95% dos casos): mudanças menores que isso podem ser só "
+              "discordância entre trilhas."),
         *([mo.md("**Pontuação em quantil** (em *Avançado*): os filtros em % abaixo ficam desligados; o sentido da pergunta "
                  "continua valendo para todo tecido do alvo.")] if not A.uses_pct(profile) else []),
         min_target_pct,
@@ -576,9 +583,10 @@ def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, p
         mo.hstack([use_max_control, max_control_pct], justify="start"),
         mo.md("Para efeitos próprios do alvo: nenhum tecido do controle pode mudar mais que isso."),
         min_sigma,
-        mo.md("A diferença entre alvo e controle precisa superar este múltiplo do ruído do estudo (2 = além do comum; 3 = bem além). "
-              "O ruído é estimado juntando todos os tecidos com duas ou mais medições; um tecido com uma só medição usa esse ruído "
-              "geral. Sem controle ou sem ruído, o filtro fica de fora (a tabela de etapas diz quando)."),
+        mo.md("A diferença entre alvo e controle precisa superar este múltiplo da discordância típica entre trilhas do estudo. "
+              "A discordância é estimada juntando todos os tecidos com duas ou mais trilhas, que são de ensaios ou fontes "
+              "diferentes (não são réplicas); um tecido com uma só trilha usa essa estimativa geral. Sem controle ou sem "
+              "tecido com duas trilhas, o filtro fica de fora (a tabela de etapas diz quando)."),
         domain_pick,
         mo.md("**Quantas variantes passam em cada etapa:**"),
         mo.ui.table(A.funnel(steps).to_pandas(), selection=None, pagination=False),
@@ -587,19 +595,20 @@ def _(A, H, data, domain_pick, max_control_pct, min_sigma, min_target_pct, mo, p
 
 
 @app.cell
-def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, group_pick, labels, mo, noise, pl,
+def _(A, H, T, assay_pick, control_name, descriptions, flags, floor_applies, group_pick, labels, mo, noise, pl,
       profile, ref_floor, score_pick, scorer_pick, shown_pick, source_pick, target_name, tissues, use_floor):
     _t = tissues.select(pl.col("tissue").alias("tecido"), pl.col("ontology_curie").alias("termo"),
                         pl.col("study_cohort").replace({"target": "alvo", "control": "controle"}).alias("na captura"),
-                        pl.col("tracks").alias("medições"), pl.col("ref_min").round(4).alias("REF mín"),
+                        pl.col("tracks").alias("trilhas"), pl.col("ref_min").round(4).alias("REF mín"),
                         pl.col("ref_max").round(4).alias("REF máx"),
-                        pl.col("ontology_curie").replace_strict(descriptions, default="").alias("de onde vêm as medições"))
+                        pl.col("ontology_curie").replace_strict(descriptions, default="").alias("de onde vêm as trilhas"))
     if noise is None:
-        _noise_md = "Nenhum tecido tem duas medições com os ensaios e fontes escolhidos: não há como medir o ruído."
+        _noise_md = ("Nenhum tecido tem duas trilhas com os ensaios e fontes escolhidos: não há como estimar a "
+                     "discordância entre trilhas.")
     else:
         _rows = [f"| até {r['hi']:.3f} | {r['p95']:.3f} | {r['p99']:.3f} | {r['sigma']:.3f} |" if r["hi"] != float("inf")
                  else f"| acima | {r['p95']:.3f} | {r['p99']:.3f} | {r['sigma']:.3f} |" for r in noise.iter_rows(named=True)]
-        _noise_md = (f"| tamanho da mudança ({A.unit(profile)}, em módulo) | p95 | p99 | σ |\n"
+        _noise_md = (f"| tamanho da mudança ({A.unit(profile)}, em módulo) | p95 | p99 | típica |\n"
                      "|---|---|---|---|\n" + "\n".join(_rows))
     _warn = [f"- **{labels.get(c, c)}**: abaixo do piso de expressão" for c, f in flags.items() if f == "below floor"]
     mo.accordion({"Avançado": mo.vstack([
@@ -607,24 +616,26 @@ def _(A, H, assay_pick, control_name, descriptions, flags, floor_applies, group_
         mo.hstack([target_name, control_name], justify="start"),
         shown_pick,
         mo.md(H.group_legend_md(profile, labels)),
-        mo.md("### Medições que entram"),
-        mo.md("Misturar polyA com total, ou ENCODE com GTEx, junta medições que às vezes discordam muito."),
+        mo.md("### Trilhas que entram"),
+        mo.md("Misturar polyA com total, ou ENCODE com GTEx, junta trilhas que às vezes discordam muito."),
         mo.hstack([assay_pick, source_pick], justify="start"),
         mo.md("### Como os valores são calculados"),
         mo.md("**Pontuação**: o valor do modelo é a mudança prevista (dá a % e os filtros em %); o quantil do Atlas é a posição "
-              "da variante entre as variantes comuns (−1 a 1), comparável entre tipos de predição e medições, mas sem %. "
+              "da variante entre as variantes comuns (−1 a 1), comparável entre tipos de predição e trilhas, mas sem %. "
               "**Valor de cada grupo**: a média dos tecidos, ou a mediana, que pesa menos um tecido que destoa."),
         mo.hstack([score_pick, group_pick], justify="start"),
         mo.md("### Expressão de referência"),
-        mo.md("REF = expressão do gene prevista no tecido, sem a variante. Perto de 0,001 (o pseudocount do modelo) o gene está "
-              "praticamente desligado e as mudanças previstas ficam instáveis. Na ativação ectópica, use \"Só avisar\"."),
+        mo.md("REF = nível de expressão previsto do gene no tecido com o alelo de referência. Perto de 0,001 (a pseudocontagem "
+              "da pontuação RNA_SEQ) o nível é quase nulo, e uma mudança grande em % pode ser uma mudança absoluta mínima. Para "
+              "estudar um aumento a partir de um nível muito baixo, use \"Só avisar\"."),
         mo.hstack([use_floor, ref_floor, floor_applies], justify="start"),
         mo.md("\n".join(_warn)),
         mo.md("### Tecidos capturados"),
         mo.ui.table(_t.to_pandas(), selection=None, pagination=False),
-        mo.md("### Ruído do estudo"),
-        mo.md("Quanto duas medições do mesmo tecido discordam, por tamanho da mudança (na escala bruta do modelo). σ é a escala típica "
-              "usada no filtro \"acima do ruído\"."),
+        mo.md(f"### {T.cap(T.label('track_disagreement'))}"),
+        mo.md("Quanto duas trilhas do mesmo tecido discordam, por tamanho da mudança (na escala bruta do modelo). As duas trilhas "
+              "são de ensaios ou fontes diferentes, não réplicas. A coluna *típica* é a escala usada no filtro \"acima da "
+              "discordância\"."),
         mo.md(_noise_md),
         mo.md("### Tipo de predição"),
         scorer_pick,
