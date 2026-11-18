@@ -12,7 +12,9 @@ Install the skill with the Skills CLI:
 npx skills add cnpem/uchl1-expression-analysis --skill expression-analysis
 ```
 
-Or copy `skills/expression-analysis` into `.claude/skills/`, `.agents/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`.
+Or copy `skills/expression-analysis` into `.claude/skills/`, `.agents/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`. Agent apps load project skills only from these folders; a copy kept anywhere else (for example a
+`.skills/` folder) is never loaded, and the agent then answers with the dependency skills alone, choosing
+windows and tissues without the researcher. `expression.py check` warns when the skill is in such a folder.
 
 ## Prerequisites & Dependencies
 
@@ -38,6 +40,10 @@ uv run skills/expression-analysis/scripts/expression.py dashboard --study-dir /t
 ```
 
 See [`skills/expression-analysis/SKILL.md`](skills/expression-analysis/SKILL.md) and [`skills/expression-analysis/references/workflow.md`](skills/expression-analysis/references/workflow.md) for the complete 14-step workflow.
+
+## What the numbers mean
+
+Every quantity the pages show is defined once in [`assets/terms.yaml`](skills/expression-analysis/assets/terms.yaml), with its name in Portuguese and English, formula, unit and source; [`references/glossary.md`](skills/expression-analysis/references/glossary.md) is generated from it (`expression.py terms --write-glossary`), and [`references/interpretation.md`](skills/expression-analysis/references/interpretation.md) explains how each score is computed and what the model does not establish. `expression.py terms` checks that the code and the documentation use only the registry's names.
 
 ## Versions
 

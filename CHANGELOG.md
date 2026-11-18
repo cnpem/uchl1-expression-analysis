@@ -9,6 +9,69 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-18
+
+Every number the skill shows has one name, one definition and a source, and the pages write genes, variants
+and numbers by the usual conventions. This version changes the wording of the pages and of the questions
+(step 0 confirms the HGNC symbol), and adds a genomic HGVS column to `report.md`, `summarize` and the
+dashboard. The numbers do not change: the bundled reference reproduces with the same values. A study made
+with 0.4.0 opens as it is; running `report` again writes it with the new names.
+
+### Added
+
+- **Writing conventions** (`scripts/nomenclature.py`; *Writing conventions* in `references/glossary.md`, from
+  `assets/terms.yaml`): the human gene symbol in italics (the protein in roman type); next to each listed
+  variant, its genomic HGVS description on the GRCh38 RefSeq chromosome (`NC_…:g.posREF>ALT`; accessions from
+  the NCBI GRCh38.p14 assembly report) in the report, `summarize` and the dashboard; genomic coordinates
+  without thousands separators; Portuguese numbers with a decimal comma and a dot for thousands. Step 0 asks
+  the agent to map a disease, protein or alias to the HGNC symbol and confirm it.
+- **Term registry** (`assets/terms.yaml`, `scripts/terms.py`): one entry per quantity the skill shows, with the
+  API variable it comes from, its name in Portuguese and English, definition, formula, unit, what it may be
+  compared with, status (official, this skill's convention, undecided) and source.
+  - `references/glossary.md` is generated from it; the agent reads it before explaining a number.
+  - `expression.py terms` checks the registry, the glossary and the code and documentation for deprecated
+    names; `reproduce` runs the same check.
+  - `expression.py check` notes when the installed `alphagenome` skill differs from the version the
+    definitions were checked against (`skills-lock.json`).
+
+### Changed
+
+- **`references/interpretation.md` rewritten** for the agent's explanations: how to explain a number (the
+  glossary's name; what it is, relative to what, unit, status; values from a command; "not established" for
+  an open point; levels next to a large percentage), each AlphaGenome score with its formula and unit, the
+  exploration's expression level step by step, the dashboard's quantities with their formulas (percent,
+  group value, between-track disagreement and its 1.4826 × median scale, REF reconstruction), the three
+  thresholds, very low levels, the model's stated limits (tissue specificity, no uncertainty estimate), and
+  answers to the questions researchers ask. The fixed triage is one section. SKILL.md: explaining a number
+  follows it (step 0, step 14, final answer, checklist).
+- Statements aligned with the open points: comparability of levels and of effects across assays, the
+  quantile background and the Atlas model are marked not established where no source settles them; the
+  exploration page no longer says that effects in a low-level target are unreliable without saying why.
+- **Names on the pages** (wording only; no number changes). The exploration pages, the dashboard, `summarize`
+  and the report now use the registry's names:
+  - *nível de expressão previsto* for the gene's level (before: *atividade*);
+  - *trilha* for an Atlas output of one sample, assay and source (before: *medição*);
+  - *discordância entre trilhas* and *discordância típica* (before: *ruído* and σ). The filter steps read
+    "alvo − controle ≥ N × a discordância típica"; the pages say the two tracks of a pair differ in assay or
+    source and are not replicates;
+  - *abaixo de 5% do máximo do gene* (before: *gene não expresso*, *praticamente desligado*);
+  - *variante de sondagem*, *tipo de predição*, *pseudocontagem da pontuação RNA_SEQ*.
+  The option `--min-sigma` and the columns `diff_sigma` and `sigma` keep their names.
+- The exploration no longer says that a tissue without expression is a good control "para mostrar ausência
+  de efeito": a term of very low level can dominate a group value.
+
+### Fixed
+
+- **`check` warns when the skill sits where no agent app reads it.** A copy in `<project>/.skills/` was never
+  loaded by Antigravity, which read only the dependency skills in `.agents/skills/` and ran its own analysis,
+  choosing the window and the tissues without asking the researcher. `check` now names the folder to move it to.
+- **The key comes only from the project's `.env`, for every capture.** The AVI capture (step 9) and the Atlas
+  links ran without `--env-file`, so the DeepMind script read the key from the environment or `~/.env`;
+  they now get the project's `.env`, as the other captures do. The key variables of the inherited
+  environment are dropped before any dependency runs, because `uv run --env-file` keeps a variable that
+  is already set; and the AVI capture and the interpretation refuse to run when the project's `.env` lacks
+  the key, as the Atlas queries already did.
+
 ## [0.4.0] - 2026-11-17
 
 The researcher's decisions become part of the study, and the agent and the open dashboard can see and move

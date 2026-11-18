@@ -92,18 +92,22 @@ def _rel(ws: Workspace, path: Path) -> str:
     return path.relative_to(ws.root).as_posix()
 
 
+def _key_args() -> list[str]:
+    """`--env-file <the project's .env>` for a capture that needs the AlphaGenome key; refuses, before anything runs,
+    when the project's .env does not set it (the DeepMind scripts would otherwise fall back to ~/.env)."""
+    if not deps.key_present("ALPHAGENOME_API_KEY"):
+        raise FetchError("ALPHAGENOME_API_KEY is not set in the project's .env; the researcher sets it with the "
+                         "alphagenome-skills-setup skill (expression.py check names what is missing).")
+    return _env_args()
+
+
 def _avi_argv(*args: str) -> list[str]:
-    return ["uv", "run", "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.AVI_DEPS),
+    return ["uv", "run", *_key_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.AVI_DEPS),
             str(deps.skill_script(*AVI)), *args]
 
 
 def _atlas_query_argv(*args: str) -> list[str]:
-    env = deps.env_file()
-    pre = ["--env-file", env.as_posix()] if env else []  # uv drops backslashes from this path on Windows
-    if not deps.key_present("ALPHAGENOME_API_KEY"):
-        raise FetchError("ALPHAGENOME_API_KEY is not set in the project's .env; the researcher sets it with the "
-                         "alphagenome-skills-setup skill (expression.py check names what is missing).")
-    return ["uv", "run", *pre, *deps.uv_with(deps.ATLAS_QUERY_PINS), str(deps.skill_script(*ATLAS_QUERY)), *args]
+    return ["uv", "run", *_key_args(), *deps.uv_with(deps.ATLAS_QUERY_PINS), str(deps.skill_script(*ATLAS_QUERY)), *args]
 
 
 def _env_args() -> list[str]:
@@ -298,7 +302,7 @@ def atlas_tracks(ws: Workspace) -> Path:
 
 
 def baseline(ws: Workspace, variant: str, gene: str) -> Path:
-    """RNA_SEQ_ACTIVE of one SNV inside the gene, every track: the predicted activity of the gene per tissue."""
+    """RNA_SEQ_ACTIVE of one SNV inside the gene, every track: the predicted expression level of the gene per tissue."""
     out = _out(ws, "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv")
     argv = _atlas_query_argv("scores", "--variant", variant, "--scorers", "RNA_SEQ_ACTIVE", "--gene", gene, "-o", str(out))
     if _exec(ws, argv) is None:
@@ -316,7 +320,8 @@ def atlas_links(ws: Workspace) -> Path:
     if not src.is_file() and not ws.dry_run:
         raise FetchError("processed/top_variants.json not found; run expression.py contrast first (Workflow step 12).")
     out = _out(ws, "raw/atlas_links.md")
-    argv = ["uv", "run", "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.LINKS_DEPS),
+    # building links needs no key; the project's .env is passed anyway, so the script never falls back to ~/.env
+    argv = ["uv", "run", *_env_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.LINKS_DEPS),
             str(deps.skill_script(*LINKS)), "table", "--input", str(src)]
     run = _exec(ws, argv)
     if run is None:
@@ -339,7 +344,7 @@ def interpret(ws: Workspace, variant: str, ontology: str, gene: str, tissue: str
     tag = f"{chrom}_{pos}_{ref}_{alt}"
     out = _out(ws, f"raw/interpret_{tag}.txt")
     common = ["--chrom", chrom, "--pos", pos, "--ref", ref, "--alt", alt]
-    argv = ["uv", "run", *_env_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
+    argv = ["uv", "run", *_key_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
             str(deps.skill_script(*SVA_INTERPRET)), *common, "--ontology_id", ontology]
     written: list[Path] = []
     run = _exec(ws, argv)
@@ -349,7 +354,7 @@ def interpret(ws: Workspace, variant: str, ontology: str, gene: str, tissue: str
                   [_rel(ws, out)], {"python": deps.DEP_PYTHON, "packages": _pins(deps.SVA_DEPS)})
         written.append(out)
     vdir = _out(ws, f"figures/variants/{tag}")
-    argv = ["uv", "run", *_env_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
+    argv = ["uv", "run", *_key_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
             str(deps.skill_script(*SVA_VISUALIZE)), *common, "--gene", gene, "--tissue", tissue, "--ontology",
             ontology, "--tracks", "regulatory", "--output_dir", str(vdir)]
     if _exec(ws, argv) is not None:

@@ -36,12 +36,14 @@ import polars as pl
 
 import fetch
 import models
+import nomenclature as N
+import terms as T
 from core import locus as core_locus
 
 STEP = 0
 DEFAULT_SCORERS = ("RNA_SEQ", "CAGE", "DNASE", "ATAC")
 DEFAULT_FLANK_BP = 2000
-DEFAULT_FLOOR = 0.05  # gene activity below 5% of the gene's highest tissue reads as "not expressed"
+DEFAULT_FLOOR = 0.05  # terms whose expression level is below 5% of the gene's highest term are flagged (relative cut)
 TSS_HALF_WIDTH = 500
 EXPLORATION_FILE = "exploration.json"
 SUMMARY_FILE = "summary.md"
@@ -274,7 +276,7 @@ def baseline_activity(path: Path, floor: float) -> dict[str, Any]:
 
 
 def write_activity(root: Path, floor: float = 0.05) -> Path:
-    """exploration/activity.md: every term of the Atlas catalogue with the gene's predicted activity, most active
+    """exploration/activity.md: every term of the Atlas catalogue with the gene's predicted expression level, highest
     first, with its kind of sample, assays, sources and number of measurements. The list to choose (or change)
     the target and control groups from, without new captures or ad-hoc code."""
     root = Path(root)
@@ -289,11 +291,11 @@ def write_activity(root: Path, floor: float = 0.05) -> Path:
          .sort("activity", descending=True))
     top = float(t["activity"].max() or 0.0)
     variant = df["variant"][0] if "variant" in df.columns else "?"
-    L = [f"# Atividade prevista do gene em todos os tecidos e células do catálogo ({t.height})", "",
-         f"Atividade prevista do gene: pontuação `RNA_SEQ_ACTIVE` de uma variante de sondagem ({variant}), isto é, o maior "
+    L = [f"# {T.cap(T.label('expression_level'))} do gene em todos os tecidos e células do catálogo ({t.height})", "",
+         f"{T.cap(T.label('expression_level'))} do gene: pontuação `RNA_SEQ_ACTIVE` de uma {T.label('probe_snv')} ({variant}), isto é, o maior "
          "entre os alelos REF e ALT da cobertura média de RNA-seq prevista nos éxons do gene. A tabela traz a média das "
-         f"trilhas de cada termo e o valor relativo ao termo de maior média ({top:.3g}). Abaixo de {_pct(floor)} desse "
-         "máximo, a coluna *Expresso* diz **não**: é um corte desta skill, relativo ao máximo do próprio gene e sem "
+         f"trilhas de cada termo e o valor relativo ao termo de maior média ({N.dec(top)}). Abaixo de {_pct(floor)} desse "
+         f"máximo, a coluna *≥ {_pct(floor)} do máximo* diz **não**: é um corte desta skill, relativo ao máximo do próprio gene e sem "
          "calibração; não quer dizer que o transcrito esteja ausente. Onde o valor é muito baixo, a mudança em % de uma "
          "variante pode ser grande mesmo com uma mudança absoluta mínima. Use esta lista para escolher, ou trocar depois "
          "dos resultados, os tecidos do alvo e do controle; um termo novo precisa de captura (passos 7 a 10).", "",
@@ -302,12 +304,13 @@ def write_activity(root: Path, floor: float = 0.05) -> Path:
          "mostra o nível com o alelo de referência (REF), reconstruído das duas pontuações. As trilhas de um termo podem "
          "ser de ensaios (polyA, total) e fontes (ENCODE, GTEx) diferentes, cujos valores não são diretamente "
          "comparáveis: as colunas *Ensaios* e *Fontes* dizem o que entrou em cada média.", "",
-         "| # | Termo | Nome | Tipo | Atividade | Relativa | Expresso | Ensaios | Fontes | Medições |",
+         f"| # | Termo | Nome | Tipo | {T.cap(T.short('expression_level'))} | {T.cap(T.short('share_of_maximum'))} | "
+         f"≥ {_pct(floor)} do máximo | Ensaios | Fontes | {T.cap(T.label('track'))}s |",
          "|---|---|---|---|---|---|---|---|---|---|"]
     for i, r in enumerate(t.iter_rows(named=True), 1):
         rel = r["activity"] / top if top > 0 else 0.0
         L.append(f"| {i} | {r['ontology_curie']} | {r['name']} | {_KIND_PT.get(r['kind'], r['kind'] or '—')} | "
-                 f"{r['activity']:.3g} | {_pct(rel)} | {'sim' if rel >= floor else 'não'} | {r['assays'] or '—'} | "
+                 f"{N.dec(r['activity'])} | {_pct(rel)} | {'sim' if rel >= floor else 'não'} | {r['assays'] or '—'} | "
                  f"{r['sources'] or '—'} | {r['tracks']} |")
     out = root / ACTIVITY_FILE
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
@@ -430,20 +433,20 @@ def _act(activity: dict[str, Any], curie: str) -> str:
     a = activity["by_curie"].get(curie)
     if a is None:
         return "sem trilha de RNA-seq"
-    flag = "" if a["expressed"] else " ⚠ gene não expresso"
-    return f"{a['activity']:.3g} ({_pct(a['relative'])} do máximo){flag}"
+    flag = "" if a["expressed"] else f" ⚠ abaixo de {_pct(activity['floor'])} do máximo do gene"
+    return f"{N.dec(a['activity'])} ({_pct(a['relative'])} do máximo){flag}"
 
 
 def render_summary(d: dict[str, Any]) -> str:
     act = d["activity"]
     scorers = d["scorers"]
     L: list[str] = []
-    L.append(f"# Exploração do gene {d['gene']}: opções antes de definir o estudo\n")
+    L.append(f"# Exploração do gene {N.gene(d['gene'])}: opções antes de definir o estudo\n")
     L.append("Esta página resume consultas **só de leitura** (estrutura do gene, elementos regulatórios, termos de "
-             "ontologia, catálogo de trilhas do AlphaGenome Atlas e a atividade prevista do gene em cada tecido). "
+             "ontologia, catálogo de trilhas do AlphaGenome Atlas e o nível de expressão previsto do gene em cada tecido). "
              "Só uma variante de sondagem foi pontuada, para ler o nível do gene em cada tecido; nenhuma variante da "
              "janela foi pontuada ainda. Com base nela, o pesquisador escolhe a janela, os tecidos alvo e "
-             "controle e os tipos de sinal (scorers); só então o estudo é criado. Tudo aqui é predição de modelo, para "
+             "controle e os tipos de predição (scorers); só então o estudo é criado. Tudo aqui é predição de modelo, para "
              "priorizar experimentos, não medida nem diagnóstico.\n")
     L.append("## 1. O gene\n")
     L.append(f"- Transcrito usado: **{d['transcript']}** (fita {d['strand']}), TSS em {d['chromosome']}:{d['tss']}; "
@@ -481,11 +484,11 @@ def render_summary(d: dict[str, Any]) -> str:
     L.append("## 4. Tecidos e células: termos de ontologia e trilhas disponíveis\n")
     L.append("Para cada texto citado, os termos candidatos (UBERON = tecido, CL = tipo celular, EFO/CLO = linhagens "
              "celulares), com o número de trilhas do Atlas por scorer (fonte entre parênteses), o protocolo de RNA-seq e "
-             "a atividade prevista do gene naquele termo. Um termo sem trilha não pode entrar na comparação; nesses "
+             "o nível de expressão previsto do gene naquele termo. Um termo sem trilha não pode entrar na comparação; nesses "
              "casos aparecem os termos mais específicos (descendentes) que têm trilhas.\n")
     for t in d["terms"]:
         L.append(f"### \"{t['text']}\"\n")
-        L.append("| Termo | Nome | " + " | ".join(scorers) + " | RNA-seq (protocolo) | Atividade do gene |\n"
+        L.append("| Termo | Nome | " + " | ".join(scorers) + " | RNA-seq (protocolo) | Nível de expressão previsto |\n"
                  "|---|---|" + "---|" * len(scorers) + "---|---|")
         for c in t["candidates"]:
             star = " **(recomendado)**" if c["curie"] == t["recommended"] else ""
@@ -507,44 +510,50 @@ def render_summary(d: dict[str, Any]) -> str:
                      "os outros tecidos seguiram normalmente.")
         if t["descendants"]:
             L.append("\nDescendentes com trilhas (substitutos possíveis do termo recomendado):\n")
-            L.append("| Termo | Nome | " + " | ".join(scorers) + " | Atividade do gene |\n|---|---|"
+            L.append("| Termo | Nome | " + " | ".join(scorers) + " | Nível de expressão previsto |\n|---|---|"
                      + "---|" * len(scorers) + "---|")
             for x in t["descendants"][:10]:
                 L.append(f"| {x['curie']} | {x['label']} | " + " | ".join(_scorer_cell(x, s) for s in scorers)
                          + f" | {_act(act, x['curie'])} |")
         if t["related_in_catalogue"]:
             L.append("\nOutros termos do catálogo cujo nome contém o texto (subtipos, linhagens):\n")
-            L.append("| Termo | Nome no catálogo | " + " | ".join(scorers) + " | Atividade do gene |\n|---|---|"
+            L.append("| Termo | Nome no catálogo | " + " | ".join(scorers) + " | Nível de expressão previsto |\n|---|---|"
                      + "---|" * len(scorers) + "---|")
             for x in t["related_in_catalogue"]:
                 L.append(f"| {x['curie']} | {x['label']} | " + " | ".join(_scorer_cell(x, s) for s in scorers)
                          + f" | {_act(act, x['curie'])} |")
         L.append("")
-    L.append("## 5. O gene é expresso nesses tecidos? (atividade prevista, `RNA_SEQ_ACTIVE`)\n")
-    L.append(f"Uma consulta ao Atlas com uma variante dentro do gene ({d['baseline_variant']}) devolve, para cada "
-             "trilha de RNA-seq, a atividade prevista do gene. Os valores abaixo são relativos ao tecido de maior "
-             f"atividade do gene ({act['max']:.3g}). Abaixo de {_pct(act['floor'])} do máximo, tratamos o gene como "
-             "**não expresso** naquele tecido: lá, o modelo tende a prever variações relativas grandes sobre um sinal "
-             "quase nulo, que não devem ser lidas como efeito específico do tecido.\n")
+    L.append(f"## 5. {T.cap(T.label('expression_level'))} do gene nesses tecidos (`RNA_SEQ_ACTIVE`)\n")
+    L.append(f"Uma consulta ao Atlas com uma {T.label('probe_snv')} dentro do gene ({d['baseline_variant']}) devolve, para "
+             f"cada trilha de RNA-seq, o {T.label('expression_level')} do gene: o maior entre os dois alelos dessa variante. "
+             "Os valores abaixo são relativos ao termo de maior nível médio do gene no catálogo "
+             f"({N.dec(act['max'])}). Abaixo de {_pct(act['floor'])} desse máximo o termo é marcado: é um corte desta skill, "
+             "relativo ao máximo do próprio gene e sem calibração; não quer dizer que o transcrito esteja ausente. Onde o "
+             "nível é muito baixo, a mudança em % de uma variante pode ser grande mesmo com uma mudança absoluta mínima, e "
+             "não deve ser lida como efeito específico do tecido. As trilhas de um termo podem ser de ensaios e fontes "
+             "diferentes, cujos valores não são diretamente comparáveis.\n")
     L.append(f"A lista completa, com os {len(act['by_curie'])} tecidos e células do catálogo, tipo de amostra, ensaios e "
              f"fontes, está em `{ACTIVITY_FILE}`.\n")
-    L.append("| Tecidos onde o gene é mais ativo | Atividade | Relativa |\n|---|---|---|")
+    L.append(f"| Termos de maior {T.label('expression_level')} | {T.cap(T.short('expression_level'))} | "
+             f"{T.cap(T.short('share_of_maximum'))} |\n|---|---|---|")
     for c in act["top"]:
         a = act["by_curie"][c]
-        L.append(f"| {c} ({a['name']}) | {a['activity']:.3g} | {_pct(a['relative'])} |")
+        L.append(f"| {c} ({a['name']}) | {N.dec(a['activity'])} | {_pct(a['relative'])} |")
     low = [(t["text"], t["recommended"]) for t in d["terms"]
            if t["recommended"] in act["by_curie"] and not act["by_curie"][t["recommended"]]["expressed"]]
     L.append("")
     if low:
-        L.append("**Aviso:** o gene é previsto como praticamente desligado em: "
+        L.append(f"**Aviso:** abaixo de {_pct(act['floor'])} do máximo do gene: "
                  + "; ".join(f"\"{txt}\" ({c})" for txt, c in low)
-                 + ". Se algum deles for o tecido alvo, os efeitos previstos ali serão pouco confiáveis; considere um "
-                   "tecido da lista acima onde o gene é expresso. Como controle, um tecido sem expressão serve para "
-                   "mostrar ausência de efeito, mas não para comparar intensidades.")
+                 + ". Se algum deles for o tecido alvo, uma mudança grande em % ali pode ser uma mudança absoluta mínima "
+                   "(e o modelo erra mais na especificidade de tecido para genes de nível baixo); considere um "
+                   "termo da lista acima com nível mais alto. Como controle, um termo de nível muito baixo pode dominar o "
+                   "valor do grupo com mudanças grandes em % que são mudanças absolutas mínimas; o painel tem um piso do "
+                   "nível REF para tirá-lo do cálculo.")
     else:
-        L.append("Todos os termos recomendados com RNA-seq estão acima do piso de expressão.")
+        L.append(f"Todos os termos recomendados com RNA-seq estão acima de {_pct(act['floor'])} do máximo do gene.")
     L.append("")
-    L.append("## 6. Tipos de sinal (scorers)\n")
+    L.append(f"## 6. {T.cap(T.label('scorer'))} (scorers)\n")
     L.append("| Scorer | O que mede | Termos recomendados com trilha |\n|---|---|---|")
     meaning = {"RNA_SEQ": "expressão (RNA)", "CAGE": "início de transcrição", "DNASE": "cromatina acessível (DNase)",
                "ATAC": "cromatina acessível (ATAC)"}
@@ -569,8 +578,8 @@ def render_summary(d: dict[str, Any]) -> str:
     L.append("1. A janela (seção 3).\n2. Quais termos formam o grupo **alvo** e quais o **controle** (seção 4), e um "
              "nome curto para cada grupo.\n3. Os scorers (seção 6).\n\nDepois disso o estudo é criado com "
              "`study.py init --from-exploration`, reaproveitando todos os arquivos já baixados.\n")
-    L.append("Arquivos desta exploração: `raw/` (respostas das skills de dependência), `atlas/` (catálogo e atividade "
-             "basal), `exploration.json`, `manifest.json` (comandos exatos e versões).\n")
+    L.append("Arquivos desta exploração: `raw/` (respostas das skills de dependência), `atlas/` (catálogo e nível de expressão "
+             "previsto), `exploration.json`, `manifest.json` (comandos exatos e versões).\n")
     return "\n".join(L)
 
 

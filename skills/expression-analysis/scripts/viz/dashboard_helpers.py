@@ -33,7 +33,7 @@ def group_of(profile: A.Profile, curie: str) -> str:
 # 'Ordenar por' (label -> column): the order of the table, what 'Quantas mostrar' keeps, the height in the window chart
 Y_METRICS = {"Mudança no alvo": "target_mean", "Mudança no sentido procurado, no tecido do alvo que menos muda": "target_toward",
              "Mudança no controle": "control_mean", "Diferença alvo − controle": "diff",
-             "Diferença em unidades de ruído": "diff_sigma", "AVI Phred (impacto geral, sem tecido)": "avi_phred"}
+             "Diferença em unidades de discordância": "diff_sigma", "AVI Phred (impacto geral, sem tecido)": "avi_phred"}
 
 
 def display_frame(effects: pl.DataFrame, kept: pl.DataFrame, profile: A.Profile, show_mode: str) -> pl.DataFrame:
@@ -218,7 +218,7 @@ def describe_tissues(data: A.StudyData, scorer: str) -> dict[str, str]:
             assay = _ASSAY.get(r["assay_title"], r["assay_title"] or "")
             kind = _KIND.get(r["biosample_type"], r["biosample_type"] or "")
             parts.append(f"{src}, {kind}{', ' + assay if assay else ''}")
-        text = f"{grp.height} {'medições' if grp.height > 1 else 'medição'}: " + "; ".join(parts) + "."
+        text = f"{grp.height} {'trilhas' if grp.height > 1 else 'trilha'}: " + "; ".join(parts) + "."
         cols = [f"{p}_raw" for p in grp["column_prefix"].to_list() if f"{p}_raw" in data.master.columns]
         if len(cols) >= 2:
             # the least concordant pair: one unstable measurement is enough to make the tissue unstable
@@ -228,7 +228,7 @@ def describe_tissues(data: A.StudyData, scorer: str) -> dict[str, str]:
                 r = min(rs)
                 how = "concordam bem" if r >= 0.9 else ("concordam em parte" if r >= 0.6 else "concordam pouco")
                 which = "" if len(cols) == 2 else ", o par que menos concorda"
-                text += (f" Neste gene, as medições {how} (correlação {_n(r, 2)}{which})"
+                text += (f" Neste gene, as trilhas {how} (correlação {_n(r, 2)}{which})"
                          + ("; compare com cuidado." if r < 0.6 else "."))
         out[curie] = text
     return out
@@ -263,7 +263,7 @@ def headline(kept: pl.DataFrame, effects: pl.DataFrame, profile: A.Profile, labe
     gone = [f"{role}: {', '.join(name(c) for c in cs)}" for role, cs in
             (("alvo", (missing or {}).get("target") or []), ("controle", (missing or {}).get("control") or [])) if cs]
     if gone:
-        lines.append("**Atenção**: sem medição com os ensaios e fontes escolhidos, ficam fora do cálculo: "
+        lines.append("**Atenção**: sem trilha com os ensaios e fontes escolhidos, ficam fora do cálculo: "
                      + "; ".join(gone) + ". Com menos tecidos no grupo, mais variantes podem passar.")
     # REF is the gene's predicted expression: the warning concerns RNA_SEQ effects on a gene that is off.
     # Reference level: the researcher's floor when set, else 0.01 (ten times the model's pseudocount, 0.001).
@@ -274,7 +274,7 @@ def headline(kept: pl.DataFrame, effects: pl.DataFrame, profile: A.Profile, labe
         lines.append(f"**Atenção**: tecidos do alvo abaixo do piso de expressão escolhido (REF < {_n(floor, 3)}): "
                      f"{', '.join(low)}. Onde o gene é pouco expresso, os efeitos previstos são menos estáveis.")
     elif low:
-        lines.append(f"**Atenção**: o gene tem expressão prevista quase nula em {', '.join(low)} (REF < {_n(floor, 3)}; "
-                     "o pseudocount do modelo é 0,001): efeitos previstos ali são instáveis; só interprete como possível "
-                     "ativação ectópica.")
+        lines.append(f"**Atenção**: nível REF muito baixo em {', '.join(low)} (REF < {_n(floor, 3)}; a pseudocontagem da "
+                     "pontuação RNA_SEQ é 0,001): ali uma mudança grande em % pode ser uma mudança absoluta mínima; informe "
+                     "os níveis REF e ALT antes de interpretar um aumento.")
     return "  \n".join(lines)

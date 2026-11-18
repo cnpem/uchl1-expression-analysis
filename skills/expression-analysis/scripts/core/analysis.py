@@ -253,7 +253,7 @@ def noise_model(data: StudyData, scorer: str, assays: list[str] | None = None, s
 
     Columns: lo, hi (bin edges on the mean |effect| of the pair), n, p95, p99 of the absolute pair
     difference, and sigma = 1.4826 * its median (a robust scale for the difference between two
-    measurements of the same tissue, the same kind of quantity as diff). None when no term has two tracks.
+    tracks of the same tissue, the same kind of quantity as diff). None when no term has two tracks.
     """
     df = _pair_differences(data, scorer, assays, sources, score)
     if df is None or df.height == 0:
@@ -409,19 +409,19 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
             steps.append(("mudança no controle ≤ máximo: ignorado (sem tecido controle)", df.height))
     if p.min_diff_sigma > 0:
         if not has_control:
-            steps.append(("alvo − controle acima do ruído: ignorado (sem tecido controle)", df.height))
+            steps.append(("alvo − controle acima da discordância: ignorado (sem tecido controle)", df.height))
         elif noise is None:
-            steps.append(("alvo − controle acima do ruído: ignorado (sem medida de ruído)", df.height))
+            steps.append(("alvo − controle acima da discordância: ignorado (nenhum tecido com duas trilhas)", df.height))
         else:
             # in the question's direction: an increase must be target above control, a repression target below
             # control; "either" accepts both. A variant that raises the target cannot pass a repression question
             s = p.min_diff_sigma
             if p.question == "increase":
-                step(f"alvo − controle ≥ {s:g} σ do ruído (alvo acima)", pl.col("diff_sigma") >= s)
+                step(f"alvo − controle ≥ {s:g} × a discordância típica (alvo acima)", pl.col("diff_sigma") >= s)
             elif p.question == "repression":
-                step(f"alvo − controle ≥ {s:g} σ do ruído (alvo abaixo)", pl.col("diff_sigma") <= -s)
+                step(f"alvo − controle ≥ {s:g} × a discordância típica (alvo abaixo)", pl.col("diff_sigma") <= -s)
             else:
-                step(f"alvo − controle ≥ {s:g} σ do ruído (nos dois sentidos)", pl.col("diff_sigma").abs() >= s)
+                step(f"alvo − controle ≥ {s:g} × a discordância típica (nos dois sentidos)", pl.col("diff_sigma").abs() >= s)
     metric = p.y_metric if p.y_metric in df.columns else "target_mean"
     if p.one_alt_per_position:
         df = df.sort(order_expr(metric, p.question), descending=True, nulls_last=True).unique(
