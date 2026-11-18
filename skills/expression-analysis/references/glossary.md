@@ -256,6 +256,21 @@ fails when a deprecated name is still in the code or the documentation.
 - **Source:** K-Dense alphagenome skill, references/atlas.md, AlphaGenome Variant Impact (AVI); the Atlas report was not read (not found)
 - **Say with it:** The scale and the meaning of each modality were not checked against a primary source.
 
+## Writing conventions
+
+How names and numbers are written on the pages; write them the same way in your answers.
+
+| What | Rule | Example | Source |
+|---|---|---|---|
+| Human gene | The HGNC-approved symbol, in italics. Ask the researcher when they give a disease, a protein or an alias, and confirm the symbol before the exploration. | *TP53*; for phenylketonuria (PKU) the gene is *PAH* | HGNC guidelines for human gene nomenclature |
+| Protein | The same letters as the gene, in roman type, or the protein's name; the skill's numbers are about the gene, not the protein. | p53 (protein of *TP53*); PAH (protein of *PAH*) | HGNC guidelines for human gene nomenclature |
+| Mouse or rat gene | Only the first letter in upper case, in italics; the protein in upper case, roman. The skill analyses human genes only. | *Uchl1* | MGI and RGD nomenclature guidelines |
+| Variant | The Atlas identifier, which every command and link uses, with the genomic HGVS description on the GRCh38 RefSeq chromosome next to it where a variant is listed. Do not call the Atlas identifier HGVS. | chr17:7676154:G>C (NC_000017.11:g.7676154G>C) | HGVS nomenclature; NCBI GRCh38.p14 assembly report for the chromosome accessions |
+| Transcript, gene and region identifiers, ontology terms | As issued (Ensembl, Regulatory Build, CURIE), in roman or as code, never translated. | ENST00000284440.9, ENSR4_837Q9H, CL:0000100 | this skill |
+| Genomic coordinates | No thousands separator. | chr17:7676001-7676800 | this skill |
+| Numbers in Portuguese text | Decimal comma, and a dot every three digits for counts. | 1.234 variantes; nível 12,5; +5,2% | this skill |
+| Species | The scientific name in italics. | *Homo sapiens* | binomial nomenclature |
+
 ## Not decided by any source consulted
 
 State these as open when the researcher asks; a rewording does not settle them.

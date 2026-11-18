@@ -35,6 +35,10 @@ research use only (never a diagnosis or a clinical finding).
    *Very low expression levels*).
 6. **Keep the researcher's question in view:** a difference in the target that is not larger than the
    control's, or than the between-track disagreement, is not evidence that the effect is the target's own.
+7. **Write names as the pages do** (`references/glossary.md`, *Writing conventions*): the gene symbol in
+   italics and the protein in roman type; a variant by its Atlas identifier with its genomic HGVS beside it
+   (`chr17:7676154:G>C`, `NC_000017.11:g.7676154G>C`), never calling the Atlas identifier HGVS; coordinates
+   without thousands separators; Portuguese numbers with a decimal comma.
 
 ## Where each score is defined
 
@@ -68,7 +72,7 @@ What the exploration computes, in order:
    catalogue (`exploration/atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv`, column `raw_score`).
 3. **A mean per term:** the plain mean of the tracks of each ontology term. `activity.md` names each term by
    the Atlas catalogue's sample name, `summary.md` by the ontology's label, so one CURIE can show two names
-   (CL:0000047: *neuronal stem cell* in the catalogue, *neural stem cell* in the ontology). A term's tracks can be of
+   (for example, a stem-cell term whose catalogue sample is *neuronal* and whose ontology label is *neural*). A term's tracks can be of
    different assays (polyA plus, total RNA-seq) and sources (ENCODE, GTEx); the columns *Ensaios* and
    *Fontes* of `activity.md` say which went into each mean.
 4. **A share of the gene's maximum:** each term's mean divided by the largest term mean in the whole
@@ -183,7 +187,7 @@ terminology review:
 
 - *"What is this level, and in what unit?"* It is the gene's predicted expression level (`RNA_SEQ_ACTIVE` of
   the probe SNV, larger allele), averaged over a term's tracks. No official unit; the track unit is
-  normalised read signal; not TPM. "33% do máximo" is a share of the gene's highest term in the catalogue.
+  normalised read signal; not TPM. "N% do máximo" is a share of the gene's highest term in the catalogue.
 - *"Is it the same as expression, activation, REF?"* The level and REF are the same kind of quantity (the
   level is ≥ REF). A change (%) is a different quantity. "Activation" is not an AlphaGenome quantity.
 - *"Can I compare a GTEx tissue with an ENCODE cell line, or polyA with total?"* Not their levels: no source
@@ -195,14 +199,14 @@ terminology review:
   gene's own maximum; there is no TPM equivalent and no source gives an expression threshold.
 - *"RNA_SEQ or RNA_SEQ_ACTIVE?"* `RNA_SEQ` is the change between alleles (log); `RNA_SEQ_ACTIVE` is the level
   of the larger allele (linear). Both are means over the gene's exons.
-- *"+8.8% of what?"* Of the gene's predicted expression with the reference allele, averaged in log scale over
+- *"+X% in the target: X% of what?"* Of the gene's predicted expression with the reference allele, averaged in log scale over
   the group's tissues and tracks.
 - *"What is the quantile?"* The score's rank among common variants for the same prediction type and track;
   how unusual, not how large; not a p-value and not a %.
 - *"What is the typical disagreement?"* `1.4826 × median` of the difference between two tracks of one tissue,
   by size of change; tracks of different assays or sources, not replicates. Older pages called it by another
   name; the glossary lists the names no longer used.
-- *"Why 0.78?"* A floor suggested as 5% of the largest REF among the study's tissues (`summarize` prints it
+- *"Why this floor value?"* A floor suggested as 5% of the largest REF among the study's tissues (`summarize` prints it
   next to its REF table) (a third maximum, not
   the exploration's catalogue maximum); once set it is an absolute REF value, and any value is the
   researcher's choice, in REF units (no official unit). 0.01 is ten times the pseudocount.

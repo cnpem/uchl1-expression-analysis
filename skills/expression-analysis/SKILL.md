@@ -212,6 +212,10 @@ undecided entry; the reference and alternative levels next to a large percentage
 level; and the model's stated limit on tissue specificity with any claim that an effect is the target's own.
 
 0. **Exploration.** `expression.py check`; anything missing goes to `alphagenome-skills-setup`.
+   The gene is its HGNC symbol (`explore --gene`). When the researcher names a disease, a protein or an alias
+   ("PKU", "phenylalanine hydroxylase"), say which gene you take it to be (*PAH*) and confirm before exploring; a disease
+   with several genes is a question, not a choice for you. Write the symbol in italics (`references/glossary.md`,
+   *Writing conventions*).
    Ask the researcher only for the gene and the tissues or cell types in their own words, for both
    sides: where they want to know whether the variants change expression (target) and what to compare it
    with (control), or that they want the exploration to show candidates first. Ask even when the request

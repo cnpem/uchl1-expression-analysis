@@ -296,6 +296,41 @@ terms:
     source: {doc: "K-Dense alphagenome skill, references/atlas.md, AlphaGenome Variant Impact (AVI); the Atlas report was not read", certainty: not_found, checked_skill: alphagenome, checked_hash: ff10c6aa5025f37b56f4f47558a8d6fb40348540626861ee0f3f1ad691b24616}
     note: The scale and the meaning of each modality were not checked against a primary source.
 
+# How names and numbers are written on the pages and in the agent's answers (scripts/nomenclature.py applies them)
+conventions:
+  - what: Human gene
+    rule: The HGNC-approved symbol, in italics. Ask the researcher when they give a disease, a protein or an alias, and confirm the symbol before the exploration.
+    example: "*TP53*; for phenylketonuria (PKU) the gene is *PAH*"
+    source: "HGNC guidelines for human gene nomenclature"
+  - what: Protein
+    rule: The same letters as the gene, in roman type, or the protein's name; the skill's numbers are about the gene, not the protein.
+    example: "p53 (protein of *TP53*); PAH (protein of *PAH*)"
+    source: "HGNC guidelines for human gene nomenclature"
+  - what: Mouse or rat gene
+    rule: Only the first letter in upper case, in italics; the protein in upper case, roman. The skill analyses human genes only.
+    example: "*Uchl1*"
+    source: "MGI and RGD nomenclature guidelines"
+  - what: Variant
+    rule: The Atlas identifier, which every command and link uses, with the genomic HGVS description on the GRCh38 RefSeq chromosome next to it where a variant is listed. Do not call the Atlas identifier HGVS.
+    example: "chr17:7676154:G>C (NC_000017.11:g.7676154G>C)"
+    source: "HGVS nomenclature; NCBI GRCh38.p14 assembly report for the chromosome accessions"
+  - what: Transcript, gene and region identifiers, ontology terms
+    rule: As issued (Ensembl, Regulatory Build, CURIE), in roman or as code, never translated.
+    example: "ENST00000284440.9, ENSR4_837Q9H, CL:0000100"
+    source: this skill
+  - what: Genomic coordinates
+    rule: No thousands separator.
+    example: "chr17:7676001-7676800"
+    source: this skill
+  - what: Numbers in Portuguese text
+    rule: Decimal comma, and a dot every three digits for counts.
+    example: "1.234 variantes; nível 12,5; +5,2%"
+    source: this skill
+  - what: Species
+    rule: The scientific name in italics.
+    example: "*Homo sapiens*"
+    source: "binomial nomenclature"
+
 undecided:
   - The exact unit of the expression level (RNA_SEQ_ACTIVE) and its numeric relation to RPKM (it is not TPM, which is normalised across genes).
   - Whether expression levels of different assay types and sources can be compared.

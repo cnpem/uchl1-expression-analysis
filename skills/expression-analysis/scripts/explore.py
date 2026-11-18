@@ -36,6 +36,7 @@ import polars as pl
 
 import fetch
 import models
+import nomenclature as N
 import terms as T
 from core import locus as core_locus
 
@@ -293,7 +294,7 @@ def write_activity(root: Path, floor: float = 0.05) -> Path:
     L = [f"# {T.cap(T.label('expression_level'))} do gene em todos os tecidos e células do catálogo ({t.height})", "",
          f"{T.cap(T.label('expression_level'))} do gene: pontuação `RNA_SEQ_ACTIVE` de uma {T.label('probe_snv')} ({variant}), isto é, o maior "
          "entre os alelos REF e ALT da cobertura média de RNA-seq prevista nos éxons do gene. A tabela traz a média das "
-         f"trilhas de cada termo e o valor relativo ao termo de maior média ({top:.3g}). Abaixo de {_pct(floor)} desse "
+         f"trilhas de cada termo e o valor relativo ao termo de maior média ({N.dec(top)}). Abaixo de {_pct(floor)} desse "
          f"máximo, a coluna *≥ {_pct(floor)} do máximo* diz **não**: é um corte desta skill, relativo ao máximo do próprio gene e sem "
          "calibração; não quer dizer que o transcrito esteja ausente. Onde o valor é muito baixo, a mudança em % de uma "
          "variante pode ser grande mesmo com uma mudança absoluta mínima. Use esta lista para escolher, ou trocar depois "
@@ -309,7 +310,7 @@ def write_activity(root: Path, floor: float = 0.05) -> Path:
     for i, r in enumerate(t.iter_rows(named=True), 1):
         rel = r["activity"] / top if top > 0 else 0.0
         L.append(f"| {i} | {r['ontology_curie']} | {r['name']} | {_KIND_PT.get(r['kind'], r['kind'] or '—')} | "
-                 f"{r['activity']:.3g} | {_pct(rel)} | {'sim' if rel >= floor else 'não'} | {r['assays'] or '—'} | "
+                 f"{N.dec(r['activity'])} | {_pct(rel)} | {'sim' if rel >= floor else 'não'} | {r['assays'] or '—'} | "
                  f"{r['sources'] or '—'} | {r['tracks']} |")
     out = root / ACTIVITY_FILE
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
@@ -433,14 +434,14 @@ def _act(activity: dict[str, Any], curie: str) -> str:
     if a is None:
         return "sem trilha de RNA-seq"
     flag = "" if a["expressed"] else f" ⚠ abaixo de {_pct(activity['floor'])} do máximo do gene"
-    return f"{a['activity']:.3g} ({_pct(a['relative'])} do máximo){flag}"
+    return f"{N.dec(a['activity'])} ({_pct(a['relative'])} do máximo){flag}"
 
 
 def render_summary(d: dict[str, Any]) -> str:
     act = d["activity"]
     scorers = d["scorers"]
     L: list[str] = []
-    L.append(f"# Exploração do gene {d['gene']}: opções antes de definir o estudo\n")
+    L.append(f"# Exploração do gene {N.gene(d['gene'])}: opções antes de definir o estudo\n")
     L.append("Esta página resume consultas **só de leitura** (estrutura do gene, elementos regulatórios, termos de "
              "ontologia, catálogo de trilhas do AlphaGenome Atlas e o nível de expressão previsto do gene em cada tecido). "
              "Só uma variante de sondagem foi pontuada, para ler o nível do gene em cada tecido; nenhuma variante da "
@@ -526,7 +527,7 @@ def render_summary(d: dict[str, Any]) -> str:
     L.append(f"Uma consulta ao Atlas com uma {T.label('probe_snv')} dentro do gene ({d['baseline_variant']}) devolve, para "
              f"cada trilha de RNA-seq, o {T.label('expression_level')} do gene: o maior entre os dois alelos dessa variante. "
              "Os valores abaixo são relativos ao termo de maior nível médio do gene no catálogo "
-             f"({act['max']:.3g}). Abaixo de {_pct(act['floor'])} desse máximo o termo é marcado: é um corte desta skill, "
+             f"({N.dec(act['max'])}). Abaixo de {_pct(act['floor'])} desse máximo o termo é marcado: é um corte desta skill, "
              "relativo ao máximo do próprio gene e sem calibração; não quer dizer que o transcrito esteja ausente. Onde o "
              "nível é muito baixo, a mudança em % de uma variante pode ser grande mesmo com uma mudança absoluta mínima, e "
              "não deve ser lida como efeito específico do tecido. As trilhas de um termo podem ser de ensaios e fontes "
@@ -537,7 +538,7 @@ def render_summary(d: dict[str, Any]) -> str:
              f"{T.cap(T.short('share_of_maximum'))} |\n|---|---|---|")
     for c in act["top"]:
         a = act["by_curie"][c]
-        L.append(f"| {c} ({a['name']}) | {a['activity']:.3g} | {_pct(a['relative'])} |")
+        L.append(f"| {c} ({a['name']}) | {N.dec(a['activity'])} | {_pct(a['relative'])} |")
     low = [(t["text"], t["recommended"]) for t in d["terms"]
            if t["recommended"] in act["by_curie"] and not act["by_curie"][t["recommended"]]["expressed"]]
     L.append("")

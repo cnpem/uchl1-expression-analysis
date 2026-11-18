@@ -11,6 +11,12 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Added
 
+- **Writing conventions** (`scripts/nomenclature.py`; *Writing conventions* in `references/glossary.md`, from
+  `assets/terms.yaml`): the human gene symbol in italics (the protein in roman type); next to each listed
+  variant, its genomic HGVS description on the GRCh38 RefSeq chromosome (`NC_…:g.posREF>ALT`; accessions from
+  the NCBI GRCh38.p14 assembly report) in the report, `summarize` and the dashboard; genomic coordinates
+  without thousands separators; Portuguese numbers with a decimal comma and a dot for thousands. Step 0 asks
+  the agent to map a disease, protein or alias to the HGNC symbol and confirm it.
 - **Term registry** (`assets/terms.yaml`, `scripts/terms.py`): one entry per quantity the skill shows, with the
   API variable it comes from, its name in Portuguese and English, definition, formula, unit, what it may be
   compared with, status (official, this skill's convention, undecided) and source.

@@ -11,7 +11,7 @@ The registry is the source of the names. From it come:
 * the dependency drift note (`dependency_drift`): an entry records the hash of the dependency skill its
   definition was checked against, and `expression.py check` says when the installed skill differs.
 
-Library: Term, TermError, load, label, short, glossary_md, lint, check, dependency_drift.
+Library: Term, TermError, load, conventions, undecided, label, short, glossary_md, lint, check, dependency_drift.
 """
 
 from __future__ import annotations
@@ -70,6 +70,19 @@ _CACHE: dict[Path, tuple[dict[str, Term], list[str]]] = {}
 def load(path: Path = REGISTRY) -> dict[str, Term]:
     """The registry as {id: Term}; raises TermError when an entry lacks a field, a source or a valid status."""
     return _load(path)[0]
+
+
+def conventions(path: Path = REGISTRY) -> list[dict[str, str]]:
+    """How names and numbers are written (genes, proteins, variants, coordinates, Portuguese numbers)."""
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise TermError(f"{path}: cannot read the term registry ({exc})") from exc
+    out = raw.get("conventions") or []
+    for c in out:
+        if not isinstance(c, dict) or not all(c.get(k) for k in ("what", "rule", "example", "source")):
+            raise TermError(f"{path}: each convention needs what, rule, example and source")
+    return out
 
 
 def undecided(path: Path = REGISTRY) -> list[str]:
@@ -181,6 +194,13 @@ def glossary_md(path: Path = REGISTRY) -> str:
         old = [*t.deprecated_pt, *t.deprecated_en]
         if old:
             L.append("- **Names no longer used for it:** " + "; ".join(f"\"{x}\"" for x in old))
+        L.append("")
+    rules = conventions(path)
+    if rules:
+        L += ["## Writing conventions", "",
+              "How names and numbers are written on the pages; write them the same way in your answers.", "",
+              "| What | Rule | Example | Source |", "|---|---|---|---|"]
+        L += [f"| {c['what']} | {c['rule']} | {c['example']} | {c['source']} |" for c in rules]
         L.append("")
     if open_points:
         L += ["## Not decided by any source consulted", "",

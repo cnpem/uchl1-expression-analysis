@@ -130,7 +130,7 @@ not a history: you cannot tell the order of the changes or what was tried and un
 **Sending.** Say first what you will change and why, then send it:
 
 ```bash
-uv run SKILL/scripts/expression.py view --study-dir D --min-sigma 1 --ref-floor 0.78 --floor-applies control --y-metric diff_sigma --message "<what this view is, in the researcher's language>"
+uv run SKILL/scripts/expression.py view --study-dir D --min-sigma 1 --ref-floor 0.5 --floor-applies control --y-metric diff_sigma --message "<what this view is, in the researcher's language>"
 ```
 
 - Only the options you pass change; the rest stays as the researcher left it. `--reset` starts from the

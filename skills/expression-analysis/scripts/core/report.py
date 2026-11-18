@@ -21,6 +21,7 @@ from typing import Any
 
 import polars as pl
 
+import nomenclature as N
 from core import cohorts as core_cohorts
 from core import contrast as core_contrast
 from core import locus as core_locus
@@ -77,7 +78,7 @@ def _cell(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
-        return f"{value:.4g}"
+        return N.dec(value, 4)  # Portuguese decimal comma
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
@@ -107,14 +108,14 @@ def _section_study(study: Any, locus: core_locus.LocusConfig, resolution: Mappin
     tx_version = f".{locus.transcript_version}" if locus.transcript_version is not None else ""
     lines = [
         "## Estudo", "",
-        f"- Gene: **{locus.gene_symbol}** (`{locus.gene_id}{gene_version}`), {study.assembly}, fita {strand}.",
+        f"- Gene: {N.gene(locus.gene_symbol)} (`{locus.gene_id}{gene_version}`), {study.assembly}, fita {strand}.",
         f"- Transcrito: `{locus.transcript_id}{tx_version}` ({locus.transcript_type}"
-        f"{', MANE Select' if locus.is_mane_select else ''}); TSS {locus.chromosome}:{locus.tss:,}; "
-        f"início do CDS {locus.cds_start_genomic:,}.",
+        f"{', MANE Select' if locus.is_mane_select else ''}); TSS {locus.chromosome}:{locus.tss}; "
+        f"início do CDS {locus.chromosome}:{locus.cds_start_genomic}.",
         f"- Janela de mutagênese saturada: `{locus.window_str}` ({locus.window.length} pb, "
-        f"{3 * locus.window.length:,} SNVs; política `{locus.window_policy}`).",
+        f"{N.count(3 * locus.window.length)} SNVs; política `{locus.window_policy}`).",
         "- Features do Ensembl Regulatory Build na janela: "
-        + (", ".join(f"`{f.id}` ({f.biotype}, {f.start:,}-{f.end:,})" for f in locus.features) or "nenhuma") + ".",
+        + (", ".join(f"`{f.id}` ({f.biotype}, {locus.chromosome}:{f.start}-{f.end})" for f in locus.features) or "nenhuma") + ".",
         f"- Coorte alvo: **{resolution['target_label']}**, CURIEs efetivos: "
         f"{', '.join(f'`{c}`' for c in resolution['effective_target_curies'])}.",
         f"- Coorte controle: **{resolution['control_label']}**, CURIEs efetivos: "
@@ -258,7 +259,7 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
 
     gates = qc["gates"]
     lines = ["## Resultados da triagem fixa", "",
-             f"Tier 1 (`master.parquet`): {qc['rows']:,} SNVs, {qc['n_long_scores']:,} pontuações por trilha; QC "
+             f"Tier 1 (`master.parquet`): {N.count(qc['rows'])} SNVs, {N.count(qc['n_long_scores'])} pontuações por trilha; QC "
              f"{'aprovado' if qc['overall_qc_passed'] else 'REPROVADO'} (porta 1: {'ok' if gates[0]['passed'] else 'falhou'}, "
              f"porta 2: {'ok' if gates[1]['passed'] else 'falhou'}).",
              "",
@@ -269,8 +270,8 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
                     [("Direção", k, v) for k, v in sorted(meta["predicted_direction"].items(), key=lambda kv: -kv[1])]
                     + [("Escopo", k, v) for k, v in sorted(meta["specificity_scope"].items(), key=lambda kv: -kv[1])])
     shown = workbench_helpers.default_filter(df)
-    lines += ["", f"Com o filtro fixo da triagem (|quantil| >= {workbench_helpers.DEFAULT_MIN_QUANTILE} em todos os "
-              f"tecidos alvo) restam {shown.height:,} de {df.height:,} SNVs. Estes rótulos e este filtro são uma triagem "
+    lines += ["", f"Com o filtro fixo da triagem (|quantil| ≥ {N.dec(workbench_helpers.DEFAULT_MIN_QUANTILE)} em todos os "
+              f"tecidos alvo) restam {N.count(shown.height)} de {N.count(df.height)} SNVs. Estes rótulos e este filtro são uma triagem "
               "heurística; os grupos, a pergunta e os filtros do estudo são escolhidos pelo pesquisador no dashboard.",
               "", "SNVs por domínio genômico:", ""]
     counts = dict(df.group_by("genomic_domain").len().rows())
@@ -279,9 +280,9 @@ def _section_results(study_dir: Path, study: Any, meta: Mapping[str, Any], qc: M
     lines += ["", f"Principais variantes (top {len(top)}, ordenadas por direção consistente e maior "
               f"|{meta['target_label']} - {meta['control_label']}| em `{meta['plan']['priority']['direction_contrast']}`; "
               "`top_variants.tsv`):", ""]
-    headers = ["#", "Variante", "AVI Phred", "Modalidade AVI", "Dist. TSS", "Domínio", "Direção", "Escopo",
+    headers = ["#", "Variante", "HGVS (g.)", "AVI Phred", "Modalidade AVI", "Dist. TSS", "Domínio", "Direção", "Escopo",
                *[f"Δ {n}" for n in diffs]]
-    rows = [(t["rank"], f"`{t['variant']}`", t["avi_phred"], t["top_modality"], t["distance_to_tss"], t["genomic_domain"],
+    rows = [(t["rank"], f"`{t['variant']}`", N.hgvs_g(t["variant"]) or "—", t["avi_phred"], t["top_modality"], t["distance_to_tss"], t["genomic_domain"],
              t["predicted_direction"], t["specificity_scope"], *[t[f"{n}_target_vs_control_diff"] for n in diffs])
             for t in top]
     lines += _table(headers, rows)
@@ -411,7 +412,7 @@ def render_report(study_dir: Path) -> str:
         raise ReportError(f"{core_contrast.CONTRAST_FILE} not found in {study_dir}; run expression.py contrast "
                           f"(Workflow step {core_contrast.WORKFLOW_STEP}).")
     df = pl.read_parquet(contrast_path)
-    lines = [f"# Relatório: {locus.gene_symbol} ({study.study_id})", "",
+    lines = [f"# Relatório: {N.gene(locus.gene_symbol)} ({study.study_id})", "",
              "> Uso em pesquisa apenas. Predições de impacto molecular, não diagnóstico.", ""]
     lines += _section_study(study, locus, resolution, manifest)
     lines += _section_decisions(study_dir, meta)

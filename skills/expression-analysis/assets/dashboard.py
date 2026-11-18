@@ -38,6 +38,7 @@ def _():
     scripts_dir = Path(os.environ.get("EXPRESSION_ANALYSIS_SCRIPTS") or Path(__file__).resolve().parent.parent / "scripts")
     if str(scripts_dir) not in sys.path:
         sys.path.insert(0, str(scripts_dir))
+    import nomenclature as N
     import study as study_mod
     import terms as T
     from core import analysis as A
@@ -77,7 +78,7 @@ def _():
             mo.download(data=lambda: vlc.vegalite_to_svg(_spec()).encode("utf-8"), filename=f"{name}.svg",
                         mimetype="image/svg+xml", label="Salvar SVG"),
         ], justify="start")
-    return (A, H, T, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
+    return (A, H, N, T, VariantCanvas, alt, build_unified_lollipop_canvas, center_crop_on_positions, chart_spec, core_locus,
             data, dataclasses, figure_svg, full_domain, link_cache, live_link, locus, mo, pl, ref_tissue, save_buttons,
             study_cfg, study_dir)
 
@@ -279,8 +280,8 @@ def _(A, H, data, dataclasses, pl, profile, show_mode):
 def _(A, data, locus, mo, scorer_pick):
     _what = A.SCALES.get(scorer_pick.value, (None, "o sinal previsto"))[1]
     mo.vstack([
-        mo.md(f"# *{locus.gene_symbol}*: quais variantes mudam {_what}\n"
-              f"Janela `{locus.chromosome}:{locus.window.start:,}-{locus.window.end:,}` · {data.master.height:,} variantes testadas "
+        mo.md(f"# {N.gene(locus.gene_symbol)}: quais variantes mudam {_what}\n"
+              f"Janela `{locus.chromosome}:{locus.window.start}-{locus.window.end}` · {N.count(data.master.height)} variantes testadas "
               "(todas as trocas de uma base) · predições do AlphaGenome, uso somente em pesquisa."),
         mo.accordion({"Como usar": mo.md(
             "A página já abre com o resultado para os grupos do estudo, sem filtros. Mude as três escolhas logo abaixo e veja o "
@@ -424,7 +425,7 @@ def _(A, H, VariantCanvas, build_unified_lollipop_canvas, chart_spec, clear_butt
                                            file_name=f"{study_cfg.data['study_id']}_janela_{metric}"))
     _rel = sorted(((_crop[0] - locus.tss) * locus.strand, (_crop[1] - locus.tss) * locus.strand))
     mo.vstack([
-        mo.md(f"## Ao longo da janela\n{_df.height:,} variantes" + (f" (as {profile.top_k:,} primeiras em *Ordenar por*)"
+        mo.md(f"## Ao longo da janela\n{N.count(_df.height)} variantes" + (f" (as {N.count(profile.top_k)} primeiras em *Ordenar por*)"
               if profile.top_k and _df.height >= profile.top_k else "") + f" · trecho de {_crop[1] - _crop[0] + 1} pb "
               f"({_rel[0]:+d} a {_rel[1]:+d} pb do início do gene). Clique numa variante para destacá-la."),
         mo.accordion({"Mapa da janela (gene, promotor, éxon 1)": mo.Html(figure_svg(locus, footprint_blocks(locus))),
@@ -501,7 +502,9 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
     _q = not A.uses_pct(profile)
     _pct = (lambda c: pl.col(c).round(3)) if _q else (lambda c: ((pl.lit(_base).pow(pl.col(c)) - 1) * 100).round(1))
     _mark = "quantil" if _q else "%"
-    _show = _rows.select([pl.col("variant_id").alias("variante"), pl.col("genomic_domain").alias("região"),
+    _show = _rows.select([pl.col("variant_id").alias("variante"),
+                          pl.col("variant_id").map_elements(lambda v: N.hgvs_g(v) or "—", return_dtype=pl.Utf8).alias("HGVS (g.)"),
+                          pl.col("genomic_domain").alias("região"),
                           pl.col("distance_to_tss").alias("dist. início do gene"),
                           _pct("target_mean").alias(f"{_mark} {profile.target_label}"),
                           # without a control tissue there is no control value: no column, instead of "None"
@@ -514,7 +517,7 @@ def _(A, get_crop, get_focus_ids, labels, mo, pl, profile, select_variants, show
     variant_table = mo.ui.table(_show.to_dicts(), selection="multi",
                                 initial_selection=[i for i, v in enumerate(_ids) if v in set(get_focus_ids())], page_size=12,
                                 on_change=lambda rows: select_variants([r["variante"] for r in rows or []]),
-                                label=f"{_show.height:,} variantes no trecho atual")
+                                label=f"{N.count(_show.height)} variantes no trecho atual")
     _splice = _rows.height and "Splicing" in _rows.head(10)["top_feature"].to_list()
     mo.vstack([
         mo.md((f"## Variantes\nQuantil do Atlas (−1 a 1) d{A.SCALES.get(profile.scorer, (None, 'o sinal previsto'))[1]}, " if _q else
@@ -543,7 +546,8 @@ def _(H, data, get_focus_ids, labels, mo, pick_by_id, pl, profile, save_buttons,
     else:
         _long = H.track_effects(data, profile, _ids, labels)
         _links = data.master.filter(pl.col("variant_id").is_in(_ids)).select("variant_id", "atlas_url", "genomic_domain", "top_feature")
-        _md = "  \n".join(f"**{r['variant_id']}** · {r['genomic_domain']} · modalidade AVI {r['top_feature']} · "
+        _md = "  \n".join(f"**{r['variant_id']}** ({N.hgvs_g(r['variant_id']) or '—'}) · {r['genomic_domain']} · "
+                          f"modalidade AVI {r['top_feature']} · "
                           f"[ver no AlphaGenome Atlas]({r['atlas_url']})" for r in _links.iter_rows(named=True))
         _body = mo.vstack([
             mo.md(_md),

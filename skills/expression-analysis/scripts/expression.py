@@ -79,6 +79,7 @@ import fetch
 import manifest
 import models
 import reference
+import nomenclature as N
 import study
 import terms as T
 from core import cohorts as core_cohorts
@@ -842,7 +843,7 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     scorer = profile.scorer
     desc = H.describe_tissues(data, scorer)
     what = A.SCALES.get(scorer, (None, "o sinal previsto"))[1]
-    out = [f"# {config.gene_symbol}: resumo da visão do dashboard ({scorer}; % d{what})", "",
+    out = [f"# {N.gene(config.gene_symbol)}: resumo da visão do dashboard ({scorer}; % d{what})", "",
            H.headline(kept, effects, profile, labels, A.ref_by_tissue(data), missing=A.without_tracks(data, profile)),
            "", "## Grupos e trilhas", ""]
     for role, curies, name in (("Alvo", profile.target, profile.target_label), ("Controle", profile.control, profile.control_label)):
@@ -897,14 +898,14 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     top = kept.head(args.top)
     eff = [c for c in top.columns if c.startswith("eff_")]
     out += ["", f"## Primeiras {top.height} variantes", "",
-            (lambda m: f"| variante | região | {m} alvo | {m} controle | "
+            (lambda m: f"| variante | HGVS (g.) | região | {m} alvo | {m} controle | "
              + " | ".join(f"{m} {labels.get(c[4:], c[4:])}" for c in eff))("%" if A.uses_pct(profile) else "quantil")
             + " | modalidade AVI |",
-            "|" + "---|" * (5 + len(eff))]
+            "|" + "---|" * (6 + len(eff))]
     fmt = (lambda v: "—" if v is None else H._n(A.pct(v, scorer), 1, True)) if A.uses_pct(profile) else \
         (lambda v: "—" if v is None else H._n(v, 3, True))
     for r in top.iter_rows(named=True):
-        out.append(f"| {r['variant_id']} | {r['genomic_domain']} | {fmt(r['target_mean'])} | {fmt(r['control_mean'])} | "
+        out.append(f"| {r['variant_id']} | {N.hgvs_g(r['variant_id']) or '—'} | {r['genomic_domain']} | {fmt(r['target_mean'])} | {fmt(r['control_mean'])} | "
                    + " | ".join(fmt(r[c]) for c in eff) + f" | {r['top_feature']} |")
     out += ["", "Predições do AlphaGenome; uso somente em pesquisa. Variantes de modalidade AVI *Splicing* "
             "provavelmente agem por splicing, não por transcrição."]
