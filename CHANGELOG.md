@@ -9,6 +9,14 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+### Added
+
+- **`alphagenome-skills-setup` ships in this repository** (`skills/alphagenome-skills-setup`, its own version
+  and [changelog](skills/alphagenome-skills-setup/CHANGELOG.md)): it prepares a researcher's computer for
+  this skill (uv, Node.js, dependency skills, terms of use, the key in the project's `.env`), one approved
+  item at a time, and ends with `check` and the offline `reproduce`. It
+  ships as `alphagenome-skills-setup` 0.2.0, which installs each skill in the folder of the agent chosen.
+
 ## [0.5.0] - 2026-11-18
 
 Every number the skill shows has one name, one definition and a source, and the pages write genes, variants

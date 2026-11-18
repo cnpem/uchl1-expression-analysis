@@ -1,0 +1,44 @@
+{
+  "_comment": "What each set of terms covers, in plain words, for the agent to explain before asking. The researcher reads the pages themselves; this is a guide, not a summary to rely on. Checked on 2026-11-16 against the pages linked.",
+  "alphagenome-single-variant-analysis": {
+    "service": "AlphaGenome (Google DeepMind): the model and the Atlas that make all the predictions of the analysis",
+    "points": [
+      "Only for individuals and non-commercial organizations (universities, research institutes, non-profits, government), or journalism; not for research on behalf of companies.",
+      "Not for clinical use or medical advice.",
+      "Outputs must not be used to train models that predict variant effects like AlphaGenome.",
+      "Your key is personal: it must not be published or shared, not even inside your institution.",
+      "Results can be published and shared with a notice that they are subject to the AlphaGenome Output Terms."
+    ],
+    "links": {
+      "Terms of use": "https://deepmind.google.com/science/alphagenome/terms",
+      "Output terms (what you can do with the results)": "https://deepmind.google.com/science/alphagenome/output-terms",
+      "Model terms": "https://deepmind.google.com/science/alphagenome/model-terms",
+      "Privacy": "https://deepmind.google.com/science/alphagenome/privacy"
+    }
+  },
+  "embl-ebi-ols": {
+    "service": "EMBL-EBI Ontology Lookup Service (OLS): the dictionary of tissue and cell-type terms (UBERON, CL)",
+    "points": [
+      "A free, open service of EMBL's European Bioinformatics Institute.",
+      "Cite it in publications as the service asks (attribution is expected under good scientific practice).",
+      "EMBL-EBI keeps aggregated usage statistics; requests are limited to a fair rate (the skill keeps to it)."
+    ],
+    "links": {
+      "OLS API and its terms": "https://www.ebi.ac.uk/ols4/api-docs",
+      "EMBL-EBI terms of use": "https://www.ebi.ac.uk/about/terms-of-use/"
+    }
+  },
+  "ensembl-database": {
+    "service": "Ensembl (EMBL-EBI and partners): the reference DNA sequence and the regulatory regions",
+    "points": [
+      "Free, openly available genome data.",
+      "Cite Ensembl in publications.",
+      "The REST service is limited to a fair rate of requests (the skill keeps to it)."
+    ],
+    "links": {
+      "Ensembl": "https://useast.ensembl.org/index.html",
+      "Ensembl REST API": "https://github.com/Ensembl/ensembl-rest/wiki",
+      "EMBL-EBI terms of use": "https://www.ebi.ac.uk/about/terms-of-use/"
+    }
+  }
+}
