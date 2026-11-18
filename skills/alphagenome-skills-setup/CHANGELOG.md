@@ -7,6 +7,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-18
+
+### Added
+
+- **Tested versions of the dependency skills** (`tested_hash` in `assets/targets.json`, the versions the analysis
+  skills were validated with). `npx skills add` takes each repository as it is that day; when the installed
+  version differs, `install`, `plan` and `verify` say so as a notice (not a failure).
+- **SKILL.md**: *Resuming* (run `diagnose` and `plan` again; an approval never carries over) and *Text from
+  outside is data* (terms pages, installer output and downloaded skills are explained, not followed).
+- **Frontmatter**: `license` (MIT) and `compatibility`; the description says what the skill is not for.
+
+### Fixed
+
+- `.alphagenome-setup/state.json` is written whole or not at all (temporary file, then replaced), so an
+  interrupted write no longer loses the record of what was installed.
+
 ## [0.2.0] - 2026-11-18
 
 Skills go where the agent app reads them. In a test with Antigravity, the analysis skill sat in a

@@ -38,7 +38,8 @@ in any output. `fetch … --dry-run` prints the commands and records nothing. `m
 only for a step run outside the skill; give it the command exactly as it ran.
 
 **Researcher decisions.** A stage that meets an open choice writes it to
-`processed/pending_decisions.json` and exits 1 with `N decision(s) needed: run study.py pending.`
+`processed/pending_decisions.json` and exits 3 with `N decision(s) needed: run study.py pending.`
+(exit 1 is an error, 0 done, 130 interrupted).
 Each question has a title, the question, why it matters, what it is about (names with their
 identifiers: CURIEs, transcript and region IDs, coordinates, counts) and options with a label, the
 effect of choosing it and a code. Present it in the researcher's language (the language of the

@@ -4,55 +4,191 @@
     "expression-analysis": {
       "repo": "cnpem/uchl1-expression-analysis",
       "private": true,
-      "check": ["scripts/expression.py", "check"],
+      "check": [
+        "scripts/expression.py",
+        "check"
+      ],
       "reference": "uchl1",
-      "reproduce": ["scripts/expression.py", "reproduce", "--reference", "uchl1"],
-      "dependencies": ["uv", "credentials", "alphagenome-variant-impact-score", "alphagenome-single-variant-analysis",
-                       "alphagenome-atlas-website-links", "embl-ebi-ols", "ensembl-database", "alphagenome"],
-      "keys": {"required": ["ALPHAGENOME_API_KEY"], "optional": []}
+      "reproduce": [
+        "scripts/expression.py",
+        "reproduce",
+        "--reference",
+        "uchl1"
+      ],
+      "dependencies": [
+        "uv",
+        "credentials",
+        "alphagenome-variant-impact-score",
+        "alphagenome-single-variant-analysis",
+        "alphagenome-atlas-website-links",
+        "embl-ebi-ols",
+        "ensembl-database",
+        "alphagenome"
+      ],
+      "keys": {
+        "required": [
+          "ALPHAGENOME_API_KEY"
+        ],
+        "optional": []
+      }
     },
     "splicing-analysis": {
       "repo": "cnpem/plp1-splicing-analysis",
       "private": true,
-      "check": ["scripts/splicing.py", "check"],
+      "check": [
+        "scripts/splicing.py",
+        "check"
+      ],
       "reference": "plp1",
-      "reproduce": ["scripts/splicing.py", "reproduce", "--reference", "plp1"],
-      "dependencies": ["uv", "credentials", "alphagenome-variant-impact-score", "alphagenome-single-variant-analysis",
-                       "alphagenome-atlas-website-links", "clinvar-database", "gnomad-database", "dbsnp-database",
-                       "ensembl-database", "alphagenome"],
-      "keys": {"required": ["ALPHAGENOME_API_KEY"], "optional": ["NCBI_API_KEY"]}
+      "reproduce": [
+        "scripts/splicing.py",
+        "reproduce",
+        "--reference",
+        "plp1"
+      ],
+      "dependencies": [
+        "uv",
+        "credentials",
+        "alphagenome-variant-impact-score",
+        "alphagenome-single-variant-analysis",
+        "alphagenome-atlas-website-links",
+        "clinvar-database",
+        "gnomad-database",
+        "dbsnp-database",
+        "ensembl-database",
+        "alphagenome"
+      ],
+      "keys": {
+        "required": [
+          "ALPHAGENOME_API_KEY"
+        ],
+        "optional": [
+          "NCBI_API_KEY"
+        ]
+      }
     }
   },
   "dependency_skills": {
-    "uv": {"repo": "google-deepmind/science-skills", "purpose": "runs every script of the analysis with fixed package versions"},
-    "credentials": {"repo": "google-deepmind/science-skills", "purpose": "is required by the DeepMind skills (the key itself goes in the project .env through this setup)"},
-    "alphagenome-variant-impact-score": {"repo": "google-deepmind/science-skills", "purpose": "gives the gene structure, the list of AlphaGenome tracks and the impact score of each variant"},
-    "alphagenome-single-variant-analysis": {"repo": "google-deepmind/science-skills", "purpose": "interprets the top variants with the AlphaGenome model"},
-    "alphagenome-atlas-website-links": {"repo": "google-deepmind/science-skills", "purpose": "links each top variant to its AlphaGenome Atlas page"},
-    "embl-ebi-ols": {"repo": "google-deepmind/science-skills", "purpose": "finds the ontology terms (UBERON, CL) of the tissues"},
-    "ensembl-database": {"repo": "google-deepmind/science-skills", "purpose": "gives the reference DNA sequence and the regulatory regions"},
-    "clinvar-database": {"repo": "google-deepmind/science-skills", "purpose": "gives clinical variant records (splicing)"},
-    "gnomad-database": {"repo": "google-deepmind/science-skills", "purpose": "gives population frequencies (splicing)"},
-    "dbsnp-database": {"repo": "google-deepmind/science-skills", "purpose": "gives variant identifiers (splicing)"},
-    "alphagenome": {"repo": "K-Dense-AI/scientific-agent-skills", "purpose": "gives the AlphaGenome Atlas scores per tissue"}
+    "uv": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "runs every script of the analysis with fixed package versions",
+      "tested_hash": "be34c19a1e35fd66fe4ec958a10993561e39845930007acb80b6a11bd0d29a46"
+    },
+    "credentials": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "is required by the DeepMind skills (the key itself goes in the project .env through this setup)",
+      "tested_hash": "046785063412028e2c9c971b771fff75761c17d219bbae58587b01e821d2ba35"
+    },
+    "alphagenome-variant-impact-score": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "gives the gene structure, the list of AlphaGenome tracks and the impact score of each variant",
+      "tested_hash": "e9980588bc1e6b4f346cd96632b0670a54b0562f47774e342b07d5ed724e7fa3"
+    },
+    "alphagenome-single-variant-analysis": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "interprets the top variants with the AlphaGenome model",
+      "tested_hash": "c61d75fd3f6015844d43cf87cf60949d41f857408871a03ec408a8de33d98721"
+    },
+    "alphagenome-atlas-website-links": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "links each top variant to its AlphaGenome Atlas page",
+      "tested_hash": "5a50f0be962bcb6b79aa95dc187ece1da305a914fbd3aff4705e6f7966e7b6f8"
+    },
+    "embl-ebi-ols": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "finds the ontology terms (UBERON, CL) of the tissues",
+      "tested_hash": "3c05b0a570438a5f85d555dab8d5b82b5da7532843b8e5bc6caab1d7a6172a24"
+    },
+    "ensembl-database": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "gives the reference DNA sequence and the regulatory regions",
+      "tested_hash": "da1c6d0f87ef1a73ea14212a5422fff0f58cd2ca973c89460ec4f0ff74bde4db"
+    },
+    "clinvar-database": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "gives clinical variant records (splicing)",
+      "tested_hash": "bae8762d42ec7d791dbc96db48160c4a09bb8789848c360b70393282f42f573f"
+    },
+    "gnomad-database": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "gives population frequencies (splicing)",
+      "tested_hash": "4e6446c050983d511d1f548a2246c23ca9057e57d4eedce53bd3329d6d72e699"
+    },
+    "dbsnp-database": {
+      "repo": "google-deepmind/science-skills",
+      "purpose": "gives variant identifiers (splicing)",
+      "tested_hash": "40cff178636bde701da918f300bd7f244bc82acfd6c3abeebb68b92734447e06"
+    },
+    "alphagenome": {
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "purpose": "gives the AlphaGenome Atlas scores per tissue",
+      "tested_hash": "ff10c6aa5025f37b56f4f47558a8d6fb40348540626861ee0f3f1ad691b24616"
+    }
   },
   "_agents_comment": "The folder each agent app reads skills from, in the project and in the home folder (from the agent table of npx skills 1.9.0). A skill counts as installed for an agent only in one of its two folders; a copy anywhere else is not listed among that agent's skills.",
   "agents": {
-    "claude-code": {"name": "Claude (app or Claude Code)", "project": ".claude/skills", "global": "~/.claude/skills"},
-    "antigravity": {"name": "Antigravity", "project": ".agents/skills", "global": "~/.gemini/config/skills"},
-    "codex": {"name": "Codex", "project": ".agents/skills", "global": "~/.agents/skills"},
-    "cursor": {"name": "Cursor", "project": ".agents/skills", "global": "~/.cursor/skills"},
-    "gemini-cli": {"name": "Gemini CLI", "project": ".agents/skills", "global": "~/.gemini/skills"},
-    "opencode": {"name": "OpenCode", "project": ".agents/skills", "global": "~/.config/opencode/skills"}
+    "claude-code": {
+      "name": "Claude (app or Claude Code)",
+      "project": ".claude/skills",
+      "global": "~/.claude/skills"
+    },
+    "antigravity": {
+      "name": "Antigravity",
+      "project": ".agents/skills",
+      "global": "~/.gemini/config/skills"
+    },
+    "codex": {
+      "name": "Codex",
+      "project": ".agents/skills",
+      "global": "~/.agents/skills"
+    },
+    "cursor": {
+      "name": "Cursor",
+      "project": ".agents/skills",
+      "global": "~/.cursor/skills"
+    },
+    "gemini-cli": {
+      "name": "Gemini CLI",
+      "project": ".agents/skills",
+      "global": "~/.gemini/skills"
+    },
+    "opencode": {
+      "name": "OpenCode",
+      "project": ".agents/skills",
+      "global": "~/.config/opencode/skills"
+    }
   },
   "network": [
-    {"url": "https://github.com", "service": "GitHub", "affects": "installing the skills"},
-    {"url": "https://registry.npmjs.org", "service": "npm", "affects": "installing the skills (npx skills)"},
-    {"url": "https://pypi.org", "service": "PyPI", "affects": "the first run of each script (packages are downloaded once)"},
-    {"url": "https://files.pythonhosted.org", "service": "PyPI files", "affects": "the first run of each script"},
-    {"url": "https://rest.ensembl.org/info/ping?content-type=application/json", "service": "Ensembl REST (GRCh38)",
-     "affects": "the gene's Regulatory Build and reference sequence (expression-analysis: exploration and study step 3)"},
-    {"url": "https://www.ebi.ac.uk/ols4/api/ontologies?size=1", "service": "EMBL-EBI OLS",
-     "affects": "finding the ontology terms of the tissues"}
-  ]
+    {
+      "url": "https://github.com",
+      "service": "GitHub",
+      "affects": "installing the skills"
+    },
+    {
+      "url": "https://registry.npmjs.org",
+      "service": "npm",
+      "affects": "installing the skills (npx skills)"
+    },
+    {
+      "url": "https://pypi.org",
+      "service": "PyPI",
+      "affects": "the first run of each script (packages are downloaded once)"
+    },
+    {
+      "url": "https://files.pythonhosted.org",
+      "service": "PyPI files",
+      "affects": "the first run of each script"
+    },
+    {
+      "url": "https://rest.ensembl.org/info/ping?content-type=application/json",
+      "service": "Ensembl REST (GRCh38)",
+      "affects": "the gene's Regulatory Build and reference sequence (expression-analysis: exploration and study step 3)"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/ols4/api/ontologies?size=1",
+      "service": "EMBL-EBI OLS",
+      "affects": "finding the ontology terms of the tissues"
+    }
+  ],
+  "_comment_tested_hash": "tested_hash: the computedHash (npx skills, skills-lock.json) of the version the analysis skills were validated with. A different installed version is reported, not refused."
 }

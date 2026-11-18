@@ -7,12 +7,32 @@ for a maintainer, `contrasts.yaml`.
 
 ## Contents
 
+- [Versions and exit codes](#versions-and-exit-codes)
 - [Questions: `processed/pending_decisions.json`](#questions-processedpending_decisionsjson)
 - [Prerequisites: `expression.py check --json`](#prerequisites-expressionpy-check---json)
 - [Answers and rules: `decisions.yaml`](#answers-and-rules-decisionsyaml)
 - [Exploration: `exploration/exploration.json`](#exploration-explorationexplorationjson)
 - [Link with the open dashboard: `.dashboard/`](#link-with-the-open-dashboard-dashboard)
 - [Contrast plan: `contrasts.yaml`](#contrast-plan-contrastsyaml)
+- [Tables passed between stages: `processed/`](#tables-passed-between-stages-processed)
+
+## Versions and exit codes
+
+Each file family carries a `format_version` (an integer). A reader refuses a number higher than it knows,
+with a message to update the skill, instead of reading a newer format wrongly; a file without the field is
+format 1 (studies and explorations made before 0.6.0).
+
+| Where | Covers | Format |
+|---|---|---|
+| `manifest.json` → `format_version` | the study's files: `manifest.json`, `study.yaml`, `decisions.yaml`, `processed/pending_decisions.json` | 1 |
+| `exploration/exploration.json` → `format_version` | the exploration | 1 |
+| `.dashboard/*.json` → `format_version` | the two link files (a page left open from another version is noticed) | 1 |
+
+`skill_version` in `manifest.json` says which version of the skill made the study; `format_version` says how its
+files are written. The format only goes up when a file changes shape, with an entry in `CHANGELOG.md`.
+
+Exit codes of every command: `0` done; `3` a question for the researcher is pending (`N decision(s) needed:
+run study.py pending.`); `1` an error, with a message saying what to fix or run; `130` interrupted.
 
 ## Questions: `processed/pending_decisions.json`
 
@@ -89,6 +109,8 @@ What `explore` found, read by `study.py init --from-exploration`:
 | `baseline_variant` | the single SNV whose `RNA_SEQ_ACTIVE` score gives the gene's predicted expression level per tissue |
 | `activity` | the predicted expression level per term (the key keeps its older name): `max`, `floor` (the relative cut), `median_relative`, `top` (terms of highest level) and `by_curie`: `name`, `activity` (the term's mean level), `relative` (share of the gene's maximum), `tracks`, `expressed` (true when the share is at least the cut; the key keeps its older name, it does not mean the transcript is present) |
 | `recommended_tracks_per_scorer` | tracks of the recommended terms, per prediction type |
+| `unavailable` | captures that could not be made (Ensembl not answering): one item per capture with `capture` (`regulatory` or `sequence`), `service`, `effect` (what the page lacks, in Portuguese) and `error` (the first line of the failure). Empty when everything was captured. While it is not empty, `features` is empty, only the TSS ± 500 bp window is offered, `baseline_variant` and `activity` are null without the sequence, and `study.py init --from-exploration` refuses; the same `explore` run later fills them in |
+| `format_version` | see [Versions and exit codes](#versions-and-exit-codes) |
 
 ## Link with the open dashboard: `.dashboard/`
 
@@ -108,6 +130,7 @@ the page and the agent, not a result of the study, and are not in the manifest.
 
 | Field | Content |
 |---|---|
+| `format_version` | 1 (both files); the page ignores, and `view` refuses, a newer one |
 | `sent_at` | UTC time the view was sent |
 | `message` | the line shown on the page (`--message`) |
 | `choices` | the same keys as above; `highlight` only when the agent sends or clears highlights; `window` (`[start, end]` or `"full"`) only when the agent sets the stretch. Values the page cannot take are ignored |
@@ -133,3 +156,22 @@ priority:
   direction_contrast: rna_seq # the contrast that orders the top list
   scope_contrast: rna_seq     # optional; default the direction contrast
 ```
+
+## Tables passed between stages: `processed/`
+
+Each stage writes its tables under `processed/`, and the stage that reads one checks its columns first: a table
+written by another version of the skill, or edited by hand, stops with a message naming the missing columns and
+the stage to run again, instead of producing wrong numbers further on. The columns are declared in the code of the
+stage that writes them.
+
+| File | Written by | Read by | Columns declared in |
+|---|---|---|---|
+| `locus.json` | `locus` (step 4) | every later stage | `LocusConfig` in `scripts/core/locus.py` (read with its own field check) |
+| `transcripts_in_window.tsv` | `locus` | `report` | `TRANSCRIPT_COLUMNS`, `scripts/core/locus.py` |
+| `track_registry.tsv` | `cohorts` (step 8) | `master`, `report`, dashboard | `REGISTRY_COLUMNS`, `scripts/core/tracks.py` (checked by `master`) |
+| `core_variants.tsv` | `variants` (step 11) | `master` | `CORE_SCHEMA`, `scripts/core/variants.py` (checked on read) |
+| `master.parquet`, `track_scores_long.parquet`, `qc_report.json` | `master` (step 11) | `contrast`, dashboard, `summarize`, `figures` | `scripts/core/master.py` |
+| `tissue_contrast.parquet`, `tissue_contrast_meta.json`, `top_variants.tsv/.json` | `contrast` (step 12) | `report`, `fetch links` | `scripts/core/contrast.py` |
+
+Do not edit these files: run the stage again. A study made with another version of the skill is reproduced by
+running its stages again with this version (the captures in `raw/` stay).

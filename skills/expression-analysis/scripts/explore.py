@@ -46,6 +46,7 @@ DEFAULT_FLANK_BP = 2000
 DEFAULT_FLOOR = 0.05  # terms whose expression level is below 5% of the gene's highest term are flagged (relative cut)
 TSS_HALF_WIDTH = 500
 EXPLORATION_FILE = "exploration.json"
+EXPLORATION_FORMAT = 1  # format_version of exploration.json; study.py init refuses a newer one
 SUMMARY_FILE = "summary.md"
 ACTIVITY_FILE = "activity.md"
 BASELINE_FILE = "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"
@@ -55,6 +56,23 @@ STUDY_RAW = (re.compile(r"^gtf\.json$"), re.compile(r"^regulatory\.json$"), re.c
              re.compile(r"^ols_search_.+\.json$"), re.compile(r"^ols_term_.+\.json$"),
              re.compile(r"^tracks_[A-Z0-9_]+_catalogue\.parquet$"))
 ATLAS_LIMIT_BP = 1000  # the Atlas scripts refuse wider windows unless --max-window is raised (the skill does it)
+
+
+# What each optional capture gives, and what the exploration shows without it (Portuguese, for summary.md).
+OPTIONAL_CAPTURES = {
+    "regulatory": {"service": "Ensembl REST (Regulatory Build)",
+                   "effect": "sem os elementos regulatórios, só a janela TSS ± 500 pb é oferecida"},
+    "sequence": {"service": "Ensembl REST (sequência de referência)",
+                 "effect": "sem a sequência, a variante de sondagem não pode ser montada e o nível de expressão "
+                           "previsto por tecido não é mostrado"},
+}
+
+
+def _unavailable(capture: str, exc: Exception) -> dict[str, str]:
+    """A capture that failed, as recorded in exploration.json and shown in summary.md."""
+    first = next((line for line in str(exc).splitlines()[1:] if line.strip()), str(exc).splitlines()[0])
+    print(f"Note: {OPTIONAL_CAPTURES[capture]['service']} could not be reached; the exploration goes on without it.")
+    return {"capture": capture, **OPTIONAL_CAPTURES[capture], "error": first.strip()[:300]}
 
 
 class ExploreError(Exception):
@@ -342,13 +360,26 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
     tx, transcripts, tx_note = _gene_locus(raw / "gtf.json", gene)
     chrom, s0, e0 = search_region(transcripts, flank)
     region = models.interval_str(chrom, s0, e0)
+    # Ensembl (Regulatory Build and reference sequence) is optional here: when it cannot be reached, the
+    # exploration still shows the terms, the tracks and the TSS window, says what is missing, and a later
+    # explore fills it in (captures already made are reused). A study needs both, so init refuses until then.
+    unavailable: list[dict[str, str]] = []
     if not have("raw/regulatory.json"):
-        fetch.regulatory(ws, region)
+        try:
+            fetch.regulatory(ws, region)
+        except fetch.FetchError as exc:
+            (raw / "regulatory.json").unlink(missing_ok=True)  # a partial file would be reused as a capture
+            unavailable.append(_unavailable("regulatory", exc))
     seq_name = f"raw/sequence_{region.replace(':', '_').replace('-', '_')}.txt"
     if not have(seq_name):
-        fetch.sequence(ws, region)
+        try:
+            fetch.sequence(ws, region)
+        except fetch.FetchError as exc:
+            (root / seq_name).unlink(missing_ok=True)
+            unavailable.append(_unavailable("sequence", exc))
     contig = core_locus._contig_without_prefix(chrom)
-    features = [f for f in models.load_raw(raw / "regulatory.json") if f.seq_region_name == contig]
+    features = ([f for f in models.load_raw(raw / "regulatory.json") if f.seq_region_name == contig]
+                if (raw / "regulatory.json").is_file() else [])
     windows = candidate_windows(tx, features, (chrom, s0, e0), flank)
 
     for s in scorers:
@@ -375,10 +406,12 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
                 table["descendants_error"] = f"{rec['curie']}: {str(exc).splitlines()[0][:200]}"
         terms.append(table)
 
-    variant = baseline_variant(tx, root / seq_name)
-    if not have("atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"):
-        fetch.baseline(ws, variant, gene)
-    activity = baseline_activity(root / "atlas" / "scores_RNA_SEQ_ACTIVE_baseline.tsv", floor)
+    variant = baseline_variant(tx, root / seq_name) if (root / seq_name).is_file() else None
+    activity = None  # the probe SNV needs the reference base, which comes from the sequence
+    if variant is not None:
+        if not have("atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"):
+            fetch.baseline(ws, variant, gene)
+        activity = baseline_activity(root / "atlas" / "scores_RNA_SEQ_ACTIVE_baseline.tsv", floor)
 
     rec_curies = [t["recommended"] for t in terms if t["recommended"]]
     rec_tracks = {s: sum(cat.filter((pl.col("ontology_curie") == c) & (pl.col("scorer") == s)).height for c in rec_curies)
@@ -386,6 +419,7 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
     for w in windows:
         w["rows_per_scorer"] = {s: w["snvs"] * n for s, n in rec_tracks.items()}
     data = {
+        "format_version": EXPLORATION_FORMAT,
         "gene": gene, "transcript": tx.transcript_id, "transcript_note": tx_note, "chromosome": chrom,
         "strand": tx.strand, "tss": core_locus._tss(tx), "gene_span": [min(t.start for t in transcripts),
                                                                         max(t.end for t in transcripts)],
@@ -395,12 +429,13 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
                      for f in sorted(features, key=lambda f: f.start)],
         "windows": windows, "recommended_window": windows[0]["id"] if windows else None,
         "terms": terms, "baseline_variant": variant, "activity": activity,
-        "recommended_tracks_per_scorer": rec_tracks,
+        "recommended_tracks_per_scorer": rec_tracks, "unavailable": unavailable,
     }
     (root / EXPLORATION_FILE).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     summary = root / SUMMARY_FILE
     summary.write_text(render_summary(data), encoding="utf-8")
-    write_activity(root, floor)
+    if activity is not None:
+        write_activity(root, floor)
     return summary
 
 
@@ -429,7 +464,9 @@ def _assays(info: dict[str, Any]) -> str:
     return ", ".join(f"{k} ×{n}" for k, n in sorted(a.items())) or "—"
 
 
-def _act(activity: dict[str, Any], curie: str) -> str:
+def _act(activity: dict[str, Any] | None, curie: str) -> str:
+    if activity is None:
+        return "indisponível (sem a sequência de referência)"
     a = activity["by_curie"].get(curie)
     if a is None:
         return "sem trilha de RNA-seq"
@@ -454,10 +491,19 @@ def render_summary(d: dict[str, Any]) -> str:
     if d["transcript_note"]:
         L.append(f"- Atenção: {d['transcript_note']}.")
     L.append(f"- Região buscada para elementos regulatórios: {d['search_region']} (o gene ± {d['flank_bp']} pb).\n")
+    missing = {u["capture"]: u for u in d.get("unavailable", [])}
+    if missing:
+        L.append("> **Capturas que faltam.** " + " ".join(
+            f"{u['service']} não respondeu ({u['error'] or 'sem detalhe'}): {u['effect']}." for u in missing.values())
+            + " O estudo só pode ser criado quando elas existirem: rode a exploração de novo mais tarde, com o mesmo "
+              "comando (o que já foi capturado é reaproveitado).\n")
     L.append("## 2. Elementos regulatórios em volta do gene (Ensembl Regulatory Build)\n")
-    L.append("| Elemento | Tipo | Posição | Distância ao TSS (− = a montante) |\n|---|---|---|---|")
-    for f in d["features"]:
-        L.append(f"| {f['id']} | {f['biotype']} | {f['start']}-{f['end']} | {f['distance_to_tss']:+d} pb |")
+    if "regulatory" in missing:
+        L.append("Indisponível nesta exploração (ver o aviso acima).")
+    else:
+        L.append("| Elemento | Tipo | Posição | Distância ao TSS (− = a montante) |\n|---|---|---|---|")
+        for f in d["features"]:
+            L.append(f"| {f['id']} | {f['biotype']} | {f['start']}-{f['end']} | {f['distance_to_tss']:+d} pb |")
     L.append("")
     L.append("## 3. Janelas possíveis\n")
     L.append("Cada posição da janela gera 3 variantes (SNVs). O custo cresce com o número de SNVs × trilhas: a coluna "
@@ -474,8 +520,12 @@ def render_summary(d: dict[str, Any]) -> str:
                  f"| {inc} | {exc} |")
     if d["windows"]:
         w0 = d["windows"][0]
-        L.append(f"\n**Recomendação:** `{w0['id']}` — {w0['why']}. É a menor janela que cobre o elemento onde a "
-                 "transcrição começa e o éxon 1 inteiro, que é onde variantes reguladoras do promotor costumam agir.")
+        why = (" É a menor janela que cobre o elemento onde a transcrição começa e o éxon 1 inteiro, que é onde variantes "
+               "reguladoras do promotor costumam agir." if w0["id"] == "regulatory_unit" else "")
+        if "regulatory" in missing:
+            why = (" Recomendação provisória: sem o Regulatory Build, é a única janela que pode ser montada; as janelas "
+                   "baseadas nos elementos regulatórios aparecem quando a exploração for refeita.")
+        L.append(f"\n**Recomendação:** `{w0['id']}` — {w0['why']}.{why}")
         if w0["study_questions"]:
             n = len(w0["study_questions"])
             L.append(f"Ao criar o estudo com ela, {'uma pergunta' if n == 1 else f'{n} perguntas'} sobre a extensão da "
@@ -524,35 +574,39 @@ def render_summary(d: dict[str, Any]) -> str:
                          + f" | {_act(act, x['curie'])} |")
         L.append("")
     L.append(f"## 5. {T.cap(T.label('expression_level'))} do gene nesses tecidos (`RNA_SEQ_ACTIVE`)\n")
-    L.append(f"Uma consulta ao Atlas com uma {T.label('probe_snv')} dentro do gene ({d['baseline_variant']}) devolve, para "
-             f"cada trilha de RNA-seq, o {T.label('expression_level')} do gene: o maior entre os dois alelos dessa variante. "
-             "Os valores abaixo são relativos ao termo de maior nível médio do gene no catálogo "
-             f"({N.dec(act['max'])}). Abaixo de {_pct(act['floor'])} desse máximo o termo é marcado: é um corte desta skill, "
-             "relativo ao máximo do próprio gene e sem calibração; não quer dizer que o transcrito esteja ausente. Onde o "
-             "nível é muito baixo, a mudança em % de uma variante pode ser grande mesmo com uma mudança absoluta mínima, e "
-             "não deve ser lida como efeito específico do tecido. As trilhas de um termo podem ser de ensaios e fontes "
-             "diferentes, cujos valores não são diretamente comparáveis.\n")
-    L.append(f"A lista completa, com os {len(act['by_curie'])} tecidos e células do catálogo, tipo de amostra, ensaios e "
-             f"fontes, está em `{ACTIVITY_FILE}`.\n")
-    L.append(f"| Termos de maior {T.label('expression_level')} | {T.cap(T.short('expression_level'))} | "
-             f"{T.cap(T.short('share_of_maximum'))} |\n|---|---|---|")
-    for c in act["top"]:
-        a = act["by_curie"][c]
-        L.append(f"| {c} ({a['name']}) | {N.dec(a['activity'])} | {_pct(a['relative'])} |")
-    low = [(t["text"], t["recommended"]) for t in d["terms"]
-           if t["recommended"] in act["by_curie"] and not act["by_curie"][t["recommended"]]["expressed"]]
-    L.append("")
-    if low:
-        L.append(f"**Aviso:** abaixo de {_pct(act['floor'])} do máximo do gene: "
-                 + "; ".join(f"\"{txt}\" ({c})" for txt, c in low)
-                 + ". Se algum deles for o tecido alvo, uma mudança grande em % ali pode ser uma mudança absoluta mínima "
-                   "(e o modelo erra mais na especificidade de tecido para genes de nível baixo); considere um "
-                   "termo da lista acima com nível mais alto. Como controle, um termo de nível muito baixo pode dominar o "
-                   "valor do grupo com mudanças grandes em % que são mudanças absolutas mínimas; o painel tem um piso do "
-                   "nível REF para tirá-lo do cálculo.")
+    if act is None:
+        L.append("Indisponível nesta exploração: a variante de sondagem precisa da base de referência, que vem da "
+                 "sequência do Ensembl (ver o aviso no início). A coluna de nível da seção 4 também fica vazia.\n")
     else:
-        L.append(f"Todos os termos recomendados com RNA-seq estão acima de {_pct(act['floor'])} do máximo do gene.")
-    L.append("")
+        L.append(f"Uma consulta ao Atlas com uma {T.label('probe_snv')} dentro do gene ({d['baseline_variant']}) devolve, para "
+                 f"cada trilha de RNA-seq, o {T.label('expression_level')} do gene: o maior entre os dois alelos dessa variante. "
+                 "Os valores abaixo são relativos ao termo de maior nível médio do gene no catálogo "
+                 f"({N.dec(act['max'])}). Abaixo de {_pct(act['floor'])} desse máximo o termo é marcado: é um corte desta skill, "
+                 "relativo ao máximo do próprio gene e sem calibração; não quer dizer que o transcrito esteja ausente. Onde o "
+                 "nível é muito baixo, a mudança em % de uma variante pode ser grande mesmo com uma mudança absoluta mínima, e "
+                 "não deve ser lida como efeito específico do tecido. As trilhas de um termo podem ser de ensaios e fontes "
+                 "diferentes, cujos valores não são diretamente comparáveis.\n")
+        L.append(f"A lista completa, com os {len(act['by_curie'])} tecidos e células do catálogo, tipo de amostra, ensaios e "
+                 f"fontes, está em `{ACTIVITY_FILE}`.\n")
+        L.append(f"| Termos de maior {T.label('expression_level')} | {T.cap(T.short('expression_level'))} | "
+                 f"{T.cap(T.short('share_of_maximum'))} |\n|---|---|---|")
+        for c in act["top"]:
+            a = act["by_curie"][c]
+            L.append(f"| {c} ({a['name']}) | {N.dec(a['activity'])} | {_pct(a['relative'])} |")
+        low = [(t["text"], t["recommended"]) for t in d["terms"]
+               if t["recommended"] in act["by_curie"] and not act["by_curie"][t["recommended"]]["expressed"]]
+        L.append("")
+        if low:
+            L.append(f"**Aviso:** abaixo de {_pct(act['floor'])} do máximo do gene: "
+                     + "; ".join(f"\"{txt}\" ({c})" for txt, c in low)
+                     + ". Se algum deles for o tecido alvo, uma mudança grande em % ali pode ser uma mudança absoluta mínima "
+                       "(e o modelo erra mais na especificidade de tecido para genes de nível baixo); considere um "
+                       "termo da lista acima com nível mais alto. Como controle, um termo de nível muito baixo pode dominar o "
+                       "valor do grupo com mudanças grandes em % que são mudanças absolutas mínimas; o painel tem um piso do "
+                       "nível REF para tirá-lo do cálculo.")
+        else:
+            L.append(f"Todos os termos recomendados com RNA-seq estão acima de {_pct(act['floor'])} do máximo do gene.")
+        L.append("")
     L.append(f"## 6. {T.cap(T.label('scorer'))} (scorers)\n")
     L.append("| Scorer | O que mede | Termos recomendados com trilha |\n|---|---|---|")
     meaning = {"RNA_SEQ": "expressão (RNA)", "CAGE": "início de transcrição", "DNASE": "cromatina acessível (DNase)",

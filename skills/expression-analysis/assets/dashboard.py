@@ -104,7 +104,8 @@ def _(agent_file, link_cache):
     if agent_file is not None:
         try:
             _read = _json.loads(agent_file.read_text() or "null")
-            if isinstance(_read, dict):
+            # format_version 1 (or absent); a view sent by a newer `view` command is left unread
+            if isinstance(_read, dict) and _read.get("format_version", 1) == 1:
                 link_cache["agent_view"] = _read
         except ValueError:  # caught half-written: keep the last view read
             pass
@@ -678,7 +679,7 @@ def _(dataclasses, effects, get_crop, get_focus_ids, kept, live_link, profile, s
     if live_link:
         import datetime as _dt
         import json as _json
-        _view = {"updated_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        _view = {"format_version": 1, "updated_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                  "choices": {**dataclasses.asdict(profile), "show_mode": show_mode.value,
                              "highlight": list(get_focus_ids())},
                  "window_shown": list(get_crop()), "n_pass": kept.height, "n_total": effects.height}

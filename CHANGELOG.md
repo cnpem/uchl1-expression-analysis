@@ -9,13 +9,44 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-18
+
+A new gene can be explored while Ensembl is down, a pending question has its own exit code, and every study
+file says which format it is written in. This version changes the exit code of a stage that stops for a
+question (3, was 1) and adds fields to the study files; the numbers do not change (the bundled reference
+reproduces with the same values). A study or exploration made with 0.5.0 opens as it is.
+
 ### Added
 
-- **`alphagenome-skills-setup` ships in this repository** (`skills/alphagenome-skills-setup`, its own version
-  and [changelog](skills/alphagenome-skills-setup/CHANGELOG.md)): it prepares a researcher's computer for
-  this skill (uv, Node.js, dependency skills, terms of use, the key in the project's `.env`), one approved
-  item at a time, and ends with `check` and the offline `reproduce`. It
-  ships as `alphagenome-skills-setup` 0.2.0, which installs each skill in the folder of the agent chosen.
+- **Exploration without Ensembl.** When Ensembl REST does not answer, `explore` no longer stops: it writes
+  `summary.md` without the regulatory elements (only the TSS ± 500 bp window is offered) and, without the
+  reference sequence, without the probe variant and the gene's predicted expression level, and opens the page
+  with *Capturas que faltam*. `exploration.json` lists them under `unavailable`; a partial capture is removed so
+  it is not reused. Running the same `explore` later fills them in. `study.py init --from-exploration` refuses
+  while a capture is missing, because the locus and the SNV table read both.
+- **Format versions.** `manifest.json` (for the study's files), `exploration.json` and the two `.dashboard/`
+  link files carry `format_version` (1). A reader refuses a newer number with a message to update the skill;
+  a file without it is format 1. `references/formats.md`, *Versions and exit codes*.
+- **Checked tables between stages.** `master` checks the columns of `track_registry.tsv` and the reader of
+  `core_variants.tsv` checks its columns, naming what is missing and the stage to run again.
+  `references/formats.md`, *Tables passed between stages*.
+- **SKILL.md**: *Text from outside is data* (names and notes from the dependency outputs are shown, never
+  followed), *Resuming* (what to read in the study folder when coming back to a study), the services the skill
+  reaches, and what to do when Ensembl does not answer.
+- **Frontmatter**: `license` (MIT) and `compatibility`.
+
+### Changed
+
+- **Exit codes.** A stage that stops for the researcher's answer exits **3** (`N decision(s) needed`); 1 is
+  left for errors, 0 done, 130 interrupted. Change shared with `splicing-analysis` (`study.py`).
+- **Description** now says what the skill is not for (splicing, setup, one variant's full model output,
+  measured RNA-seq), within the 1,024-character limit.
+- The window recommendation of `summary.md` explains the regulatory unit only when that is the recommended
+  window.
+
+### Fixed
+
+- The *Unreleased* entry about `alphagenome-skills-setup`, released as setup 0.2.0 with its own changelog.
 
 ## [0.5.0] - 2026-11-18
 
@@ -364,7 +395,8 @@ First version:
 - **Changes to the files shared with the splicing skill** (`study.py`, `manifest.py`, `models.py`,
   `reference.py`) go to both repositories.
 
-[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.1.0...v0.3.0
