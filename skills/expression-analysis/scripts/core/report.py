@@ -208,8 +208,8 @@ FIGURE_TEXT = {
                         "Cada ponto é uma variante: mudança no alvo (horizontal) contra o controle (vertical). Sobre a "
                         "diagonal tracejada o efeito é igual nos dois grupos; perto da linha horizontal do zero e longe do "
                         "centro, é próprio do alvo; em quadrantes opostos, os grupos mudam em sentidos contrários."),
-    "variantes": ("Variantes destacadas, medição por medição",
-                  "Uma barra por medição (ensaio e fonte) de cada tecido. Barras do mesmo tecido que discordam muito "
+    "variantes": ("Variantes destacadas, trilha por trilha",
+                  "Uma barra por trilha (ensaio e fonte) de cada tecido. Barras do mesmo tecido que discordam muito "
                   "indicam um tecido instável para a comparação."),
     "matriz": ("Variantes × tecidos",
                "As primeiras variantes que passam (linhas, na ordem escolhida) em cada tecido (colunas): vermelho aumenta, "
@@ -355,7 +355,7 @@ def _section_limits(resolution: Mapping[str, Any], meta: Mapping[str, Any]) -> l
     lines = [
         "## Limitações", "",
         "- **Uso em pesquisa apenas.** São previsões de impacto molecular (AlphaGenome Atlas) para priorizar experimentos; "
-        "não são medições nem achados clínicos, e não devem ser usadas como diagnóstico.",
+        "não são medidas experimentais nem achados clínicos, e não devem ser usadas como diagnóstico.",
         "- **Escores brutos** são comparáveis dentro de um scorer, não entre scorers; use quantis para comparar ensaios.",
         "- **Escopo da janela:** só a janela analisada foi mutada; enhancers distais e íntrons ficam de fora.",
         "- **Transcrito:** as anotações seguem o transcrito selecionado; outros transcritos que iniciam na janela estão em "

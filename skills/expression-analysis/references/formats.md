@@ -86,7 +86,7 @@ What `explore` found, read by `study.py init --from-exploration`:
 | `windows` | the candidate windows: `id` (what `init --window` takes), `label`, `region`, `start`, `end`, `bp`, `snvs`, `policy` (the `study.yaml` window policy), `why`, `study_questions` (the step 4 questions it will raise), `features_included`, `features_excluded`, `needs_max_window`, `rows_per_scorer` (Atlas rows, the cost) |
 | `recommended_window` | the id of the suggested window |
 | `terms` | one per tissue text: `text`, `ols_file`, `candidates` (`curie`, `label`, `ontology`, `definition`, `per_scorer` track counts, `biosample_names`), `recommended` CURIE, `related_in_catalogue` (catalogue terms whose name contains the text), `descendants` (more specific terms with tracks, for a term without RNA-seq) |
-| `baseline_variant` | the single SNV whose `RNA_SEQ_ACTIVE` score gives the gene's activity per tissue |
+| `baseline_variant` | the single SNV whose `RNA_SEQ_ACTIVE` score gives the gene's predicted expression level per tissue |
 | `activity` | `max`, `floor`, `median_relative`, `top` (most active terms) and `by_curie`: `name`, `activity`, `relative` (to the maximum), `tracks`, `expressed` (relative ≥ floor) |
 | `recommended_tracks_per_scorer` | tracks of the recommended terms, per prediction type |
 

@@ -9,6 +9,32 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+### Added
+
+- **Term registry** (`assets/terms.yaml`, `scripts/terms.py`): one entry per quantity the skill shows, with the
+  API variable it comes from, its name in Portuguese and English, definition, formula, unit, what it may be
+  compared with, status (official, this skill's convention, undecided) and source.
+  - `references/glossary.md` is generated from it; the agent reads it before explaining a number.
+  - `expression.py terms` checks the registry, the glossary and the code and documentation for deprecated
+    names; `reproduce` runs the same check.
+  - `expression.py check` notes when the installed `alphagenome` skill differs from the version the
+    definitions were checked against (`skills-lock.json`).
+
+### Changed
+
+- **Names on the pages** (wording only; no number changes). The exploration pages, the dashboard, `summarize`
+  and the report now use the registry's names:
+  - *nível de expressão previsto* for the gene's level (before: *atividade*);
+  - *trilha* for an Atlas output of one sample, assay and source (before: *medição*);
+  - *discordância entre trilhas* and *discordância típica* (before: *ruído* and σ). The filter steps read
+    "alvo − controle ≥ N × a discordância típica"; the pages say the two tracks of a pair differ in assay or
+    source and are not replicates;
+  - *abaixo de 5% do máximo do gene* (before: *gene não expresso*, *praticamente desligado*);
+  - *variante de sondagem*, *tipo de predição*, *pseudocontagem da pontuação RNA_SEQ*.
+  The option `--min-sigma` and the columns `diff_sigma` and `sigma` keep their names.
+- The exploration no longer says that a tissue without expression is a good control "para mostrar ausência
+  de efeito": a term of very low level can dominate a group value.
+
 ## [0.4.0] - 2026-11-17
 
 The researcher's decisions become part of the study, and the agent and the open dashboard can see and move

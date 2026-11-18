@@ -298,7 +298,7 @@ def atlas_tracks(ws: Workspace) -> Path:
 
 
 def baseline(ws: Workspace, variant: str, gene: str) -> Path:
-    """RNA_SEQ_ACTIVE of one SNV inside the gene, every track: the predicted activity of the gene per tissue."""
+    """RNA_SEQ_ACTIVE of one SNV inside the gene, every track: the predicted expression level of the gene per tissue."""
     out = _out(ws, "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv")
     argv = _atlas_query_argv("scores", "--variant", variant, "--scorers", "RNA_SEQ_ACTIVE", "--gene", gene, "-o", str(out))
     if _exec(ws, argv) is None:

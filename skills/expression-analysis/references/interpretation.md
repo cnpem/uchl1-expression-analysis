@@ -6,13 +6,18 @@ diagnosis or a clinical finding).
 
 ## Where each score is defined
 
+`references/glossary.md` has one entry per quantity this skill shows: its name on the pages, what it is, its
+formula and unit, what it may be compared with, its status (official, this skill's convention, or undecided)
+and its source. Read it before explaining a number, use the names as written there, and for an undecided
+entry say that it is not established instead of inferring.
+
 The formula, the sign and the window of every AlphaGenome score are defined by the `alphagenome`
 dependency skill, not here. Before explaining what a score is, read its `references/model-api.md`
 (table *Recommended scorers*, column *Meaning of `raw_score`*) and its `references/interpretation.md`
 (*Raw score and quantile: always both*, *Tissue matching*, *What the model cannot see*). Do not define
 a score from memory. Two points this skill's pages depend on:
 
-- `RNA_SEQ_ACTIVE` (the exploration's "atividade", and the basis of REF) is the larger of the REF and
+- `RNA_SEQ_ACTIVE` (the exploration's *nível de expressão previsto*, and the basis of REF) is the larger of the REF and
   ALT alleles' mean predicted RNA-seq coverage over the gene's exons. It is a level, not a change, it
   has no official unit (the documentation says "normalized read signal") and it exists only per
   variant, so the exploration scores one probe SNV to read it.
@@ -20,7 +25,7 @@ a score from memory. Two points this skill's pages depend on:
   It says how unusual a score is, not how large the effect is.
 
 The analysis the researcher sees is the dashboard's (`references/dashboard.md`): % change per tissue,
-target and control groups chosen on the page, the noise between measurements of the same tissue, and
+target and control groups chosen on the page, the disagreement between tracks of the same tissue, and
 filters that start off. The tier files, the labels and the workbench below are the pipeline's fixed
 triage, kept for `report.md` and for `reproduce`; their labels (**Inconsistent**, **Mixed**, the
 quantile cut) are heuristics, so do not present them as the study's result.

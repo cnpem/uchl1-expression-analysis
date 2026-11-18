@@ -80,6 +80,7 @@ import manifest
 import models
 import reference
 import study
+import terms as T
 from core import cohorts as core_cohorts
 from core import contrast as core_contrast
 from core import locus as core_locus
@@ -648,7 +649,7 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
                    help="How each group's tissues are combined: mean (default) or median")
     p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
     p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
-    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control beyond this many noise sigmas, in the question's direction (both for either; 0 = off)")
+    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control beyond this many times the typical between-track disagreement, in the question's direction (both for either; 0 = off)")
     p.add_argument("--assay", action="append", help="Assay titles kept (repeatable; default all)")
     p.add_argument("--source", action="append", help="Data sources kept, e.g. encode, gtex (repeatable; default all)")
     p.add_argument("--domain", action="append", help="Genomic domains kept (repeatable; default all)")
@@ -843,10 +844,10 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     what = A.SCALES.get(scorer, (None, "o sinal previsto"))[1]
     out = [f"# {config.gene_symbol}: resumo da visão do dashboard ({scorer}; % d{what})", "",
            H.headline(kept, effects, profile, labels, A.ref_by_tissue(data), missing=A.without_tracks(data, profile)),
-           "", "## Grupos e medições", ""]
+           "", "## Grupos e trilhas", ""]
     for role, curies, name in (("Alvo", profile.target, profile.target_label), ("Controle", profile.control, profile.control_label)):
         out.append(f"**{role} ({name})**")
-        out += [f"- {labels.get(c, c)} ({c}): {desc.get(c, 'sem medições deste tipo')}" for c in curies] or ["- nenhum"]
+        out += [f"- {labels.get(c, c)} ({c}): {desc.get(c, 'sem trilhas deste tipo')}" for c in curies] or ["- nenhum"]
         out.append("")
     dropped = [c for c in profile.control if c not in used.control]
     if dropped:
@@ -855,7 +856,7 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     ref = A.ref_by_tissue(data)
     out += ["## Expressão de referência (REF) e piso", ""]
     if not ref:
-        out += ["Sem REF neste estudo (não há a variante de referência da exploração em raw/), então o piso não se aplica.", ""]
+        out += ["Sem REF neste estudo (não há a variante de sondagem da exploração em raw/), então o piso não se aplica.", ""]
     else:
         top = max(ref.values())
         floor = profile.ref_floor
@@ -881,14 +882,15 @@ def summarize_cmd(args: argparse.Namespace) -> None:
                                               ", só aviso")) if r < floor else "acima do piso")
                 out.append(f"| {labels.get(c, c)} | {role} | {H._n(r, 4)} | {H._n(100 * r / top, 1)}% | {state} |")
         out.append("")
-    out += ["## Ruído entre medições do mesmo tecido", ""]
+    out += [f"## {T.cap(T.label('track_disagreement'))} do mesmo tecido", ""]
     overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None, score=profile.score)
     if overall is None:
-        out.append("Não disponível (nenhum tecido com duas medições nas escolhas atuais); o filtro de ruído fica de fora.")
+        out.append("Não disponível (nenhum tecido com duas trilhas nas escolhas atuais); o filtro de discordância fica de fora.")
     else:
         size = (lambda v: f"{H._n(A.pct(v, scorer), 1)}%") if A.uses_pct(profile) else (lambda v: f"{H._n(v, 3)} (quantil)")
-        out.append(f"Duas medições do mesmo tecido discordam em até {size(overall[0])} (p95) e "
-                   f"{size(overall[1])} (p99), juntando todos os tecidos com duas ou mais medições.")
+        out.append(f"Duas trilhas do mesmo tecido, que são de ensaios ou fontes diferentes, discordam em até {size(overall[0])} "
+                   f"(p95) e {size(overall[1])} (p99), juntando todos os tecidos com duas ou mais trilhas. Elas não são "
+                   "réplicas: o valor mede a discordância entre tipos de trilha, não o erro do modelo.")
     out += ["", "## Etapas dos filtros", "", "| etapa | variantes |", "|---|---|"]
     out += [f"| {s} | {n} |" for s, n in steps]
     # Order: the one of 'Ordenar por', as in the dashboard's table and headline (kept comes sorted by it)
@@ -1013,6 +1015,11 @@ def check(args: argparse.Namespace) -> None:
     for key in OPTIONAL_KEYS:
         if not _key_present(key):
             print(f"Warning: {key} is not set; requests will run at the lower rate limit.", file=sys.stderr)
+    try:  # a dependency skill newer than the one the definitions were checked against
+        for note in T.dependency_drift(deps._workspace_of(SKILL_DIR)):
+            print(f"Note: {note}", file=sys.stderr)
+    except T.TermError as exc:
+        print(f"Warning: {exc}", file=sys.stderr)
     if args.json:
         print(json.dumps({"ready": not items, "setup_skill": SETUP_SKILL,
                           "setup_skill_installed": deps.find_skill(SETUP_SKILL) is not None, "items": items},
@@ -1033,6 +1040,24 @@ def check(args: argparse.Namespace) -> None:
               f"{SETUP_INSTALL} (with <agent> the id of their agent app, e.g. claude-code, opencode, antigravity). Do not "
               "install the dependency skills from this skill.", file=sys.stderr)
     sys.exit(1)
+
+
+def terms_cmd(args: argparse.Namespace) -> None:
+    """The term registry (assets/terms.yaml): writes references/glossary.md from it, and checks that every entry
+    is complete, the glossary is current and no deprecated name is left in the code or the documentation."""
+    if args.write_glossary:
+        try:
+            T.GLOSSARY.write_text(T.glossary_md(), encoding="utf-8", newline=chr(10))
+        except T.TermError as exc:
+            _stage_error(exc)
+        print(f"Wrote {T.GLOSSARY} from {T.REGISTRY.name} ({len(T.load())} terms).")
+    problems = T.check()
+    if problems:
+        print(f"Term check: {len(problems)} problem(s):", file=sys.stderr)
+        for line in problems:
+            print(f"- {line}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Term check passed: {len(T.load())} terms, glossary current, no deprecated name in the code or the documentation.")
 
 
 def reproduce(args: argparse.Namespace) -> None:
@@ -1057,6 +1082,10 @@ def reproduce(args: argparse.Namespace) -> None:
         parts = ", ".join(f"{s} {n}" for s, n in track_counts.items())
         print(f"Summary: {sum(track_counts.values())} tracks in total ({parts}). "
               "Report these numbers, and the headline results above, in the answer.")
+    problems = T.check()  # the names on the pages are part of what a reproduction verifies
+    if problems:
+        print(f"Term check failed: {len(problems)} problem(s); run expression.py terms --check for the list.", file=sys.stderr)
+        code = code or 1
     sys.exit(code)
 
 
@@ -1067,19 +1096,19 @@ def main() -> None:
 
     p = sub.add_parser("explore", help="Workflow step 0: read-only exploration before the study exists",
                        description="Gene structure, Regulatory Build, candidate windows, OLS terms per tissue text, Atlas "
-                                   "tracks per term x scorer and the gene's predicted activity per tissue "
+                                   "tracks per term x scorer and the gene's predicted expression level per tissue "
                                    "(RNA_SEQ_ACTIVE), written to OUT/exploration/ with summary.md (Portuguese).")
     p.add_argument("--gene", help="HGNC symbol (required, except with --activity-only)")
     p.add_argument("--out", required=True, help="Folder for the exploration (OUT/exploration/); later the study's parent")
     p.add_argument("--activity-only", action="store_true",
                    help="Only (re)write OUT/exploration/activity.md from the captured baseline: every catalogue term with "
-                        "the gene's predicted activity, for choosing or changing the groups. No network")
+                        "the gene's predicted expression level, for choosing or changing the groups. No network")
     p.add_argument("--tissue", action="append", help="A tissue or cell type in the researcher's words (repeatable)")
     p.add_argument("--scorers", nargs="+", default=list(core_explore.DEFAULT_SCORERS), help="Atlas scorers to survey")
     p.add_argument("--flank-bp", type=int, default=core_explore.DEFAULT_FLANK_BP,
                    help="Search Regulatory Build features this far around the gene (default 2000, the study default)")
     p.add_argument("--floor", type=float, default=core_explore.DEFAULT_FLOOR,
-                   help="Relative activity below which the gene reads as not expressed (default 0.05 of its maximum)")
+                   help="Share of the gene's maximum below which a term is flagged (the relative cut; default 0.05)")
     p.add_argument("--dry-run", action="store_true", help="Print the first command and stop")
     p.set_defaults(func=explore_cmd)
 
@@ -1163,6 +1192,12 @@ def main() -> None:
     p.add_argument("--from-dashboard", action="store_true",
                    help="Use the choices, the way of showing and the highlights the researcher has on screen in the open dashboard")
     p.set_defaults(func=figures_cmd)
+
+    p = sub.add_parser("terms", help="Term registry: write references/glossary.md and check that no deprecated name is in use",
+                       description="assets/terms.yaml holds one name, definition and source per quantity. Without options, "
+                                   "checks the registry, the glossary and the code and documentation for deprecated names.")
+    p.add_argument("--write-glossary", action="store_true", help="Write references/glossary.md from the registry, then check")
+    p.set_defaults(func=terms_cmd)
 
     p = sub.add_parser("check", help="Verify prerequisites; name what is missing (alphagenome-skills-setup installs it)")
     p.add_argument("--json", action="store_true",

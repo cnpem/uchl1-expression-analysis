@@ -86,7 +86,7 @@ uv run SKILL/scripts/expression.py explore --gene MYGENE --tissue "<words of the
 - `explore` asks nothing and writes `OUT/exploration/` (see `SKILL.md` Outputs). Options:
   `--scorers` (default `RNA_SEQ CAGE DNASE ATAC`), `--flank-bp` (Regulatory Build search around the
   gene, default 2000, the study default), `--floor` (relative activity below which the gene reads as
-  not expressed, default 0.05 of its maximum). Re-running it reuses what was captured, so adding a
+  below the cut, default 0.05 of its maximum). Re-running it reuses what was captured, so adding a
   tissue costs one OLS search.
 - Network: one call each for GENCODE, the Regulatory Build and the sequence; one OLS search per
   tissue, one OLS descendants query per tissue whose best term has no RNA-seq track; one Atlas
@@ -100,7 +100,7 @@ and why each part matters for the choice:
 |---|---|---|
 | 3. Windows | 3-5 windows derived from the features (regulatory unit at the TSS through exon 1, with gaps bridged, the TSS feature alone, TSS ± 500 bp, all promoters/enhancers of the region), with size, SNVs = 3 × bp, Atlas rows per scorer and features included or left out | the window is the set of variants every conclusion rests on, and its size is the cost |
 | 4. Terms | per tissue text: OLS candidates (UBERON, CL, EFO, CLO) with tracks per scorer, data source and RNA-seq protocol; catalogue terms whose name contains the text (subtypes, cell lines); served descendants of a term without RNA-seq tracks | a term without tracks cannot be contrasted; one track leaves nothing to compare it with (two tracks of a term differ in assay or source: they are not replicates) |
-| 5. Baseline | `RNA_SEQ_ACTIVE` of the gene per tissue, relative to its maximum, with a warning below the floor | a gene that is silent in the target makes predicted fold changes large and unreliable there |
+| 5. Baseline | `RNA_SEQ_ACTIVE` of the gene per tissue, relative to its maximum, with a warning below the floor | where the gene's predicted level is very low, a large % can be a minimal absolute change |
 | 6. Scorers | which recommended terms each scorer serves | a scorer without tracks in one group is dropped later |
 | 7. Limits | SNVs only (indels through the model API, `score_variants.py` of the `alphagenome` skill), window scope | what the study cannot answer |
 
@@ -110,8 +110,8 @@ When the researcher wants other target or control tissues (for example, controls
 expressed), that is a redefinition of the study, and it follows the same path as the definition. Choose from
 the exploration, never from ad-hoc code:
 
-1. Show `OUT/exploration/activity.md`. It lists every catalogue term with the gene's predicted activity
-   (relative to the most active), kind of sample, assays, sources and number of measurements. Without it (an
+1. Show `OUT/exploration/activity.md`. It lists every catalogue term with the gene's predicted expression level
+   (as a share of the gene's maximum), kind of sample, assays, sources and number of tracks. Without it (an
    older exploration), run `expression.py explore --out OUT --activity-only`; it captures nothing. For
    tissues the researcher names in their own words, run `explore` again with those `--tissue` texts: it
    reuses the captures and only searches the new terms.
@@ -148,7 +148,7 @@ uv run SKILL/scripts/study.py validate --study-dir D
 
 The groups take no `--recommended` (`decide` refuses it): the page recommends one term per text the researcher
 gave, not a group. Groups or tissues given only now, after the exploration, go through `explore` again first
-(every text; the other captures are reused), so the researcher sees the terms and the gene's activity found.
+(every text; the other captures are reused), so the researcher sees the terms and the gene's predicted expression level found.
 
 `init --from-exploration` records `study.window`, `study.scorers` and `analysis.question` in
 `decisions.yaml` with the options offered (the report lists them with the cohort answers; the dashboard opens
@@ -254,7 +254,7 @@ stage runs again. For the window, the questions about neighbouring regions come 
 start of the gene outwards, since each depends on the answer before it. When
 a question's "For the agent" line asks for `fetch ols-term`, run it and `cohorts` again before asking.
 
-Rule (not asked): `cohort.scorer_without_cohort:{scorer}`, a prediction type without measurements in
+Rule (not asked): `cohort.scorer_without_cohort:{scorer}`, a prediction type without tracks in
 one group is left out (`drop_scorer`, `decided_by: skill`); an `abort` recorded earlier still stops.
 Rule (not asked): `cohort.term_without_ols:{curie}`, a study term the Atlas catalogue serves but the ontology
 no longer knows (cell lines renamed or retired, e.g. some EFO cell lines) enters with the catalogue's sample
@@ -363,8 +363,8 @@ To explain what the researcher sees, run `summarize --from-dashboard`, or, with 
 the same choices (`--target`/`--control` CURIEs, `--question`, `--min-change-pct`, `--max-control-pct`,
 `--min-sigma`, `--ref-floor`, `--floor-applies`, `--assay`, `--source`, `--domain`, `--one-alt`,
 `--y-metric`, `--scorer`): it runs the dashboard's
-computation and prints the headline, where each tissue's measurements come from, the noise between
-measurements of the same tissue, the filter steps and the top variants. `references/dashboard.md`
+computation and prints the headline, where each tissue's tracks come from, the disagreement between
+tracks of the same tissue, the filter steps and the top variants. `references/dashboard.md`
 describes every part of the page in the words the page uses, what to say when presenting it, and each
 field of *Avançado*.
 

@@ -73,7 +73,7 @@ SAID_HELP = ("the researcher's own words for this answer, copied from the conver
              "If they told you to choose, quote that and pass --delegated")
 DECIDED_BY = ("researcher", "skill")
 # Plain names of the prediction types (Atlas scorers) for texts the researcher reads
-PREDICTION_NAMES = {"RNA_SEQ": "gene expression (RNA-seq)", "RNA_SEQ_ACTIVE": "gene activity (RNA-seq)",
+PREDICTION_NAMES = {"RNA_SEQ": "gene expression (RNA-seq)", "RNA_SEQ_ACTIVE": "predicted expression level (RNA-seq)",
                     "CAGE": "transcription start (CAGE)", "DNASE": "open chromatin (DNase)",
                     "ATAC": "open chromatin (ATAC)", "SPLICE_SITES": "splice sites", "SPLICE_SITE_USAGE": "splice-site use",
                     "SPLICE_JUNCTIONS": "splice junctions", "POLYADENYLATION": "polyadenylation"}
