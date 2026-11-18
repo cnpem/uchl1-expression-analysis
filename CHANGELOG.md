@@ -22,6 +22,17 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Changed
 
+- **`references/interpretation.md` rewritten** for the agent's explanations: how to explain a number (the
+  glossary's name; what it is, relative to what, unit, status; values from a command; "not established" for
+  an open point; levels next to a large percentage), each AlphaGenome score with its formula and unit, the
+  exploration's expression level step by step, the dashboard's quantities with their formulas (percent,
+  group value, between-track disagreement and its 1.4826 × median scale, REF reconstruction), the three
+  thresholds, very low levels, the model's stated limits (tissue specificity, no uncertainty estimate), and
+  answers to the questions researchers ask. The fixed triage is one section. SKILL.md: explaining a number
+  follows it (step 0, step 14, final answer, checklist).
+- Statements aligned with the open points: comparability of levels and of effects across assays, the
+  quantile background and the Atlas model are marked not established where no source settles them; the
+  exploration page no longer says that effects in a low-level target are unreliable without saying why.
 - **Names on the pages** (wording only; no number changes). The exploration pages, the dashboard, `summarize`
   and the report now use the registry's names:
   - *nível de expressão previsto* for the gene's level (before: *atividade*);

@@ -205,6 +205,12 @@ search text or a scorer list), so the researcher can tell the three apart. Name 
 delegated (`delegated: true`) apart from those they gave, and any request they made ahead of its step
 that is still to do.
 
+**Explaining a number** (any step, the chat and the final answer). Follow *How to explain a number* in
+`references/interpretation.md`: the glossary's Portuguese name; what it is, relative to what, its unit (or
+that it has none) and its status; the value from a command, never from memory; "not established" for an
+undecided entry; the reference and alternative levels next to a large percentage in a tissue of very low
+level; and the model's stated limit on tissue specificity with any claim that an effect is the target's own.
+
 0. **Exploration.** `expression.py check`; anything missing goes to `alphagenome-skills-setup`.
    Ask the researcher only for the gene and the tissues or cell types in their own words, for both
    sides: where they want to know whether the variants change expression (target) and what to compare it
@@ -216,7 +222,9 @@ that is still to do.
    `explore` again with every text (the other captures are reused), and the researcher sees the terms and
    the gene's predicted expression level found for them before `init` or `decide`. Show `summary.md`: windows with size, SNVs and cost; candidate terms
    with tracks per scorer, source and assay; served descendants of terms without tracks; the
-   gene's predicted expression level per tissue, with a warning where it is below the floor. Do not ask
+   gene's predicted expression level per tissue, with a warning where it is below the floor. Explain that level
+   with *The exploration's expression level* in `references/interpretation.md` (a prediction of the probe SNV's
+   larger allele, no official unit, not TPM, comparable only within one kind of track). Do not ask
    for the study's choices before this page is shown, because they depend on it.
    To change the groups after the results (a redefinition), go back to the exploration:
    `exploration/activity.md` lists every catalogue term with the gene's predicted expression level, kind of sample and assays
@@ -284,6 +292,7 @@ expression-analysis progress:
 - [ ] Step 13: atlas links (and interpretations) fetched; report.md written and read back
 - [ ] Step 14: dashboard opened and presented (choices, how to show, filters, Avançado); questions answered from `summarize`; the researcher's view drawn with `figures` and `report` run again
 - [ ] Final answer: researcher decisions (delegated ones named), the skill's rules and agent choices in separate lists; requests still to do
+- [ ] Every number explained with the glossary's name, its unit and status, from a command; levels given next to large percentages; open points said as open
 ```
 
 ## Scope

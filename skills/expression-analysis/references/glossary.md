@@ -65,7 +65,7 @@ fails when a deprecated name is still in the code or the documentation.
 - **Comes from:** `assay_title` of a track
 - **Status:** official (stated by a source)
 - **Source:** AlphaGenome docs, exploring_model_metadata.md (stated)
-- **Say with it:** Tracks of different assay types or sources are different kinds of track; their levels are not directly comparable.
+- **Say with it:** Tracks of different assay types or sources are different kinds of track. Whether their levels can be compared is not established (see the open points); do not compare them.
 
 ### tipo de predição (scorer (prediction type))
 
@@ -108,7 +108,7 @@ fails when a deprecated name is still in the code or the documentation.
 - **Status:** official (stated by a source)
 - **Source:** K-Dense alphagenome skill, references/model-api.md, Recommended scorers; AlphaGenome docs, variant_scoring.md, Active-allele scorers (stated)
 - **Say with it:** It is a level, not a change, and exists only per variant. It equals the reference level when the variant does not raise expression, and is larger otherwise.
-- **Names no longer used for it:** "atividade do gene"; "atividade prevista"; "atividade basal"; "atividade da variante"; "mais ativo"; "gene activity"; "baseline activity"; "predicted activity"; "the gene's activity"
+- **Names no longer used for it:** "atividade do gene"; "atividade prevista"; "atividade basal"; "atividade da variante"; "mais ativo"; "gene activity"; "baseline activity"; "predicted activity"; "the gene's activity"; "relative activity"; "most active"
 
 ### variante de sondagem (probe SNV)
 
@@ -151,17 +151,17 @@ fails when a deprecated name is still in the code or the documentation.
 - **Status:** this skill's convention
 - **Source:** scripts/explore.py, DEFAULT_FLOOR (stated)
 - **Say with it:** Not calibrated, and no source gives an "expressed" threshold. It does not mean the transcript is absent.
-- **Names no longer used for it:** "não expresso"; "praticamente desligado"; "gene desligado"; "sem expressão"; "quase desligado"; "not expressed"; "gene is silent"; "practically off"
+- **Names no longer used for it:** "não expresso"; "praticamente desligado"; "gene desligado"; "sem expressão"; "quase desligado"; "not expressed"; "gene is silent"; "practically off"; "almost off"
 
 ### piso do nível REF (REF-level floor)
 
-- **What it is:** A reference level chosen by the researcher below which a tissue is warned about, or left out of the control.
+- **What it is:** A reference level chosen by the researcher below which a tissue is warned about, or left out of the control. A value may be suggested as 5% of the largest REF among the study's tissues; once set, it is an absolute level.
 - **Unit:** no official unit (same scale as the expression level)
 - **Comparable with:** n/a
 - **Comes from:** Profile.ref_floor
 - **Status:** this skill's convention
 - **Source:** scripts/core/analysis.py, expression_flags (stated)
-- **Say with it:** It is an absolute level, unlike the exploration's cut, which is a share of the maximum.
+- **Say with it:** It is an absolute level, unlike the exploration's cut, which is a share of the gene's maximum over the whole catalogue. A suggestion computed from the study's tissues uses a third maximum, that of the study.
 
 ### pseudocontagem da pontuação RNA_SEQ (0,001) (RNA_SEQ scorer pseudocount (0.001))
 
@@ -260,11 +260,11 @@ fails when a deprecated name is still in the code or the documentation.
 
 State these as open when the researcher asks; a rewording does not settle them.
 
-- The unit of the expression level (RNA_SEQ_ACTIVE) and its relation to TPM or RPKM.
+- The exact unit of the expression level (RNA_SEQ_ACTIVE) and its numeric relation to RPKM (it is not TPM, which is normalised across genes).
 - Whether expression levels of different assay types and sources can be compared.
 - Any threshold above which a gene counts as expressed.
 - Whether a low level makes predicted changes unreliable (the pseudocount alone shrinks them).
-- Whether the Atlas computes exactly the AlphaGenome 1 scorers, and with which model.
+- Whether the Atlas computes exactly the AlphaGenome 1 scorers with the distilled model the alphagenome skill describes (not checked against the Atlas report).
 - Whether one reference level applies to every variant of a window.
-- The background of the quantile in the Atlas, and what a mean of quantiles means.
+- Whether the Atlas's quantile background is exactly the one the AlphaGenome documentation describes (common gnomAD variants), and what a mean of quantiles over tracks means.
 - The AVI Phred scale and the AVI modality names.

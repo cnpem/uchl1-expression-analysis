@@ -85,8 +85,8 @@ uv run SKILL/scripts/expression.py explore --gene MYGENE --tissue "<words of the
   nothing from this skill. Run `check` again until it passes.
 - `explore` asks nothing and writes `OUT/exploration/` (see `SKILL.md` Outputs). Options:
   `--scorers` (default `RNA_SEQ CAGE DNASE ATAC`), `--flank-bp` (Regulatory Build search around the
-  gene, default 2000, the study default), `--floor` (relative activity below which the gene reads as
-  below the cut, default 0.05 of its maximum). Re-running it reuses what was captured, so adding a
+  gene, default 2000, the study default), `--floor` (share of the gene's maximum below which a term is
+  flagged, default 0.05). Re-running it reuses what was captured, so adding a
   tissue costs one OLS search.
 - Network: one call each for GENCODE, the Regulatory Build and the sequence; one OLS search per
   tissue, one OLS descendants query per tissue whose best term has no RNA-seq track; one Atlas

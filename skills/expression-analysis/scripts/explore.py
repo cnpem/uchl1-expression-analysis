@@ -275,7 +275,7 @@ def baseline_activity(path: Path, floor: float) -> dict[str, Any]:
 
 
 def write_activity(root: Path, floor: float = 0.05) -> Path:
-    """exploration/activity.md: every term of the Atlas catalogue with the gene's predicted expression level, most active
+    """exploration/activity.md: every term of the Atlas catalogue with the gene's predicted expression level, highest
     first, with its kind of sample, assays, sources and number of measurements. The list to choose (or change)
     the target and control groups from, without new captures or ad-hoc code."""
     root = Path(root)
@@ -544,7 +544,8 @@ def render_summary(d: dict[str, Any]) -> str:
     if low:
         L.append(f"**Aviso:** abaixo de {_pct(act['floor'])} do máximo do gene: "
                  + "; ".join(f"\"{txt}\" ({c})" for txt, c in low)
-                 + ". Se algum deles for o tecido alvo, os efeitos previstos ali serão pouco confiáveis; considere um "
+                 + ". Se algum deles for o tecido alvo, uma mudança grande em % ali pode ser uma mudança absoluta mínima "
+                   "(e o modelo erra mais na especificidade de tecido para genes de nível baixo); considere um "
                    "termo da lista acima com nível mais alto. Como controle, um termo de nível muito baixo pode dominar o "
                    "valor do grupo com mudanças grandes em % que são mudanças absolutas mínimas; o painel tem um piso do "
                    "nível REF para tirá-lo do cálculo.")

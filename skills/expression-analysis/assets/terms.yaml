@@ -61,7 +61,7 @@ terms:
     comparable: n/a
     status: official
     source: {doc: "AlphaGenome docs, exploring_model_metadata.md", certainty: stated}
-    note: Tracks of different assay types or sources are different kinds of track; their levels are not directly comparable.
+    note: Tracks of different assay types or sources are different kinds of track. Whether their levels can be compared is not established (see the open points); do not compare them.
 
   - id: scorer
     kind: api
@@ -113,7 +113,7 @@ terms:
     status: official
     source: {doc: "K-Dense alphagenome skill, references/model-api.md, Recommended scorers; AlphaGenome docs, variant_scoring.md, Active-allele scorers", certainty: stated, checked_skill: alphagenome, checked_hash: ff10c6aa5025f37b56f4f47558a8d6fb40348540626861ee0f3f1ad691b24616}
     deprecated_pt: ["atividade do gene", "atividade prevista", "atividade basal", "atividade da variante", "mais ativo"]
-    deprecated_en: ["gene activity", "baseline activity", "predicted activity", "the gene's activity"]
+    deprecated_en: ["gene activity", "baseline activity", "predicted activity", "the gene's activity", "relative activity", "most active"]
     note: It is a level, not a change, and exists only per variant. It equals the reference level when the variant does not raise expression, and is larger otherwise.
 
   - id: probe_snv
@@ -167,7 +167,7 @@ terms:
     status: skill_convention
     source: {doc: "scripts/explore.py, DEFAULT_FLOOR", certainty: stated}
     deprecated_pt: ["não expresso", "praticamente desligado", "gene desligado", "sem expressão", "quase desligado"]
-    deprecated_en: ["not expressed", "gene is silent", "practically off"]
+    deprecated_en: ["not expressed", "gene is silent", "practically off", "almost off"]
     note: Not calibrated, and no source gives an "expressed" threshold. It does not mean the transcript is absent.
 
   - id: ref_floor
@@ -176,12 +176,12 @@ terms:
     label_pt: piso do nível REF
     short_pt: Piso (REF)
     label_en: REF-level floor
-    definition: A reference level chosen by the researcher below which a tissue is warned about, or left out of the control.
+    definition: A reference level chosen by the researcher below which a tissue is warned about, or left out of the control. A value may be suggested as 5% of the largest REF among the study's tissues; once set, it is an absolute level.
     unit: "no official unit (same scale as the expression level)"
     comparable: n/a
     status: skill_convention
     source: {doc: "scripts/core/analysis.py, expression_flags", certainty: stated}
-    note: It is an absolute level, unlike the exploration's cut, which is a share of the maximum.
+    note: It is an absolute level, unlike the exploration's cut, which is a share of the gene's maximum over the whole catalogue. A suggestion computed from the study's tissues uses a third maximum, that of the study.
 
   - id: scorer_pseudocount
     kind: api
@@ -297,11 +297,11 @@ terms:
     note: The scale and the meaning of each modality were not checked against a primary source.
 
 undecided:
-  - The unit of the expression level (RNA_SEQ_ACTIVE) and its relation to TPM or RPKM.
+  - The exact unit of the expression level (RNA_SEQ_ACTIVE) and its numeric relation to RPKM (it is not TPM, which is normalised across genes).
   - Whether expression levels of different assay types and sources can be compared.
   - Any threshold above which a gene counts as expressed.
   - Whether a low level makes predicted changes unreliable (the pseudocount alone shrinks them).
-  - Whether the Atlas computes exactly the AlphaGenome 1 scorers, and with which model.
+  - Whether the Atlas computes exactly the AlphaGenome 1 scorers with the distilled model the alphagenome skill describes (not checked against the Atlas report).
   - Whether one reference level applies to every variant of a window.
-  - The background of the quantile in the Atlas, and what a mean of quantiles means.
+  - Whether the Atlas's quantile background is exactly the one the AlphaGenome documentation describes (common gnomAD variants), and what a mean of quantiles over tracks means.
   - The AVI Phred scale and the AVI modality names.
