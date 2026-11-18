@@ -9,7 +9,132 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
-Nothing yet.
+## [0.4.0] - 2026-11-17
+
+The researcher's decisions become part of the study, and the agent and the open dashboard can see and move
+each other's view. This version changes the questions asked and the study files (`decisions.yaml` gains
+`said`, `delegated` and `previous`; `study.py init --from-exploration` and `decide` have new required
+options), and the order of the dashboard's lists. A study made with 0.3.0 still opens; its numbers do not
+change, but lists ordered by a difference come in another order.
+
+### Added
+
+- **Link between the agent and the open dashboard** (`expression.py view`, `references/dashboard.md`).
+  The page writes what the researcher has on screen to `.dashboard/researcher_view.json` and follows
+  `.dashboard/agent_view.json`: `view` without choices prints the screen; with choices, the page moves to
+  that view without reloading, on top of what is on screen (`--reset`: on top of the opening view), with
+  a line showing the agent's `--message`. `summarize` and `figures` take `--from-dashboard`. The link can
+  also send context tissues (`--shown`), highlights and the stretch of the window (`--window`,
+  `--full-window`), and switch selections off (`--no-control`, `--all-domains`, …). Live dashboard only.
+- **Each answer carries the researcher's words.** `study.py decide` and `init --from-exploration` require
+  `--said` (the researcher's words the answer comes from) and take `--delegated` when the researcher
+  explicitly left the choice to the agent; `decisions.yaml` stores `said` and `delegated`, and the report's
+  *Escolhas do pesquisador* table shows them (*Nas palavras do pesquisador*), listing delegated answers apart.
+- **The researcher talks freely; the workflow keeps its order** (SKILL.md). Answers given early are kept,
+  matched to the real options and shown, and only what is missing is asked; requests ahead of their step
+  are listed and done at that step; hypotheses and context answer nothing by themselves; delegation must
+  name the question (a general "go ahead" is not delegation).
+  - Step 0 asks for the tissues of both groups even when the request names some; tissues named only as
+    context or in a hypothesis are not groups. Tissues that arrive after the exploration are explored
+    before the study is created.
+  - No default by silence; picking "the recommended one" after seeing the options is an answer, not a
+    delegation; one recommendation per question.
+  - `decide` refuses `--recommended` for `cohort.target`/`cohort.control` (a group has no single
+    recommended term), and keeps the options' labels when a question is answered again with codes only.
+  - Tested with four simulated researchers (all answers upfront, "do everything", hypotheses, change of
+    mind): none of the 20 required answers was filled by the agent.
+- **The researcher's step-1 answers are required.** `study.py init --from-exploration` refuses to create a
+  study without `--window`, `--target`, `--control`, `--scorers` and `--question`, lists what is missing,
+  and records `study.window`, `study.scorers` and `analysis.question` in `decisions.yaml` with the options
+  offered. The agent asks the missing ones together and never fills one from the recommendation.
+- **Score and group value on the dashboard** (*Avançado*: *Pontuação*, *Valor de cada grupo*;
+  `summarize`/`figures` `--score raw|quantile`, `--group-agg mean|median`). Quantiles switch off the %
+  filters, with a note in the filter steps.
+- **`report.md` always has figures.** Without a view drawn by the researcher, `report` draws the opening
+  view (the study's groups and question, no filter) under *Visão inicial do estudo*; Figure 1 is included
+  as an image (`figures/fig1_genomic_architecture.svg`).
+
+- **Decision history.** Deciding a key again with another value keeps the earlier answer in `previous`
+  (value, label, date, note, options) in `decisions.yaml`; `report.md` lists them under *Redefinições*.
+- **Scope section in SKILL.md.** Questions beyond the screen (transcription factors, motifs, mechanism,
+  literature) are flagged as out of scope, worked outside the study folder with a record of what was done,
+  and never end in proposed experiments.
+
+- **`exploration/activity.md`**: every term of the Atlas catalogue with the gene's predicted activity (and
+  relative to the most active), kind of sample, assays, sources and number of measurements, written by
+  `explore`; `explore --out OUT --activity-only` writes it for an existing exploration without new captures.
+  `summary.md` points to it.
+- **Changing the groups after the results** is documented as a redefinition that follows the study's
+  definition. The agent chooses from `activity.md` with the researcher, records the change with `decide`
+  and recaptures; it no longer ranks tissues with its own code.
+- **`summarize` prints the reference expression (REF) of each chosen tissue**: its % of the highest REF and
+  what the current floor does to it, and the value that marks a tissue as not expressed (5% of the highest
+  REF, as in the exploration). The floor can now be chosen from the numbers.
+
+### Changed
+
+- **'Ordenar por' follows the question.** The change in the target and the target − control differences
+  are ordered in the direction asked (largest rise first with an increase, largest fall with a
+  repression), not by absolute value: a variant whose control changes more than the target no longer
+  comes first. `summarize` lists its first variants in this same order.
+- **The blue box names the first variants in the order of 'Ordenar por'**, the same as the table's first
+  rows (before: the ones whose least-changing target tissue changed most, whatever the order chosen). It
+  also names the tissues that left a group for lack of measurements with the chosen assays and sources,
+  and words the floor warning by the floor chosen.
+- With every region ticked, *domínios* is no longer listed as a filter step.
+- **Redefining a group needs no manual step.** `decide cohort.target|cohort.control` writes the new terms
+  (and `--group-label`) into `study.yaml`, and a contrast plan the skill generated is generated again from
+  the current groups.
+- **The dashboard opens on the researcher's question** (`analysis.question`), and `summarize`/`figures`
+  use it when `--question` is not given.
+- `expression.py dashboard` prints `Dashboard READY` only after marimo answers, or `Dashboard FAILED`.
+
+### Fixed
+
+- **Statements that the sources contradict** (terminology review of 18/11/2026; wording only, no number
+  changes):
+  - the exploration's "atividade" is no longer described as the gene's activity "sem variante": it is the
+    `RNA_SEQ_ACTIVE` score of one probe SNV, the larger of its two alleles; the pages say that this SNV
+    was scored, that the 5% cut is this skill's convention and not absence of the transcript, and that
+    tracks of different assays and sources are not directly comparable;
+  - two tracks of one term are no longer called replicates (they differ in assay or source);
+  - quantiles are ranks among common variants, not "against the genome", and a large quantile is an
+    unusual score, not a strong effect;
+  - `summarize` no longer presents 5% of the study's largest REF as the exploration's rule.
+- **Documentation brought up to the code**: `README.md` (key in the project's `.env`; `check` installs
+  nothing), `references/workflow.md` step 14 (`view`, `--from-dashboard`), `references/formats.md` (the
+  two files of `.dashboard/`), SKILL.md (commands, common mistakes), `references/dependency_outputs.md`
+  (the baseline file is copied into a study).
+- **Where each score is defined**: `references/interpretation.md` now sends the agent to the `alphagenome`
+  dependency skill's scorer table before it explains a score.
+- The variants table showed `None` in the control column when no control tissue was chosen; the column is
+  now left out.
+- **Terms named exactly as an Atlas sample are found.** The exploration recommends the catalogue term whose
+  sample name matches the researcher's text written any way ("MCF-7" = "MCF7", "T-cell" = "T cell"), even
+  when the ontology search ranks it low, misses it or no longer knows it. Such a term enters the cohorts
+  with the catalogue's name, as the rule `cohort.term_without_ols:{curie}`.
+- A failed lookup of a term's descendants is noted in the exploration (`descendants_error`) instead of
+  stopping the other tissues; an OLS record with `in_subset: null` is read as no subsets.
+- `study.py init --from-exploration` leaves out raw files of the exploration without a manifest step (the
+  error reply of a failed search) and says so, instead of refusing to create the study; `cohorts` skips
+  unreadable OLS files of terms the study does not use.
+- The *Links do Atlas* table in `report.md` had blank lines between rows and did not render as a table.
+
+- **The noise filter follows the question** (*Alvo − controle acima do ruído*, `--min-sigma`): with
+  repression the target must be below the control, with increase above, with either both ways. Before, a
+  variant that raised the target could pass a repression question.
+- A redefinition of the groups ends with `figures` and `report` run again on the redefined analysis
+  (`references/workflow.md`).
+
+- **Keys**: the AlphaGenome key is read only from the project's `.env`, not from `~/.env` or environment
+  variables, so each study runs with the key of its own project.
+  - `fetch` passes that file to every script that needs it, the interpretation step included.
+  - `check` warns when the project's `.env` is not ignored by git: the AlphaGenome terms make the key
+    personal.
+- **Installation belongs to `alphagenome-skills-setup`**. `check` names what is missing and hands it to
+  that skill, or says how to install it. It no longer prints install commands for each dependency, and
+  SKILL.md no longer has its own install and terms procedure. This avoids two skills asking the
+  researcher the same questions.
 
 ## [0.3.0] - 2026-11-16
 
@@ -163,6 +288,7 @@ First version:
 - **Changes to the files shared with the splicing skill** (`study.py`, `manifest.py`, `models.py`,
   `reference.py`) go to both repositories.
 
-[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/cnpem/uchl1-expression-analysis/releases/tag/v0.1.0

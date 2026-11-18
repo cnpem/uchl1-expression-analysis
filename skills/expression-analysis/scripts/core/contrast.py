@@ -544,7 +544,8 @@ def run(study_dir: Path) -> pl.DataFrame:
     """Executes the contrast plan on the Tier 1 table; writes the contrast table, its meta and the top variants.
 
     Without contrasts.yaml the plan is generated from the cohorts, saved and recorded as a rule
-    (`contrast.plan`, decided_by: skill). An existing contrasts.yaml is used as it is.
+    (`contrast.plan`, decided_by: skill); a plan the skill generated and nobody edited is generated again from
+    the current cohorts. A contrasts.yaml written or edited outside the skill is used as it is.
 
     Raises:
         ContrastError, MasterError, models.DependencyOutputError, study.StudyError.
@@ -557,7 +558,11 @@ def run(study_dir: Path) -> pl.DataFrame:
     approval = decisions.get("contrast.plan")
     if approval is not None and approval.decided_by == "researcher" and str(approval.value) not in PLAN_APPROVED:
         raise ContrastError(f"Decision 'contrast.plan' is {approval.value!r}; expected 'approved'.")
-    if not plan_path.is_file():
+    # The skill's own plan, unedited since it was generated, follows the cohorts: it is generated again on every
+    # run, so a redefinition of the groups (study.py decide cohort.target / cohort.control) needs no manual step.
+    own_plan = (plan_path.is_file() and approval is not None and approval.decided_by == "skill"
+                and approval.value == "generated" and approval.note == _digest(plan_path))
+    if not plan_path.is_file() or own_plan:
         if approval is not None and approval.decided_by == "researcher":
             raise ContrastError(
                 f"{PLAN_FILE} is missing, but the researcher approved a contrast plan earlier ('contrast.plan'); a new "

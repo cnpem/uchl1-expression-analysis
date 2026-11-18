@@ -1,6 +1,6 @@
 """Dashboard figures for the report (`expression.py figures`, Workflow step 14).
 
-The dashboard saves nothing. When the researcher settles on a view, the agent passes the same choices to
+The dashboard saves no analysis. When the researcher settles on a view, the agent passes the same choices to
 `expression.py figures`, which runs the dashboard's computation (core.analysis) and draws the same charts
 (dashboard_helpers, workbench_helpers) as static PNG files. `report.md` then shows them with the choices
 that produced them, so every figure in the report can be redrawn and checked in the dashboard.
@@ -42,8 +42,12 @@ def _png(chart: Any, path: Path, width: int = 1100) -> None:
 
 def write_figures(study_dir: Path, data: A.StudyData, profile: A.Profile, effects: pl.DataFrame, kept: pl.DataFrame,
                   steps: Sequence[tuple[str, int]], *, show_mode: str, color_col: str, highlight: Sequence[str],
-                  labels: Mapping[str, str], window: tuple[int, int], command: str) -> dict[str, Any]:
-    """Draws the dashboard's charts for these choices into figures/dashboard/ and writes choices.json."""
+                  labels: Mapping[str, str], window: tuple[int, int], command: str,
+                  opening: bool = False) -> dict[str, Any]:
+    """Draws the dashboard's charts for these choices into figures/dashboard/ and writes choices.json.
+
+    `opening` marks the study's opening view (its groups and question, no filter), drawn by `report` when the
+    researcher has not chosen a view yet; a later `figures` run replaces it."""
     out = Path(study_dir) / FIG_DIR
     out.mkdir(parents=True, exist_ok=True)
     metric = profile.y_metric if profile.y_metric in effects.columns else "target_mean"
@@ -54,7 +58,7 @@ def write_figures(study_dir: Path, data: A.StudyData, profile: A.Profile, effect
     files: dict[str, str] = {}
 
     dom, rng = H.fixed_colors(color_col)
-    unit = "" if metric in ("avi_phred", "diff_sigma") else f" ({A.UNIT.get(profile.scorer, 'log')})"
+    unit = "" if metric in ("avi_phred", "diff_sigma") else f" ({A.unit(profile)})"
     if shown.height:
         lolli = build_unified_lollipop_canvas(
             shown, metric, metric_label, color_col, max_lollipops=shown.height, selected_variant_ids=picked,
@@ -84,10 +88,12 @@ def write_figures(study_dir: Path, data: A.StudyData, profile: A.Profile, effect
 
     record = {
         "command": command,
+        "opening": opening,
         "profile": dataclasses.asdict(profile),
         "display": {"show_mode": show_mode, "color_by": color_col, "highlight": picked, "metric_label": metric_label},
         "labels": {c: labels.get(c, c) for c in [*profile.target, *profile.control, *profile.shown]},
-        "headline": H.headline(kept, effects, profile, dict(labels), A.ref_by_tissue(data)),
+        "headline": H.headline(kept, effects, profile, dict(labels), A.ref_by_tissue(data),
+                               missing=A.without_tracks(data, profile)),
         "steps": [list(s) for s in steps],
         "n_shown": shown.height,
         "figures": files,
@@ -113,6 +119,8 @@ def describe_choices(record: Mapping[str, Any]) -> list[str]:
         (f"Onde ({p['target_label']})", ", ".join(name(c) for c in p["target"]) or "—"),
         (f"Comparado com ({p['control_label']})", ", ".join(name(c) for c in p["control"]) or "—"),
         ("Tipo de predição", p["scorer"]),
+        ("Pontuação", "quantil do Atlas" if p.get("score") == "quantile" else "valor bruto do modelo"),
+        ("Como juntar os tecidos de cada grupo", "mediana" if p.get("group_agg") == "median" else "média"),
         ("Mudança mínima em cada tecido do alvo", pct(p["min_change_pct"])),
         ("Mudança máxima no controle", "desligado" if p["max_control_pct"] is None else f"{p['max_control_pct']:g}%"),
         ("Alvo − controle acima do ruído", "desligado" if not p["min_diff_sigma"] else f"{p['min_diff_sigma']:g} σ"),

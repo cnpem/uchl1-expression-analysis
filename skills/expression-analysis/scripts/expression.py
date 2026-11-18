@@ -7,7 +7,7 @@
 
 Subcommands:
   check      Verify prerequisites (uv, dependency skills, licence files, API keys).
-             Prints what is missing and the install command; never installs anything. --json
+             Prints what is missing and hands it to alphagenome-skills-setup; never installs anything. --json
              lists them as questions for the setup.
   locus      Workflow step 4: transcript, TSS, exon 1 and regulatory window from raw/gtf.json,
              raw/regulatory.json and raw/sequence_*.txt. Writes processed/locus.json,
@@ -65,12 +65,13 @@ Workflow helper (no analysis; it spares the agent hand arithmetic):
 """
 
 import argparse
+import datetime
 import json
 import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import deps
 import explore as core_explore
@@ -258,21 +259,76 @@ def run_workbench_metrics(study_dir: Path) -> None:
           f"Figure 3 {built['fig3_meta']['n_variants']} row(s) x {len(built['fig3_meta']['tissues'])} tissue(s).")
 
 
+def _opening_figures(study_dir: Path) -> list[str]:
+    """Draws the study's opening view (its groups and question, no filter) for report.md when the researcher has not
+    drawn a view with `figures`, or when that opening view is older than the variant table. Returns the files."""
+    from viz import report_figures
+
+    rec = report_figures.load_choices(study_dir)
+    choices = study_dir / report_figures.CHOICES_FILE
+    master = study_dir / core_master.MASTER_FILE
+    stale = rec is not None and rec.get("opening") and master.is_file() and \
+        master.stat().st_mtime > choices.stat().st_mtime
+    if rec is not None and not stale:
+        return []
+    args = argparse.Namespace(
+        study_dir=str(study_dir), scorer="RNA_SEQ", target=None, control=None, target_label=None, control_label=None,
+        question=None, score="raw", group_agg="mean", min_change_pct=0.0, max_control_pct=None, min_sigma=0.0,
+        assay=None, source=None, domain=None, one_alt=False, ref_floor=None, floor_applies="warn",
+        y_metric="target_mean", top_k=60, color_by="genomic_domain")
+    v = _dashboard_view(args)
+    locus = core_locus.load_locus(study_dir)
+    rec = report_figures.write_figures(
+        study_dir, v["data"], v["profile"], v["effects"], v["kept"], v["steps"], show_mode="all",
+        color_col="genomic_domain", highlight=v["kept"].head(5)["variant_id"].to_list(), labels=v["labels"],
+        window=(locus.window.start, locus.window.end), command=fetch.invocation() + " (visão inicial)", opening=True)
+    return [*rec["figures"].values(), report_figures.CHOICES_FILE]
+
+
 def report_cmd(args: argparse.Namespace) -> None:
     study_dir = Path(args.study_dir)
+    try:
+        drawn = _opening_figures(study_dir)
+    except (core_master.MasterError, core_locus.LocusError, study.StudyError, OSError, ValueError) as exc:
+        drawn = []
+        print(f"Warning: the opening view's figures could not be drawn ({exc}); report.md will have no dashboard figures.",
+              file=sys.stderr)
+    if drawn:
+        print(f"Figures of the opening view (groups and question of the study, no filter): {len(drawn) - 1} PNG in "
+              "figures/dashboard/.")
     try:
         path = core_report.write_report(study_dir)
     except (core_report.ReportError, core_contrast.ContrastError, core_master.MasterError, core_cohorts.CohortError,
             core_locus.LocusError, models.DependencyOutputError, study.StudyError) as exc:
         _stage_error(exc)
     print(f"Report: wrote {path}")
-    _record(study_dir, "13-report", ["report.md"])
+    fig1 = study_dir / core_report.FIG1_SVG
+    _record(study_dir, "13-report", ["report.md", *drawn, *([core_report.FIG1_SVG] if fig1.is_file() else [])])
 
 
 WORKBENCH_APP = SKILL_DIR / "assets" / "workbench.py"      # legacy triage workbench (reproduce stage metrics)
 DASHBOARD_APP = SKILL_DIR / "assets" / "dashboard.py"      # analysis dashboard (groups, question, filters chosen on the page)
 WORKBENCH_DEPS = list(deps.WORKBENCH_DEPS)
 DEFAULT_PORT = 2718
+
+
+def _wait_until_up(url: str, proc: Any, timeout_s: float = 600.0) -> bool:
+    """True once marimo answers on url/health; False if the process exits first or the wait times out."""
+    import time
+    import urllib.request
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            return False
+        try:
+            with urllib.request.urlopen(f"{url}/health", timeout=2) as resp:
+                if resp.status == 200:
+                    return True
+        except OSError:
+            pass
+        time.sleep(1)
+    return False
 
 
 def _free_port(preferred: int) -> int:
@@ -341,6 +397,7 @@ def dashboard_cmd(args: argparse.Namespace) -> None:
                 versions["export_outside_study"] = str(out)
             _record(study_dir, step, [out.relative_to(study_dir).as_posix()] if inside else [], versions=versions)
         sys.exit(code)
+    env["EXPRESSION_DASHBOARD_LINK"] = "1"  # live page: follows .dashboard/agent_view.json, writes researcher_view.json
     port = _free_port(args.port)
     if port != args.port:
         print(f"Port {args.port} is busy; using {port}.")
@@ -357,10 +414,17 @@ def dashboard_cmd(args: argparse.Namespace) -> None:
             sys.exit(130)
     app = _place_app(study_dir / ".workbench", source)
     cmd = [*base, "run", "--no-sandbox", str(app), "--headless", "--port", str(port), "--", "--study-dir", str(study_dir)]
-    print(f"Dashboard: open {url} in a browser (Ctrl+C here stops it).", flush=True)
+    print(f"Dashboard: starting on {url} (the first start can take a minute while the packages install)…", flush=True)
     code = 1
     try:
-        code = subprocess.call(cmd, cwd=study_dir, env=env)
+        proc = subprocess.Popen(cmd, cwd=study_dir, env=env)
+        # Only say it is up once marimo answers: an agent that starts it in the background reads this line.
+        if _wait_until_up(url, proc):
+            print(f"Dashboard READY: open {url} in a browser (Ctrl+C here stops it).", flush=True)
+        else:
+            print(f"Dashboard FAILED: marimo exited with code {proc.poll()} before answering on {url}; nothing is "
+                  "being served. Do not give the researcher the link; read the error above.", file=sys.stderr, flush=True)
+        code = proc.wait()
     except KeyboardInterrupt:
         code = 130
     finally:
@@ -546,6 +610,15 @@ def _print_hits(path: Path) -> None:
 
 def explore_cmd(args: argparse.Namespace) -> None:
     """Workflow step 0: read-only exploration into <out>/exploration (no study yet)."""
+    if args.activity_only:
+        try:
+            path = core_explore.write_activity(Path(args.out) / "exploration", args.floor)
+        except (core_explore.ExploreError, OSError) as exc:
+            _stage_error(exc)
+        print(f"Wrote {path} (no capture). Show it to the researcher to choose or change the target and control groups.")
+        return
+    if not args.gene:
+        _stage_error(ValueError("--gene is required (except with --activity-only)"))
     try:
         summary = core_explore.run(Path(args.out), args.gene.strip(), args.tissue or [],
                                    tuple(args.scorers), args.flank_bp, args.floor, fetch.invocation(), args.dry_run)
@@ -563,12 +636,19 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--scorer", default="RNA_SEQ", help="RNA_SEQ (gene expression; default), CAGE, DNASE or ATAC")
     p.add_argument("--target", action="append", help="Target CURIE (repeatable; default: the study's target tissues)")
     p.add_argument("--control", action="append", help="Control CURIE (repeatable; default: the study's control tissues)")
+    p.add_argument("--shown", action="append",
+                   help="Context tissue CURIE (repeatable): shown in the tables and figures, outside the group values")
     p.add_argument("--target-label", help="Name of the target group (default: study.yaml)")
     p.add_argument("--control-label", help="Name of the control group (default: study.yaml)")
-    p.add_argument("--question", choices=["repression", "increase", "either"], default="either", help="Direction in the target")
+    p.add_argument("--question", choices=["repression", "increase", "either"],
+                   help="Direction in the target (default: the study's decision analysis.question, else either)")
+    p.add_argument("--score", choices=["raw", "quantile"], default="raw",
+                   help="Value compared: the model's raw score (default; percent changes) or the Atlas quantile")
+    p.add_argument("--group-agg", choices=["mean", "median"], default="mean",
+                   help="How each group's tissues are combined: mean (default) or median")
     p.add_argument("--min-change-pct", type=float, default=0.0, help="Smallest change in every target tissue, in %% (0 = off)")
     p.add_argument("--max-control-pct", type=float, help="Largest change allowed in the control, in %% (default: no limit)")
-    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control above this many noise sigmas (0 = off)")
+    p.add_argument("--min-sigma", type=float, default=0.0, help="Target - control beyond this many noise sigmas, in the question's direction (both for either; 0 = off)")
     p.add_argument("--assay", action="append", help="Assay titles kept (repeatable; default all)")
     p.add_argument("--source", action="append", help="Data sources kept, e.g. encode, gtex (repeatable; default all)")
     p.add_argument("--domain", action="append", help="Genomic domains kept (repeatable; default all)")
@@ -581,6 +661,103 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
                    help="Order of the list (the dashboard's 'Ordenar por')")
 
 
+AGENT_VIEW = ".dashboard/agent_view.json"            # written by `view`; the open dashboard follows it
+RESEARCHER_VIEW = ".dashboard/researcher_view.json"  # written by the open dashboard: what is on screen now
+# option (argparse dest) -> key in the view files (the fields of core.analysis.Profile, plus how to show)
+VIEW_KEYS = {"scorer": "scorer", "target": "target", "control": "control", "shown": "shown", "target_label": "target_label",
+             "control_label": "control_label", "question": "question", "score": "score", "group_agg": "group_agg",
+             "min_change_pct": "min_change_pct", "max_control_pct": "max_control_pct", "min_sigma": "min_diff_sigma",
+             "assay": "assays", "source": "sources", "domain": "domains", "one_alt": "one_alt_per_position",
+             "ref_floor": "ref_floor", "floor_applies": "ref_floor_applies", "y_metric": "y_metric", "top_k": "top_k",
+             "show": "show_mode", "color_by": "color_by", "highlight": "highlight"}
+
+
+def _researcher_view(study_dir: Path) -> dict:
+    """What the researcher has on screen in the open dashboard (written by the page on every change)."""
+    path = Path(study_dir) / RESEARCHER_VIEW
+    if not path.is_file():
+        _stage_error(RuntimeError(
+            f"{path} not found: the dashboard has not been opened on this study since it started writing its view. "
+            "Open it with expression.py dashboard (and the page in a browser), then run this again."))
+    try:
+        view = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        _stage_error(RuntimeError(f"{path} could not be read ({exc}); run this again"))
+    if not isinstance(view, dict) or not isinstance(view.get("choices"), dict):
+        _stage_error(RuntimeError(f"{path} has no choices; reload the dashboard page"))
+    return view
+
+
+def _use_dashboard_choices(args: argparse.Namespace) -> None:
+    """--from-dashboard: the options take the values the researcher has on screen (other choice options are ignored)."""
+    choices = _researcher_view(Path(args.study_dir))["choices"]
+    for dest, key in VIEW_KEYS.items():
+        if key in choices:
+            value = choices[key]
+            if dest == "top_k":
+                value = value or 0
+            setattr(args, dest, value)
+    print(f"Choices taken from the open dashboard ({RESEARCHER_VIEW}).", file=sys.stderr)
+
+
+def view_cmd(args: argparse.Namespace) -> None:
+    """Without choices: prints what the researcher has on screen. With choices: sends them to the open dashboard,
+    on top of what is on screen (--reset: on top of the study's opening view); the page follows without reloading."""
+    study_dir = Path(args.study_dir).resolve()
+    if not (study_dir / study.STUDY_FILE).is_file():
+        _stage_error(RuntimeError(f"{study_dir} is not a study directory"))
+    given = {VIEW_KEYS[d]: v for d, v in vars(args).items() if d in VIEW_KEYS}
+    if args.no_max_control:
+        given["max_control_pct"] = None
+    if args.no_floor:
+        given["ref_floor"] = None
+    if args.clear_highlight:
+        given["highlight"] = []
+    for flag, key in (("no_control", "control"), ("no_shown", "shown"), ("all_domains", "domains"),
+                      ("all_assays", "assays"), ("all_sources", "sources")):
+        if getattr(args, flag):
+            given[key] = []  # an empty selection: no control or context tissue; every region, assay or source
+    if args.full_window:
+        given["window"] = "full"
+    elif args.window:
+        given["window"] = sorted(args.window)
+    if args.reset:  # the opening view also clears the highlights and shows the whole window
+        given.setdefault("highlight", [])
+        given.setdefault("window", "full")
+        sent_reset = not (set(given) - {"highlight", "window"})
+    else:
+        sent_reset = False
+    if not given and not args.reset:
+        view = _researcher_view(study_dir)
+        print(json.dumps(view, indent=1, ensure_ascii=False))
+        print(f"\n{view.get('n_pass')} of {view.get('n_total')} variant(s) pass these choices (as of {view.get('updated_at')}). "
+              "To explain or draw exactly this view: expression.py summarize / figures --from-dashboard.", file=sys.stderr)
+        return
+    choices: dict = {}
+    seen = (study_dir / RESEARCHER_VIEW).is_file()
+    if not args.reset and seen:
+        choices = dict(_researcher_view(study_dir)["choices"])
+        choices.pop("highlight", None)  # the researcher's highlights stay as they are unless the agent sends some
+    choices.update(given)
+    out = study_dir / AGENT_VIEW
+    out.parent.mkdir(exist_ok=True)
+    body = {"sent_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "message": args.message or "", "choices": choices}
+    out.write_text(json.dumps(body, indent=1), encoding="utf-8")  # ASCII JSON, written in place: the page watches this file
+    changed = "the study's opening view (highlights cleared, whole window)" if sent_reset else \
+        ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in given.items())
+    print(f"Sent to the dashboard ({AGENT_VIEW}): {changed}"
+          + (" on top of the study's opening view." if args.reset or not seen else " on top of what is on screen."))
+    print("The open page follows by itself (no reload). Read it back with expression.py view."
+          if seen else "No open dashboard was seen on this study yet; the view applies when it is opened.")
+
+
+def _decided_question(study_dir: Path) -> str:
+    """The researcher's question (decision analysis.question), or "either" for a study without it."""
+    entry = study.load_decisions(Path(study_dir)).get("analysis.question")
+    return entry.value if entry is not None and entry.value in ("repression", "increase", "either") else "either"
+
+
 def _dashboard_view(args: argparse.Namespace) -> dict:
     """The dashboard's computation for the choices in `args` (shared by summarize and figures)."""
     import dataclasses
@@ -588,6 +765,8 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
     from core import analysis as A
 
     study_dir = Path(args.study_dir)
+    if getattr(args, "from_dashboard", False):
+        _use_dashboard_choices(args)
     try:
         data = A.load_study_data(study_dir)
         config = study.load_study(study_dir)
@@ -601,12 +780,14 @@ def _dashboard_view(args: argparse.Namespace) -> dict:
         control=args.control or sorted(set(reg.filter(reg["cohort"] == "control")["ontology_curie"].to_list())),
         target_label=args.target_label or cohorts.get("target", {}).get("label") or "Alvo",
         control_label=args.control_label or cohorts.get("control", {}).get("label") or "Controle",
-        assays=args.assay or [], sources=args.source or [], question=args.question,
+        shown=getattr(args, "shown", None) or [],
+        assays=args.assay or [], sources=args.source or [], question=args.question or _decided_question(study_dir),
+        score=args.score, group_agg=args.group_agg,
         min_change_pct=args.min_change_pct, max_control_pct=args.max_control_pct,
         min_diff_sigma=args.min_sigma, ref_floor=args.ref_floor, ref_floor_applies=args.floor_applies,
         domains=args.domain or [], one_alt_per_position=args.one_alt, y_metric=args.y_metric,
         top_k=getattr(args, "top_k", None) or None, color_by=getattr(args, "color_by", "genomic_domain"))
-    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None)
+    noise = A.noise_model(data, profile.scorer, profile.assays or None, profile.sources or None, score=profile.score)
     # Same order of operations as the dashboard: controls below the expression floor leave before computing
     used = profile
     if profile.ref_floor is not None and profile.ref_floor_applies in ("control", "both"):
@@ -658,11 +839,11 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     effects, kept, steps, labels = v["effects"], v["kept"], v["steps"], v["labels"]
     used = v["used"]
     scorer = profile.scorer
-    toward = args.question != "either"
     desc = H.describe_tissues(data, scorer)
     what = A.SCALES.get(scorer, (None, "o sinal previsto"))[1]
     out = [f"# {config.gene_symbol}: resumo da visão do dashboard ({scorer}; % d{what})", "",
-           H.headline(kept, effects, profile, labels, A.ref_by_tissue(data)), "", "## Grupos e medições", ""]
+           H.headline(kept, effects, profile, labels, A.ref_by_tissue(data), missing=A.without_tracks(data, profile)),
+           "", "## Grupos e medições", ""]
     for role, curies, name in (("Alvo", profile.target, profile.target_label), ("Controle", profile.control, profile.control_label)):
         out.append(f"**{role} ({name})**")
         out += [f"- {labels.get(c, c)} ({c}): {desc.get(c, 'sem medições deste tipo')}" for c in curies] or ["- nenhum"]
@@ -671,25 +852,55 @@ def summarize_cmd(args: argparse.Namespace) -> None:
     if dropped:
         out += [f"Controles abaixo do piso de expressão ({H._n(profile.ref_floor, 3)}), fora do cálculo: "
                 + ", ".join(labels.get(c, c) for c in dropped) + ".", ""]
+    ref = A.ref_by_tissue(data)
+    out += ["## Expressão de referência (REF) e piso", ""]
+    if not ref:
+        out += ["Sem REF neste estudo (não há a variante de referência da exploração em raw/), então o piso não se aplica.", ""]
+    else:
+        top = max(ref.values())
+        floor = profile.ref_floor
+        out += ["REF é a expressão do gene prevista no tecido com o alelo de referência (escala do AlphaGenome, 'sinal de "
+                "leitura normalizado', sem unidade oficial; a pseudocontagem da pontuação RNA_SEQ é 0,001). Onde o REF é muito "
+                "baixo, a mudança em % de uma variante pode ser grande mesmo com uma mudança absoluta mínima. A coluna '% do "
+                f"maior REF' é relativa ao maior REF entre os tecidos deste estudo (5% dele = {H._n(0.05 * top, 3)}). A exploração "
+                "usa outro corte: 5% do maior valor do gene no catálogo inteiro (`exploration/activity.md`), que pode ser mais "
+                "alto. 0,01 (10× a pseudocontagem) é só o limite absoluto mínimo. O piso (`--ref-floor N`) usa "
+                "o valor de REF: `--floor-applies warn` só avisa, `control` "
+                "tira do cálculo os controles abaixo dele, `target` não deixa passar nada se um tecido do alvo estiver "
+                "abaixo, `both` faz os dois.", "",
+                "| tecido | grupo | REF | % do maior REF | com o piso atual |", "|---|---|---|---|---|"]
+        for role, curies in (("alvo", profile.target), ("controle", profile.control)):
+            for c in curies:
+                r = ref.get(c)
+                if r is None:
+                    out.append(f"| {labels.get(c, c)} | {role} | — | — | sem REF |")
+                    continue
+                state = ("piso desligado" if floor is None else
+                         ("abaixo do piso" + (", fora do cálculo" if role == "controle" and profile.ref_floor_applies in ("control", "both") else
+                                              ", nenhuma variante passa" if role == "alvo" and profile.ref_floor_applies in ("target", "both") else
+                                              ", só aviso")) if r < floor else "acima do piso")
+                out.append(f"| {labels.get(c, c)} | {role} | {H._n(r, 4)} | {H._n(100 * r / top, 1)}% | {state} |")
+        out.append("")
     out += ["## Ruído entre medições do mesmo tecido", ""]
-    overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None)
+    overall = A.noise_overall(data, scorer, profile.assays or None, profile.sources or None, score=profile.score)
     if overall is None:
         out.append("Não disponível (nenhum tecido com duas medições nas escolhas atuais); o filtro de ruído fica de fora.")
     else:
-        out.append(f"Duas medições do mesmo tecido discordam em até {H._n(A.pct(overall[0], scorer), 1)}% (p95) e "
-                   f"{H._n(A.pct(overall[1], scorer), 1)}% (p99), juntando todos os tecidos com duas ou mais medições.")
+        size = (lambda v: f"{H._n(A.pct(v, scorer), 1)}%") if A.uses_pct(profile) else (lambda v: f"{H._n(v, 3)} (quantil)")
+        out.append(f"Duas medições do mesmo tecido discordam em até {size(overall[0])} (p95) e "
+                   f"{size(overall[1])} (p99), juntando todos os tecidos com duas ou mais medições.")
     out += ["", "## Etapas dos filtros", "", "| etapa | variantes |", "|---|---|"]
     out += [f"| {s} | {n} |" for s, n in steps]
-    # Order: the chosen metric (as in the dashboard's table); with the default metric and a direction, the
-    # headline's order (the change in the direction asked, in the target tissue that changes least)
-    col = "target_toward" if (toward and args.y_metric == "target_mean") else args.y_metric
-    signed = col == "target_toward"
-    top = kept.sort(pl.col(col) if signed else pl.col(col).abs(), descending=True, nulls_last=True).head(args.top)
+    # Order: the one of 'Ordenar por', as in the dashboard's table and headline (kept comes sorted by it)
+    top = kept.head(args.top)
     eff = [c for c in top.columns if c.startswith("eff_")]
     out += ["", f"## Primeiras {top.height} variantes", "",
-            "| variante | região | % alvo | % controle | " + " | ".join(f"% {labels.get(c[4:], c[4:])}" for c in eff) + " | modalidade AVI |",
+            (lambda m: f"| variante | região | {m} alvo | {m} controle | "
+             + " | ".join(f"{m} {labels.get(c[4:], c[4:])}" for c in eff))("%" if A.uses_pct(profile) else "quantil")
+            + " | modalidade AVI |",
             "|" + "---|" * (5 + len(eff))]
-    fmt = lambda v: "—" if v is None else H._n(A.pct(v, scorer), 1, True)
+    fmt = (lambda v: "—" if v is None else H._n(A.pct(v, scorer), 1, True)) if A.uses_pct(profile) else \
+        (lambda v: "—" if v is None else H._n(v, 3, True))
     for r in top.iter_rows(named=True):
         out.append(f"| {r['variant_id']} | {r['genomic_domain']} | {fmt(r['target_mean'])} | {fmt(r['control_mean'])} | "
                    + " | ".join(fmt(r[c]) for c in eff) + f" | {r['top_feature']} |")
@@ -716,21 +927,12 @@ OPTIONAL_KEYS = []
 
 
 def _key_present(name: str) -> bool:
-    """True if the variable is set; the value is never stored or printed."""
-    if os.environ.get(name):
-        return True
-    env_file = Path.home() / ".env"
-    try:
-        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if line.startswith("export "):
-                line = line[len("export "):]
-            key, sep, value = line.partition("=")
-            if sep and key.strip() == name and value.strip().strip("\"'"):
-                return True
-    except OSError:
-        pass
-    return False
+    """True if the project's .env sets the variable; the value is never stored or printed."""
+    return deps.key_present(name)
+
+
+SETUP_INSTALL = ("npx skills add romulorcruz/alphagenome-skills-setup --skill alphagenome-skills-setup "
+                 "--agent <agent> --copy -y")
 
 
 SKILL_PURPOSE = {"uv": "to run its scripts", "credentials": "to store the AlphaGenome key without showing it",
@@ -793,16 +995,21 @@ def prerequisite_items() -> list[dict]:
             items.append(_setup_item(
                 f"setup.key:{key}", "AlphaGenome access key",
                 f"The AlphaGenome key ({key}) is not set. It is needed to fetch the predictions. Set it now?",
-                "The key identifies the researcher to the AlphaGenome service; it is stored in ~/.env and never shown.",
-                {"variable": key, "stored in": "~/.env"},
+                "The key identifies the researcher to the AlphaGenome service; it is personal, kept in the project's "
+                ".env (ignored by git), and never shown.",
+                {"variable": key, "stored in": ".env of the project",
+                 "get one": "https://alphagenome.google/api"},
                 [{"code": "set", "label": "Set the key",
-                  "effect": "The 'credentials' skill stores it in ~/.env without showing it on screen."}, later],
-                "set", "credentials"))
+                  "effect": "The setup skill opens the key page and the .env file for the researcher to paste it."}, later],
+                "set", SETUP_SKILL))
     return items
 
 
 def check(args: argparse.Namespace) -> None:
     items = prerequisite_items()
+    for f in deps.env_unprotected():
+        print(f"Warning: {f} holds keys but git does not ignore it; add '.env' to .gitignore before any commit "
+              "(an AlphaGenome key is personal and must not be shared).", file=sys.stderr)
     for key in OPTIONAL_KEYS:
         if not _key_present(key):
             print(f"Warning: {key} is not set; requests will run at the lower rate limit.", file=sys.stderr)
@@ -816,15 +1023,15 @@ def check(args: argparse.Namespace) -> None:
         return
     print(f"{len(items)} prerequisite(s) missing:", file=sys.stderr)
     for it in items:
-        command = it["identifiers"].get("install command")
-        print(f"- {it['title']}: {it['question']}" + (f"\n  Install command (not executed): {command}" if command else ""),
-              file=sys.stderr)
+        print(f"- {it['title']}", file=sys.stderr)
     if deps.find_skill(SETUP_SKILL) is not None:
-        print(f"Next: use the skill '{SETUP_SKILL}' to go through these with the researcher, one at a time "
-              "(`check --json` lists them as questions).", file=sys.stderr)
+        print(f"Next: hand the setup to the skill '{SETUP_SKILL}' (it asks the researcher item by item and installs "
+              "only what they approve). Do not install anything from this skill.", file=sys.stderr)
     else:
-        print("Next: go through each item with the researcher, one at a time, in their language (`check --json` lists them "
-              "as questions); install or accept only what they approve.", file=sys.stderr)
+        print(f"Next: the skill '{SETUP_SKILL}' installs these with the researcher's approval, and it is not installed. "
+              f"Ask the researcher whether to install it (repository private for now: they need GitHub access), then: "
+              f"{SETUP_INSTALL} (with <agent> the id of their agent app, e.g. claude-code, opencode, antigravity). Do not "
+              "install the dependency skills from this skill.", file=sys.stderr)
     sys.exit(1)
 
 
@@ -862,8 +1069,11 @@ def main() -> None:
                        description="Gene structure, Regulatory Build, candidate windows, OLS terms per tissue text, Atlas "
                                    "tracks per term x scorer and the gene's predicted activity per tissue "
                                    "(RNA_SEQ_ACTIVE), written to OUT/exploration/ with summary.md (Portuguese).")
-    p.add_argument("--gene", required=True, help="HGNC symbol")
+    p.add_argument("--gene", help="HGNC symbol (required, except with --activity-only)")
     p.add_argument("--out", required=True, help="Folder for the exploration (OUT/exploration/); later the study's parent")
+    p.add_argument("--activity-only", action="store_true",
+                   help="Only (re)write OUT/exploration/activity.md from the captured baseline: every catalogue term with "
+                        "the gene's predicted activity, for choosing or changing the groups. No network")
     p.add_argument("--tissue", action="append", help="A tissue or cell type in the researcher's words (repeatable)")
     p.add_argument("--scorers", nargs="+", default=list(core_explore.DEFAULT_SCORERS), help="Atlas scorers to survey")
     p.add_argument("--flank-bp", type=int, default=core_explore.DEFAULT_FLANK_BP,
@@ -900,8 +1110,41 @@ def main() -> None:
                                    "direction, no filter. Writes nothing; prints Markdown.")
     p.add_argument("--study-dir", required=True, help="Study directory")
     _choice_args(p)
+    p.add_argument("--from-dashboard", action="store_true",
+                   help="Use the choices the researcher has on screen in the open dashboard (other choice options are ignored)")
     p.add_argument("--top", type=int, default=10, help="Variants listed (default 10)")
     p.set_defaults(func=summarize_cmd)
+
+    p = sub.add_parser("view", help="Link with the open dashboard: read what the researcher has on screen, or send a view to it",
+                       description="Without choice options: prints what the researcher has on screen now. With them: the open "
+                                   "dashboard moves to these choices, on top of what is on screen (--reset: on top of the "
+                                   "study's opening view), without reloading the page.")
+    p.add_argument("--study-dir", required=True, help="Study directory")
+    _choice_args(p)
+    p.add_argument("--top-k", type=int, help="'Quantas mostrar' (0 = all)")
+    p.add_argument("--show", choices=["kept", "all"], help="'Variantes nos gráficos'")
+    p.add_argument("--color-by", choices=["genomic_domain", "passa", "sentido", "ensembl_transcript_region", "top_feature"],
+                   help="'Cor no gráfico da janela'")
+    p.add_argument("--highlight", action="append", help="Variant ID to highlight (repeatable)")
+    for action in p._actions:  # only the options given are sent: no default takes part
+        if action.dest not in ("help", "study_dir"):
+            action.default = argparse.SUPPRESS
+    p.add_argument("--no-max-control", action="store_true", help="Switch off the limit of change in the control")
+    p.add_argument("--no-floor", action="store_true", help="Switch off the reference expression floor")
+    p.add_argument("--clear-highlight", action="store_true", help="Remove the highlights")
+    p.add_argument("--no-control", action="store_true", help="No control tissue (the control filters are then listed as ignored)")
+    p.add_argument("--no-shown", action="store_true", help="No context tissue")
+    p.add_argument("--all-domains", action="store_true", help="Every region of the window")
+    p.add_argument("--all-assays", action="store_true", help="Every assay")
+    p.add_argument("--all-sources", action="store_true", help="Every data source")
+    p.add_argument("--window", nargs=2, type=int, metavar=("START", "END"),
+                   help="Stretch of the window to show (GRCh38 positions), as the page's 'Recortar'")
+    p.add_argument("--full-window", action="store_true", help="Show the whole window again ('Janela inteira')")
+    p.add_argument("--reset", action="store_true",
+                   help="Start from the study's opening view instead of what is on screen (also clears the highlights "
+                        "and shows the whole window, unless --highlight or --window is given)")
+    p.add_argument("--message", help="One line shown to the researcher on the page, saying what this view is")
+    p.set_defaults(func=view_cmd)
 
     p = sub.add_parser("figures", help="Workflow step 14: the dashboard's charts for given choices, as PNG for report.md",
                        description="Same choices as summarize (and the dashboard), plus how to show them. Writes "
@@ -917,9 +1160,11 @@ def main() -> None:
     p.add_argument("--highlight", action="append", help="Variant ID to highlight (repeatable), as in the dashboard")
     p.add_argument("--auto-highlight", type=int, default=5,
                    help="Without --highlight, highlight the first N that pass, in that order (default 5; 0 = none)")
+    p.add_argument("--from-dashboard", action="store_true",
+                   help="Use the choices, the way of showing and the highlights the researcher has on screen in the open dashboard")
     p.set_defaults(func=figures_cmd)
 
-    p = sub.add_parser("check", help="Verify prerequisites; print install commands for what is missing")
+    p = sub.add_parser("check", help="Verify prerequisites; name what is missing (alphagenome-skills-setup installs it)")
     p.add_argument("--json", action="store_true",
                    help="Print the missing prerequisites as questions (same shape as study.py pending --json)")
     p.set_defaults(func=check)

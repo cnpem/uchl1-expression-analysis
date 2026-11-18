@@ -64,6 +64,10 @@ _QUERY_RE = re.compile(r"--ontology\s+(\S+)\s+--scorer\s+(\S+)")
 _REPLACE_RE = re.compile(r"^replace:(\S+)(?:\s.*)?$")
 _ADD_RE = re.compile(r"^add:(\S+)(?:\s.*)?$")
 NO_RNA_SEQ_KEY = "cohort.no_rna_seq"
+TERM_WITHOUT_OLS_KEY = "cohort.term_without_ols"
+TERM_WITHOUT_OLS_RULE = ("{curie} ({name}, {role} group) is served by the AlphaGenome Atlas under this CURIE but the "
+                         "ontology (OLS) no longer returns it; it enters with the Atlas sample name, without an OLS "
+                         "definition.")
 
 
 class CohortError(Exception):
@@ -165,13 +169,22 @@ def _ols_info(study_dir: Path) -> tuple[dict[str, dict[str, Any]], dict[str, lis
         info.setdefault(curie, record)
 
     raw = study_dir / "raw"
-    terms = [models.load_raw(p)[0].term for p in sorted(raw.glob("ols_term_*.json"))]
+    terms = []
+    for p in sorted(raw.glob("ols_term_*.json")):
+        try:  # an error reply ("Term not found") or a record of an abandoned search: the CURIE check below decides
+            terms.append(models.load_raw(p)[0].term)
+        except models.DependencyOutputError:
+            continue
     for term in terms:
         put(term.obo_id, _record(term.obo_id, term.label, term.iri, term.ontology_name, term.description, term.synonyms))
         related = term.hierarchicalDescendants if term.hierarchicalDescendants is not None else term.hierarchicalChildren
         descendants[term.obo_id] = [(r.obo_id, r.label) for r in related or ()]
     for path in sorted(raw.glob("ols_search_*.json")):
-        for hit in models.load_raw(path)[0].terms:
+        try:
+            hits = models.load_raw(path)[0].terms
+        except models.DependencyOutputError:
+            continue
+        for hit in hits:
             put(hit.obo_id, _record(hit.obo_id, hit.label, hit.iri, hit.ontology_name, hit.description, hit.exact_synonyms))
     for term in terms:
         for rel in (term.hierarchicalChildren or ()) + (term.hierarchicalDescendants or ()):
@@ -252,6 +265,7 @@ def resolve_cohorts(
         CohortError: An `abort` answer, an invalid answer, a CURIE without an OLS record, or a cohort still
             without RNA_SEQ after its cohort.no_rna_seq answer.
     """
+    ols = dict(ols)  # catalogue-only terms are added below
     requested = list(study.data["scorers"])
     chosen = _cohort_curies(decisions)
     pending: list[PendingDecision] = []
@@ -259,10 +273,21 @@ def resolve_cohorts(
     entries: list[dict[str, Any]] = []
     seen: set[str] = {c for cs in chosen.values() for c in cs}
 
+    catalogue_only: list[dict[str, str]] = []
+
     def entry(curie: str, role: str) -> dict[str, Any]:
         if curie not in ols:
-            raise CohortError(
-                f"No OLS record for {curie} in raw/. Run Workflow step {OLS_STEP} (search_ols.py) or step 6 (get_term.py) for it.")
+            served_here = [t for s in requested for t in tracks.get((s, curie), ())]
+            if not served_here:
+                raise CohortError(
+                    f"No OLS record for {curie} in raw/. Run Workflow step {OLS_STEP} (search_ols.py) or step 6 (get_term.py) for it.")
+            # The Atlas serves it under this CURIE, but the ontology no longer knows it (cell lines renamed or retired):
+            # it enters with the catalogue's sample name, and the rule says so.
+            name = served_here[0].biosample_name or curie
+            ols[curie] = {"obo_id": curie, "label": name, "iri": core_tracks.obo_purl(curie),
+                          "ontology_name": curie.split(":")[0].lower(), "description": None, "synonyms": []}
+            catalogue_only.append({"key": f"{TERM_WITHOUT_OLS_KEY}:{curie}", "value": "atlas_catalogue",
+                                   "rule": TERM_WITHOUT_OLS_RULE.format(curie=curie, name=name, role=role)})
         rec = ols[curie]
         per_scorer = {s: len(tracks.get((s, curie), ())) for s in requested}
         listed = [t for s in requested for t in tracks.get((s, curie), ())]
@@ -347,7 +372,7 @@ def resolve_cohorts(
 
     kept = [e for e in entries if e["status"] == "kept"]
     dropped_scorers: list[str] = []
-    rules: list[dict[str, str]] = []
+    rules: list[dict[str, str]] = list(catalogue_only)
     adding = {q.key.split(":", 1)[1] for q in pending if q.key.startswith(f"{NO_RNA_SEQ_KEY}:")}
     for scorer in requested:
         empty = [role for role in ("target", "control")
@@ -565,7 +590,7 @@ def run(study_dir: Path) -> dict[str, Any]:
     tracks = _load_tracks(study_dir, sorted(needed), study.data["scorers"])
     resolution = resolve_cohorts(study, tracks, ols, descendants, decisions, _served_by(study_dir, study.data["scorers"]),
                                  _catalogue_counts(study_dir, GENE_EXPRESSION_SCORER))
-    sync_rules(study_dir, ("cohort.scorer_without_cohort:",), resolution["rules"], WORKFLOW_STEP)
+    sync_rules(study_dir, ("cohort.scorer_without_cohort:", f"{TERM_WITHOUT_OLS_KEY}:"), resolution["rules"], WORKFLOW_STEP)
     catalogue = [t for ts in tracks.values() for t in ts]
     registry = core_tracks.build_track_registry(
         catalogue, study, resolution=resolution, chromosome=locus.chromosome, gene_strand=locus.strand,

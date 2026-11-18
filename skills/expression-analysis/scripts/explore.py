@@ -4,7 +4,8 @@ Cheap, read-only queries that show the researcher what the data allow before any
 study.yaml: the gene structure, the Regulatory Build around it, 3-5 candidate windows derived from those
 features, the ontology terms that match each tissue or cell named, which of them have Atlas tracks (per
 scorer, with data source and assay), and how strongly the gene itself is predicted to be active in each
-tissue (`RNA_SEQ_ACTIVE`). No variant is scored. Everything goes to `<out>/exploration/` with its own
+tissue (`RNA_SEQ_ACTIVE` of one probe SNV inside the gene, the only variant scored; no variant of a window is
+scored). Everything goes to `<out>/exploration/` with its own
 manifest; `study.py init --from-exploration` reuses the captures without repeating a call.
 
 Outputs (in `<out>/exploration/`):
@@ -44,6 +45,10 @@ DEFAULT_FLOOR = 0.05  # gene activity below 5% of the gene's highest tissue read
 TSS_HALF_WIDTH = 500
 EXPLORATION_FILE = "exploration.json"
 SUMMARY_FILE = "summary.md"
+ACTIVITY_FILE = "activity.md"
+BASELINE_FILE = "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv"
+_KIND_PT = {"tissue": "tecido", "primary_cell": "célula primária", "in_vitro_differentiated_cells": "célula diferenciada in vitro",
+            "cell_line": "linhagem celular", "organoid": "organoide"}
 STUDY_RAW = (re.compile(r"^gtf\.json$"), re.compile(r"^regulatory\.json$"), re.compile(r"^sequence_.+\.txt$"),
              re.compile(r"^ols_search_.+\.json$"), re.compile(r"^ols_term_.+\.json$"),
              re.compile(r"^tracks_[A-Z0-9_]+_catalogue\.parquet$"))
@@ -154,6 +159,11 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(text).lower()).strip()
 
 
+def _same_name(a: str, b: str) -> bool:
+    """Same name written another way: case, hyphens and spaces do not count ("MCF-7" = "MCF7", "T-cell" = "T cell")."""
+    return _norm(a).replace(" ", "") == _norm(b).replace(" ", "")
+
+
 def _catalogue(atlas_tracks: Path, scorers: tuple[str, ...]) -> pl.DataFrame:
     df = pl.read_csv(atlas_tracks, separator="\t", infer_schema_length=0)
     for col in ("assay_title", "data_source", "biosample_name", "biosample_type"):
@@ -189,14 +199,26 @@ def term_table(ols_file: Path, text: str, cat: pl.DataFrame, scorers: tuple[str,
         candidates.append({"curie": curie, "label": h.label, "ontology": curie.split(":")[0],
                            "definition": (h.description[0] if h.description else ""), **_served(cat, curie, scorers)})
     want = _norm(text)
-    exact = [c for c in candidates if _norm(c["label"]) == want]
-    recommended = (exact or [c for c in candidates if c["per_scorer"].get("RNA_SEQ")] or candidates or [None])[0]
+    # The Atlas catalogue names its samples; a sample with the researcher's own name (written any way) is the term
+    # they mean, even when the ontology search ranks it low, misses it, or knows it no more (cell lines).
+    in_cat = {}
+    for curie, name in cat.select("ontology_curie", "biosample_name").unique().iter_rows():
+        if name and _same_name(name, text) and curie not in in_cat:
+            in_cat[curie] = name
+    for curie, name in in_cat.items():
+        if curie not in seen:
+            candidates.insert(0, {"curie": curie, "label": name, "ontology": curie.split(":")[0],
+                                  "definition": "", "source": "atlas_catalogue", **_served(cat, curie, scorers)})
+    by_cat = [c for c in candidates if c["curie"] in in_cat and c["per_scorer"].get("RNA_SEQ")]
+    exact = [c for c in candidates if _same_name(c["label"], text) and c["per_scorer"].get("RNA_SEQ")] or \
+        [c for c in candidates if _norm(c["label"]) == want]
+    recommended = (by_cat or exact or [c for c in candidates if c["per_scorer"].get("RNA_SEQ")] or candidates or [None])[0]
     words = want.split()
     related = []
     if words:
         names = cat.select("ontology_curie", "biosample_name").unique()
         for curie, name in names.iter_rows():
-            if curie in seen or not name:
+            if curie in seen or curie in in_cat or not name:
                 continue
             if all(w in _norm(name).split() for w in words):
                 related.append({"curie": curie, "label": name, **_served(cat, curie, scorers)})
@@ -251,6 +273,47 @@ def baseline_activity(path: Path, floor: float) -> dict[str, Any]:
             "median_relative": float(names["relative"].median() or 0.0)}
 
 
+def write_activity(root: Path, floor: float = 0.05) -> Path:
+    """exploration/activity.md: every term of the Atlas catalogue with the gene's predicted activity, most active
+    first, with its kind of sample, assays, sources and number of measurements. The list to choose (or change)
+    the target and control groups from, without new captures or ad-hoc code."""
+    root = Path(root)
+    df = pl.read_csv(root / BASELINE_FILE, separator="\t", infer_schema_length=10000).filter(pl.col("raw_score").is_not_null())
+    if df.height == 0:
+        raise ExploreError(f"{BASELINE_FILE}: no RNA_SEQ_ACTIVE score returned")
+    t = (df.group_by("ontology_curie")
+         .agg(pl.col("biosample_name").first().alias("name"), pl.col("biosample_type").first().alias("kind"),
+              pl.col("raw_score").mean().alias("activity"), pl.len().alias("tracks"),
+              pl.col("assay_title").drop_nulls().unique().sort().str.join(" + ").alias("assays"),
+              pl.col("data_source").drop_nulls().unique().sort().str.join(", ").alias("sources"))
+         .sort("activity", descending=True))
+    top = float(t["activity"].max() or 0.0)
+    variant = df["variant"][0] if "variant" in df.columns else "?"
+    L = [f"# Atividade prevista do gene em todos os tecidos e células do catálogo ({t.height})", "",
+         f"Atividade prevista do gene: pontuação `RNA_SEQ_ACTIVE` de uma variante de sondagem ({variant}), isto é, o maior "
+         "entre os alelos REF e ALT da cobertura média de RNA-seq prevista nos éxons do gene. A tabela traz a média das "
+         f"trilhas de cada termo e o valor relativo ao termo de maior média ({top:.3g}). Abaixo de {_pct(floor)} desse "
+         "máximo, a coluna *Expresso* diz **não**: é um corte desta skill, relativo ao máximo do próprio gene e sem "
+         "calibração; não quer dizer que o transcrito esteja ausente. Onde o valor é muito baixo, a mudança em % de uma "
+         "variante pode ser grande mesmo com uma mudança absoluta mínima. Use esta lista para escolher, ou trocar depois "
+         "dos resultados, os tecidos do alvo e do controle; um termo novo precisa de captura (passos 7 a 10).", "",
+         "O valor é igual ao da sequência de referência quando a variante de sondagem não aumenta a expressão, e maior "
+         "caso contrário; a exploração não mede essa diferença. Para os tecidos que já estão num estudo, `summarize` "
+         "mostra o nível com o alelo de referência (REF), reconstruído das duas pontuações. As trilhas de um termo podem "
+         "ser de ensaios (polyA, total) e fontes (ENCODE, GTEx) diferentes, cujos valores não são diretamente "
+         "comparáveis: as colunas *Ensaios* e *Fontes* dizem o que entrou em cada média.", "",
+         "| # | Termo | Nome | Tipo | Atividade | Relativa | Expresso | Ensaios | Fontes | Medições |",
+         "|---|---|---|---|---|---|---|---|---|---|"]
+    for i, r in enumerate(t.iter_rows(named=True), 1):
+        rel = r["activity"] / top if top > 0 else 0.0
+        L.append(f"| {i} | {r['ontology_curie']} | {r['name']} | {_KIND_PT.get(r['kind'], r['kind'] or '—')} | "
+                 f"{r['activity']:.3g} | {_pct(rel)} | {'sim' if rel >= floor else 'não'} | {r['assays'] or '—'} | "
+                 f"{r['sources'] or '—'} | {r['tracks']} |")
+    out = root / ACTIVITY_FILE
+    out.write_text("\n".join(L) + "\n", encoding="utf-8")
+    return out
+
+
 # --------------------------------------------------------------------------- run
 
 
@@ -301,9 +364,12 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
         rec = next((c for c in table["candidates"] if c["curie"] == table["recommended"]), None)
         if rec is not None and not rec["per_scorer"].get("RNA_SEQ"):
             tf = f"raw/ols_term_{fetch.curie_file(rec['curie'])}.json"
-            if not have(tf):
-                fetch.ols_term(ws, rec["curie"])
-            table["descendants"] = served_descendants(root / tf, cat, tuple(scorers))
+            try:  # a term the ontology no longer knows must not stop the other tissues
+                if not have(tf):
+                    fetch.ols_term(ws, rec["curie"])
+                table["descendants"] = served_descendants(root / tf, cat, tuple(scorers))
+            except (fetch.FetchError, models.DependencyOutputError, OSError, ValueError) as exc:
+                table["descendants_error"] = f"{rec['curie']}: {str(exc).splitlines()[0][:200]}"
         terms.append(table)
 
     variant = baseline_variant(tx, root / seq_name)
@@ -331,6 +397,7 @@ def run(out_dir: Path, gene: str, tissues: list[str], scorers: tuple[str, ...] =
     (root / EXPLORATION_FILE).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     summary = root / SUMMARY_FILE
     summary.write_text(render_summary(data), encoding="utf-8")
+    write_activity(root, floor)
     return summary
 
 
@@ -374,7 +441,8 @@ def render_summary(d: dict[str, Any]) -> str:
     L.append(f"# Exploração do gene {d['gene']}: opções antes de definir o estudo\n")
     L.append("Esta página resume consultas **só de leitura** (estrutura do gene, elementos regulatórios, termos de "
              "ontologia, catálogo de trilhas do AlphaGenome Atlas e a atividade prevista do gene em cada tecido). "
-             "Nenhuma variante foi pontuada ainda. Com base nela, o pesquisador escolhe a janela, os tecidos alvo e "
+             "Só uma variante de sondagem foi pontuada, para ler o nível do gene em cada tecido; nenhuma variante da "
+             "janela foi pontuada ainda. Com base nela, o pesquisador escolhe a janela, os tecidos alvo e "
              "controle e os tipos de sinal (scorers); só então o estudo é criado. Tudo aqui é predição de modelo, para "
              "priorizar experimentos, não medida nem diagnóstico.\n")
     L.append("## 1. O gene\n")
@@ -426,13 +494,17 @@ def render_summary(d: dict[str, Any]) -> str:
         rec = next((c for c in t["candidates"] if c["curie"] == t["recommended"]), None)
         if rec is not None:
             n_rna = rec["per_scorer"].get("RNA_SEQ", {}).get("tracks", 0)
-            reason = ("o nome coincide com o texto citado" if _norm(rec["label"]) == _norm(t["text"]) else
+            reason = ("é a amostra do catálogo do Atlas com o nome citado" if rec.get("source") == "atlas_catalogue" else
+                      "o nome coincide com o texto citado" if _same_name(rec["label"], t["text"]) else
                       "é o primeiro resultado com trilhas de RNA-seq")
             L.append(f"\nRecomendado: **{rec['curie']} ({rec['label']})**, porque {reason}"
                      + (f"; tem {n_rna} trilha(s) de RNA-seq" if n_rna else "; **não tem trilha de RNA-seq**") + ".")
             if n_rna == 1:
-                L.append("Só uma trilha de RNA-seq: o tecido fica sem réplica; considere juntar termos irmãos ou "
-                         "descendentes da tabela.")
+                L.append("Só uma trilha de RNA-seq: não há outra trilha do mesmo termo para comparar; considere juntar "
+                         "termos irmãos ou descendentes da tabela.")
+        if t.get("descendants_error"):
+            L.append(f"\nA ontologia não devolveu os termos mais específicos do recomendado ({t['descendants_error']}); "
+                     "os outros tecidos seguiram normalmente.")
         if t["descendants"]:
             L.append("\nDescendentes com trilhas (substitutos possíveis do termo recomendado):\n")
             L.append("| Termo | Nome | " + " | ".join(scorers) + " | Atividade do gene |\n|---|---|"
@@ -454,6 +526,8 @@ def render_summary(d: dict[str, Any]) -> str:
              f"atividade do gene ({act['max']:.3g}). Abaixo de {_pct(act['floor'])} do máximo, tratamos o gene como "
              "**não expresso** naquele tecido: lá, o modelo tende a prever variações relativas grandes sobre um sinal "
              "quase nulo, que não devem ser lidas como efeito específico do tecido.\n")
+    L.append(f"A lista completa, com os {len(act['by_curie'])} tecidos e células do catálogo, tipo de amostra, ensaios e "
+             f"fontes, está em `{ACTIVITY_FILE}`.\n")
     L.append("| Tecidos onde o gene é mais ativo | Atividade | Relativa |\n|---|---|---|")
     for c in act["top"]:
         a = act["by_curie"][c]
@@ -487,8 +561,9 @@ def render_summary(d: dict[str, Any]) -> str:
              "(`score_variants.py` da skill `alphagenome`, API do modelo, ~10-20 s por variante); varredura saturada "
              "de indels fica fora por custo.\n"
              "- Só a janela escolhida é mutada: elementos distantes (enhancers a dezenas de kb, íntrons) ficam fora.\n"
-             "- Termos com uma única trilha não têm réplica; fontes diferentes (ENCODE, GTEx) e protocolos diferentes "
-             "(polyA, total) entre alvo e controle são declarados no relatório.\n"
+             "- Termos com uma única trilha não têm outra para comparar. Duas trilhas do mesmo termo diferem em ensaio "
+             "(polyA, total) ou fonte (ENCODE, GTEx): não são réplicas. Essas diferenças entre alvo e controle são "
+             "declaradas no relatório.\n"
              "- Tudo é predição de modelo para priorizar experimentos; não é medida, nem classificação clínica.\n")
     L.append("## 8. O que o pesquisador decide agora\n")
     L.append("1. A janela (seção 3).\n2. Quais termos formam o grupo **alvo** e quais o **controle** (seção 4), e um "

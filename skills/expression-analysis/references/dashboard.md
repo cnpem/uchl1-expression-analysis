@@ -10,6 +10,7 @@ opening the dashboard (Workflow step 14). The page is in Portuguese; quote its l
 - [Layout, top to bottom](#layout-top-to-bottom)
 - [Avançado, field by field](#avançado-field-by-field)
 - [What the page does without saying](#what-the-page-does-without-saying)
+- [Link with the page: `view`](#link-with-the-page-view)
 - [Explaining a view: `summarize`](#explaining-a-view-summarize)
 - [Figures for the report: `figures`](#figures-for-the-report-figures)
 - [What each quantity means](#what-each-quantity-means)
@@ -23,8 +24,8 @@ target tissues, and is the change their own or shared with the control?** It ope
 groups with every filter off, so the researcher sees the data before choosing anything (asking for
 thresholds first makes them choose blind). Every choice is a control on the page; nothing is fixed in
 the code. The page saves no analysis: the only files it touches are its marimo session folder
-(`D/.workbench/`) and one `14-dashboard` step in `manifest.json` when the session ends (the export adds
-the HTML). The dashboard never calls the network: a tissue that was not captured needs a new capture
+(`D/.workbench/`), the two files of the link with you (`D/.dashboard/`, next section but one) and one
+`14-dashboard` step in `manifest.json` when the session ends (the export adds the HTML). The dashboard never calls the network: a tissue that was not captured needs a new capture
 (Workflow steps 7-10), which is your job, not the page's.
 
 ## Presenting it: what to say first
@@ -40,7 +41,8 @@ Say it in the researcher's language, in a few short lines, when you give the lin
 4. Thresholds are in *Filtrar resultados*, all off; technical settings are in *Avançado* (offer to
    explain them when they open it, with the next section).
 5. Clicking a variant (in a chart or the table) highlights it everywhere and shows its measurements.
-6. When they settle on a view, tell you its choices: you will draw it for the report (`figures`).
+6. You can see what they have on screen and move the page to a view for them; when they settle on a
+   view, you draw it for the report (`figures --from-dashboard`).
 
 ## Layout, top to bottom
 
@@ -50,7 +52,7 @@ Say it in the researcher's language, in a few short lines, when you give the lin
 | Three choices | *O que você procura?* (diminui / aumenta / qualquer mudança), *Onde* (target tissues), *Comparado com* (control tissues) | these are the only choices needed to start |
 | How to show (row below) | *Ordenar por* (order of the table, which variants *Quantas mostrar* keeps, height in the window chart), *Quantas mostrar* (0 = all; otherwise only the first N in that order are drawn and listed), *Variantes nos gráficos* (only those that pass, or all with the rest in grey) | change what is drawn and in which order; the headline and the filter steps still count every variant that passes |
 | *De onde vêm as medições* | for each chosen tissue, its measurements (GTEx or ENCODE, tissue or cell type, polyA or total RNA-seq) and how well they agree in this gene | tissues whose measurements agree poorly are unstable comparisons |
-| Headline (blue box) | how many variants pass, the ones that change the target most (% in target and in control), a warning when the gene is predicted to be almost off in a target tissue | read it first; it states the result of the current choices |
+| Headline (blue box) | how many variants pass, the first three in the order of *Ordenar por* (% in target and in control; the same as the table's first rows), a warning when a tissue left a group for lack of measurements with the chosen assays and sources, and one when the gene is predicted to be almost off in a target tissue (or below the floor chosen) | read it first; it states the result of the current choices |
 | *Ao longo da janela* | one stem per variant at its position; height = change in the target (or what *Ordenar por* chose); colour, point size and *Uma alternativa por posição* are next to it | click to highlight; wheel zooms, drag pans, double-click resets; *Recortar* limits the window for the other parts; *Salvar PNG/SVG* below |
 | *O efeito é próprio do alvo?* | each variant as a point: change in target (x) vs control (y) | on the dashed diagonal = shared; near the horizontal zero line = own to the target; opposite quadrants = opposite directions |
 | *Variantes* | table in % per group and per tissue | tick rows to highlight |
@@ -74,6 +76,8 @@ current value does:
 | *Tecidos capturados* (table) | every tissue with predictions in the study: group at capture, number of measurements, REF min and max, where the measurements come from | to find a CURIE, or a tissue to add to a group; a tissue not listed needs a new capture (your job) |
 | *Ruído do estudo* (table) | how much two measurements of the same tissue disagree, by size of change: p95, p99, σ | the reference for the thresholds; σ is the unit of the *acima do ruído* filter |
 | *Tipo de predição* | RNA-seq (expression of the whole gene), CAGE (transcription start), DNase / ATAC (open chromatin around the variant) | to ask about the mechanism near the variant rather than the gene's expression; groups may lose tissues without that prediction |
+| *Pontuação* | the model's value (a change, shown in %) or the Atlas quantile of the same prediction (the variant's rank among common variants, −1 to 1) | quantiles compare kinds of prediction and measurements on one scale; they are not a %, so the % filters are switched off (the filter steps say so) and the question still keeps every target tissue in the direction asked |
+| *Valor de cada grupo* | the mean of the group's tissues, or the median | the median weighs less a tissue that disagrees with the rest (for example, one cell line far from the others) |
 
 ## What the page does without saying
 
@@ -82,30 +86,81 @@ Mention these when they matter for what the researcher is looking at:
 - An empty selection means all (regions, assays, sources).
 - *Mudança mínima* applies to **every** target tissue in the direction asked; *mudança máxima no
   controle* applies to every control tissue in both directions.
+- *Alvo − controle acima do ruído* follows the question: with *Diminui*, the target must be that many σ
+  **below** the control; with *Aumenta*, above; with *Qualquer mudança*, either way. A variant that
+  raises the target never passes a repression question through this filter.
 - A filter that cannot apply is listed as *ignorado* in the filter steps, with the reason (no control
   tissue, no tissue with two measurements for the noise).
 - *Quantas mostrar* and *Variantes nos gráficos* do not change the counts: the blue box and the filter
   steps always count every variant that passes.
-- *Ordenar por* "no sentido procurado, no tecido do alvo que menos muda" ranks variants that move all
-  target tissues; "diferença em unidades de ruído" ranks those whose target − control difference is
-  largest compared with the disagreement between measurements.
-- *Uma alternativa por posição* keeps, at each position, the base change with the largest value in the
-  current order.
+- *Ordenar por* follows the question for the change in the target and for the two differences: with
+  *Aumenta*, the largest rise (or the target furthest above the control) comes first; with *Diminui*, the
+  largest fall; with *Qualquer mudança*, the size. A variant whose control changes more than the target goes
+  to the end of the list, not to the top. "no sentido procurado, no tecido do alvo que menos muda" ranks
+  variants that move all target tissues; "diferença em unidades de ruído" ranks those whose target − control
+  difference is largest compared with the disagreement between measurements. The change in the control and
+  the AVI Phred are ordered by size.
+- A tissue with no measurement under the chosen assays and sources leaves its group (its column leaves the
+  table and the group value is computed without it); the blue box names it. With fewer tissues to agree,
+  more variants may pass.
+- With every region ticked, *domínios* is not a filter and is not listed in the filter steps.
+- *Uma alternativa por posição* keeps, at each position, the base change that comes first in the current
+  order.
 - *Recortar* limits the window for the scatter and the table too; *Janela inteira* undoes it.
 - A tissue with one measurement has no noise of its own; the pooled noise of the study is used.
-- The dashboard saves nothing; reloading the page returns to the opening view.
+- The dashboard saves no analysis. Reloading the page returns to the last view you sent with `view`, or
+  to the opening view when you sent none; the researcher's own changes since then are lost.
+- Highlights and the stretch of the window are not part of the choices: a view you send leaves them as they
+  are unless it carries `--highlight`, `--clear-highlight`, `--window`, `--full-window` or `--reset`.
+
+## Link with the page: `view`
+
+While the dashboard is open, the page and you share two files in `D/.dashboard/`:
+
+- `researcher_view.json`, written by the page on every change: the choices on screen, the highlights, the
+  stretch of the window shown and how many variants pass.
+- `agent_view.json`, written by `expression.py view`: the page follows it and moves its controls to the view
+  you sent, without reloading. A line *Visão enviada pelo agente* shows your `--message`.
+
+**Reading.** `expression.py view --study-dir D` prints what the researcher has on screen. Use it before
+answering anything about the page ("what am I seeing?", "what did I change?"): compare with the opening view
+(the study's groups, the decided question, no filter) and say what differs. It is the current state only,
+not a history: you cannot tell the order of the changes or what was tried and undone.
+
+**Sending.** Say first what you will change and why, then send it:
+
+```bash
+uv run SKILL/scripts/expression.py view --study-dir D --min-sigma 1 --ref-floor 0.78 --floor-applies control --y-metric diff_sigma --message "<what this view is, in the researcher's language>"
+```
+
+- Only the options you pass change; the rest stays as the researcher left it. `--reset` starts from the
+  study's opening view instead, clears the highlights and shows the whole window.
+- The options are those of `summarize` and `figures` (table below), plus `--shown CURIE` (context
+  tissues), `--top-k`, `--show kept|all`, `--color-by`, `--highlight VARIANT`, `--window START END`.
+- To switch something off: `--no-max-control`, `--no-floor`, `--clear-highlight`, `--no-control`,
+  `--no-shown`, `--all-domains`, `--all-assays`, `--all-sources`, `--full-window`.
+- Highlights do not move the window; send `--window` when the highlighted variants should be in view.
+- A value the page cannot take (a prediction type or a source the study did not capture, an unknown name)
+  is ignored and the control keeps its value: read the view back to confirm what was applied.
+
+**What the link does not reach.** The point size, the order and number of rows of the matrix, the page of
+the table and which blocks are open stay with the researcher.
+
+**The page must be open.** Each browser tab is its own session. With no tab open, the view you send waits
+and is applied when the page is next opened (the page then opens on it, not on the study's opening view);
+`view` says when it has never seen an open page. With two tabs open, both follow you and
+`researcher_view.json` holds the state of the one that wrote last. The static export does not take part.
 
 ## Explaining a view: `summarize`
 
 When the researcher asks about what they see ("why is this variant first?", "is the effect specific?"),
-run `expression.py summarize --study-dir D` with the same choices they set. It runs the dashboard's
+run `expression.py summarize --study-dir D --from-dashboard`: it takes the choices on screen. It runs the dashboard's
 computation and prints the headline, the measurements of each tissue, the noise, the filter steps and
 the top variants. Explain from those numbers; never describe values you have not computed. If they want
 a view kept, draw it for the report with `figures` (next section) and write its choices in your answer:
-the dashboard saves nothing.
+the dashboard saves no analysis.
 
-You cannot read the page's state, so ask for the choices that differ from the opening view (or have
-the researcher read them out) and map them:
+With the page closed (or for a view that is not on screen), pass the choices yourself:
 
 | On the page | `summarize` option |
 |---|---|
@@ -122,7 +177,10 @@ the researcher read them out) and map them:
 | *Ordenar por* | `--y-metric` |
 | *Quantas mostrar* | nothing: it only limits what is drawn; `--top N` lists the first N |
 | *Nome do grupo alvo / controle* | `--target-label`, `--control-label` |
+| *Tecidos de contexto (só exibidos)* | `--shown CURIE` once per tissue |
 | *Tipo de predição* | `--scorer` |
+| *Pontuação* | `--score raw\|quantile` |
+| *Valor de cada grupo* | `--group-agg mean\|median` |
 
 Crop, highlights, colours, the point size, *Quantas mostrar* and *Variantes nos gráficos* change only what
 is drawn, not the numbers.
@@ -130,7 +188,9 @@ is drawn, not the numbers.
 ## Figures for the report: `figures`
 
 When the researcher settles on a view (or asks for figures for the report), run `expression.py figures
---study-dir D` with the same choices as `summarize` plus how it is shown: `--top-k` (*Quantas mostrar*),
+--study-dir D --from-dashboard` (the choices, the way of showing and the highlights on screen; the figures
+always draw the whole window, not the stretch shown), or pass the same choices as `summarize` plus how it is
+shown: `--top-k` (*Quantas mostrar*),
 `--show kept|all` (*Variantes nos gráficos*), `--color-by` (*Cor no gráfico da janela*) and `--highlight
 VARIANT` for each highlighted variant (without it, the first five that pass are highlighted). It draws the
 page's charts as PNG in `figures/dashboard/` (window, target × control, highlighted variants, variants ×
@@ -139,7 +199,19 @@ gets a section *Análise do pesquisador (dashboard)* with the choices, the blue 
 the figures with captions. Read that section back to the researcher. One view at a time: a new `figures`
 run replaces the previous one; the report warns when the figures are older than the variant table.
 
+Before the researcher draws a view, `report` draws the **opening view** itself (the study's groups and
+question, no filter, the first 60 variants, all shown) into the same folder, so `report.md` always has
+figures, under *Visão inicial do estudo (dashboard)*, plus Figure 1 as an image. A `figures` run with the
+researcher's choices replaces it.
+
+**Starting it.** `expression.py dashboard` prints `Dashboard READY: open <url>` only when marimo answers, or
+`Dashboard FAILED …` if it exits first. When it runs in the background, wait for one of those lines and give
+the link only after READY; on FAILED, say so and show the error.
+
 ## What each quantity means
+
+The scores themselves (formula, sign, window) are defined by the `alphagenome` dependency skill: see
+*Where each score is defined* in `references/interpretation.md` before explaining one.
 
 - **Change (%)**: RNA_SEQ is a natural-log fold change of the whole gene's predicted expression;
   CAGE, DNASE and ATAC are log2 ratios of the signal around the variant. The page shows both as a
@@ -179,5 +251,7 @@ run replaces the previous one; the report warns when the figures are older than 
 
 Predicted effects, not measurements; research use only. SNVs only (no indels or rearrangements) inside
 the chosen window. The groups compare the tracks the Atlas has; a tissue with one measurement has no
-noise of its own. Quantiles are ranks against the genome, not effect sizes, and are not used here. The
-static export (`--export-html`) shows the opening view, not the researcher's choices.
+noise of its own. Quantiles are ranks among common variants (per prediction type and per track), not effect sizes. The static export
+(`--export-html`) shows the opening view, not the researcher's choices, and has no link with you. As the code
+is written (`scripts/viz/variant_canvas.py`), the two interactive charts load vega-embed from `esm.sh` in the
+browser, so they may not draw on a computer without internet access; this was not tested.

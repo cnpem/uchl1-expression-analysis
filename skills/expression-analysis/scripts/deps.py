@@ -3,7 +3,7 @@
 Everything a fetch or a check needs to find and run a dependency skill the same way on Windows
 (PowerShell), macOS and Linux (bash, zsh): where the skills are installed, which licence notices
 they ask for and where those notices may live, the exact package versions each dependency script
-runs with, where `~/.env` is, and how its command is written into manifest.json.
+runs with, where the project's `.env` is, and how its command is written into manifest.json.
 
 Pinned versions: resolved with `uv pip compile` on 2026-11-15 and tested on Windows ARM64 (x86-64
 Python under emulation) and with the bundled reference. polars stays at 1.31.0 because newer
@@ -149,10 +149,61 @@ def missing_licences(installed: dict[str, Path]) -> list[tuple[str, str]]:
     return [(f, o) for f, o in sorted(wanted.items()) if not any((d / f).is_file() for d in dirs)]
 
 
-def env_file() -> Path | None:
-    """`~/.env`, expanded here so no shell has to expand `~`; None when it does not exist."""
-    path = Path(os.path.expanduser("~")) / ".env"
-    return path if path.is_file() else None
+def env_files() -> list[Path]:
+    """The project's `.env`, the only place the keys are read from: the working directory's, then the one of the
+    workspace that holds this skill. Only existing files are listed. `~/.env` and environment variables are not
+    used, so a study always runs with the key of its own project."""
+    roots = [Path.cwd()]
+    ws = _workspace_of(SKILL_DIR)
+    if ws is not None:
+        roots.append(ws)
+    out: list[Path] = []
+    for path in (r / ".env" for r in roots):
+        path = path.resolve()
+        if path.is_file() and path not in out:
+            out.append(path)
+    return out
+
+
+def key_in_file(path: Path, name: str) -> bool:
+    """True when `path` sets `name` to a non-empty value. The value is never kept or shown."""
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip().removeprefix("export ").strip()
+            key, sep, value = line.partition("=")
+            if sep and key.strip() == name and value.strip().strip("\"'"):
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def env_file(name: str = "ALPHAGENOME_API_KEY") -> Path | None:
+    """The project's `.env` that sets `name` (else the first that exists); None when there is none."""
+    files = env_files()
+    return next((f for f in files if key_in_file(f, name)), files[0] if files else None)
+
+
+def key_present(name: str) -> bool:
+    """True when the project's `.env` sets `name`; the value is never kept or shown."""
+    return any(key_in_file(f, name) for f in env_files())
+
+
+def env_unprotected() -> list[Path]:
+    """Workspace `.env` files inside a git repository that git does not ignore (a key could be committed)."""
+    import subprocess
+
+    out = []
+    for f in env_files():
+        if not (f.parent / ".git").exists():
+            continue
+        try:
+            ignored = subprocess.run(["git", "check-ignore", "-q", f.name], cwd=f.parent, capture_output=True).returncode == 0
+        except OSError:
+            continue
+        if not ignored:
+            out.append(f)
+    return out
 
 
 def polite_http_env() -> dict[str, str]:

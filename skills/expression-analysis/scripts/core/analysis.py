@@ -11,14 +11,21 @@ expression (0.001 pseudocount), CAGE/DNASE/ATAC a log2 ratio of the signal summe
 `pct` turns either into a percent change of what the scorer measures (SCALES names it). Percent
 thresholds are converted on the side they apply to: a 30% decrease is log(0.7), a 30% increase log(1.3).
 
-Quantities (in the scorer's raw scale):
-  tissue effect     mean raw score of the chosen tracks of that tissue (antisense tracks never enter)
+Score (Profile.score): "raw" is the scorer's own scale above; "quantile" is the Atlas quantile of the same
+prediction (its rank among common variants, -1 to 1), comparable across scorers and tracks but not a
+percent change, so the percent filters are skipped (the steps say so) and values are shown as they are.
+Group (Profile.group_agg): the target and control values are the mean (default) or the median of their
+tissues' effects.
+
+Quantities (in the chosen score):
+  tissue effect     mean score of the chosen tracks of that tissue (antisense tracks never enter)
   target_toward     smallest effect among target tissues in the direction of the question
                     (negative when some target tissue moves the other way)
   control_min/max   smallest and largest control tissue effect
   control_same      largest control effect in the same direction (0 when none)
   control_opposite  largest control effect in the opposite direction (0 when none)
-  diff              mean target effect minus mean control effect
+  target_mean       mean (or median) of the target tissues' effects; control_mean likewise
+  diff              target_mean minus control_mean
   diff_sigma        diff divided by the noise sigma at that magnitude (see noise_model)
 
 Noise: for each ontology term with two or more chosen tracks of the scorer, the absolute difference
@@ -28,7 +35,7 @@ magnitude bin (p95, p99 and a robust sigma); `noise_overall` gives the percentil
 pooled over every captured tissue with two tracks, which need not be the chosen ones. No pair -> no
 noise model, and the sigma filter is skipped (with a note in the steps) instead of removing everything.
 
-Library: Profile, SCALES, pct, from_pct, load_study_data, tracks, tissue_table, reference_expression,
+Library: Profile, SCORES, GROUP_AGGS, SCALES, pct, from_pct, uses_pct, unit, effect_text, load_study_data, tracks, tissue_table, reference_expression,
 ref_by_tissue, noise_model, noise_overall, compute, expression_flags, apply, funnel.
 """
 
@@ -45,6 +52,8 @@ from core import master as core_master
 BASELINE_NAMES = ("raw/scores_RNA_SEQ_ACTIVE_baseline.tsv", "atlas/scores_RNA_SEQ_ACTIVE_baseline.tsv")
 PSEUDOCOUNT = 0.001  # RNA_SEQ LFC = ln((ALT + 0.001) / (REF + 0.001)) (alphagenome interpretation.md)
 QUESTIONS = ("repression", "increase", "either")
+SCORES = ("raw", "quantile")
+GROUP_AGGS = ("mean", "median")
 # scorer -> (log base, what a percent change refers to, with its article)
 SCALES = {
     "RNA_SEQ": (math.e, "a expressão prevista do gene"),
@@ -93,13 +102,34 @@ class Profile:
     question: str = "either"           # repression | increase | either
     min_change_pct: float = 0.0        # smallest % change in every target tissue, in the question's direction
     max_control_pct: float | None = None  # largest % change allowed in any control tissue, either way; None = off
-    min_diff_sigma: float = 0.0        # |diff| / noise sigma; 0 = off
+    min_diff_sigma: float = 0.0        # diff / noise sigma in the question's direction (abs for "either"); 0 = off
     ref_floor: float | None = None     # reference expression floor (RNA_SEQ REF); None = off
     ref_floor_applies: str = "warn"    # warn | control | target | both
     domains: list[str] = dataclasses.field(default_factory=list)     # empty = all
     one_alt_per_position: bool = False
     y_metric: str = "target_mean"      # target_mean | target_toward | control_mean | diff | diff_sigma | avi_phred
     top_k: int | None = None           # display limit ('Quantas mostrar'), not a filter: see first_k
+    score: str = "raw"                 # raw | quantile (Atlas quantile of the same prediction)
+    group_agg: str = "mean"            # mean | median of the tissues of each group
+
+
+def uses_pct(p: Profile) -> bool:
+    """Percent changes (and the percent filters) exist only on the raw scale."""
+    return p.score == "raw"
+
+
+def unit(p: Profile) -> str:
+    """Unit of the effect values shown for the profile."""
+    return UNIT.get(p.scorer, "log") if uses_pct(p) else "quantil do Atlas, -1 a 1"
+
+
+def effect_text(value: float | None, p: Profile, digits: int = 1) -> str:
+    """An effect as the reader sees it: a signed percent on the raw scale, the quantile itself otherwise."""
+    if value is None or value != value:
+        return "—"
+    if uses_pct(p):
+        return f"{pct(value, p.scorer):+.{digits}f}%".replace(".", ",")
+    return f"{value:+.3f}".replace(".", ",")
 
 
 # --------------------------------------------------------------------------- data
@@ -138,7 +168,7 @@ def load_study_data(study_dir: Path) -> StudyData:
 
 
 def tracks(data: StudyData, scorer: str, assays: list[str] | None = None,
-           sources: list[str] | None = None) -> pl.DataFrame:
+           sources: list[str] | None = None, score: str = "raw") -> pl.DataFrame:
     """Tracks of a scorer in the registry, optionally restricted to assay titles and data sources.
 
     Stranded tracks on the opposite strand of the gene never enter (CAGE keeps only the gene's strand,
@@ -151,7 +181,7 @@ def tracks(data: StudyData, scorer: str, assays: list[str] | None = None,
         t = t.filter(pl.col("assay_title").is_in(assays))
     if sources:
         t = t.filter(pl.col("data_source").is_in(sources))
-    return t.filter(pl.col("column_prefix").map_elements(lambda p: f"{p}_raw" in data.master.columns,
+    return t.filter(pl.col("column_prefix").map_elements(lambda p: f"{p}_{score}" in data.master.columns,
                                                           return_dtype=pl.Boolean))
 
 
@@ -182,7 +212,8 @@ def reference_expression(data: StudyData) -> pl.DataFrame | None:
 
 def tissue_table(data: StudyData, scorer: str) -> pl.DataFrame:
     """One row per ontology term with tracks of the scorer: name, cohort in the study, track count,
-    assays, sources, replicate available, and reference expression (min and max over its RNA_SEQ tracks)."""
+    assays, sources, whether it has two or more tracks (column `replicate`: a second track of another assay or
+    source, not an experimental replicate), and reference expression (min and max over its RNA_SEQ tracks)."""
     t = tracks(data, scorer)
     g = (t.group_by("ontology_curie")
          .agg(pl.col("biosample_name").first().alias("tissue"),
@@ -203,11 +234,12 @@ def tissue_table(data: StudyData, scorer: str) -> pl.DataFrame:
 # --------------------------------------------------------------------------- noise
 
 
-def _pair_differences(data: StudyData, scorer: str, assays: list[str] | None, sources: list[str] | None) -> pl.DataFrame | None:
-    t = tracks(data, scorer, assays, sources)
+def _pair_differences(data: StudyData, scorer: str, assays: list[str] | None, sources: list[str] | None,
+                      score: str = "raw") -> pl.DataFrame | None:
+    t = tracks(data, scorer, assays, sources, score)
     pairs = []
     for _, grp in t.group_by("ontology_curie"):
-        cols = [f"{p}_raw" for p in grp["column_prefix"].to_list()]
+        cols = [f"{p}_{score}" for p in grp["column_prefix"].to_list()]
         for i in range(len(cols)):
             for j in range(i + 1, len(cols)):
                 a, b = data.master[cols[i]], data.master[cols[j]]
@@ -216,14 +248,14 @@ def _pair_differences(data: StudyData, scorer: str, assays: list[str] | None, so
 
 
 def noise_model(data: StudyData, scorer: str, assays: list[str] | None = None, sources: list[str] | None = None,
-                bins: int = 5) -> pl.DataFrame | None:
+                bins: int = 5, score: str = "raw") -> pl.DataFrame | None:
     """Disagreement between tracks of the same ontology term, per magnitude bin.
 
     Columns: lo, hi (bin edges on the mean |effect| of the pair), n, p95, p99 of the absolute pair
     difference, and sigma = 1.4826 * its median (a robust scale for the difference between two
     measurements of the same tissue, the same kind of quantity as diff). None when no term has two tracks.
     """
-    df = _pair_differences(data, scorer, assays, sources)
+    df = _pair_differences(data, scorer, assays, sources, score)
     if df is None or df.height == 0:
         return None
     edges = [df["m"].quantile(q) for q in [i / bins for i in range(bins + 1)]]
@@ -239,9 +271,9 @@ def noise_model(data: StudyData, scorer: str, assays: list[str] | None = None, s
 
 
 def noise_overall(data: StudyData, scorer: str, assays: list[str] | None = None,
-                  sources: list[str] | None = None) -> tuple[float, float] | None:
-    """(p95, p99) of the disagreement over all pairs of tracks of the same tissue (raw scale); None without pairs."""
-    df = _pair_differences(data, scorer, assays, sources)
+                  sources: list[str] | None = None, score: str = "raw") -> tuple[float, float] | None:
+    """(p95, p99) of the disagreement over all pairs of tracks of the same tissue (in the score chosen); None without pairs."""
+    df = _pair_differences(data, scorer, assays, sources, score)
     if df is None or df.height == 0:
         return None
     return float(df["d"].quantile(0.95)), float(df["d"].quantile(0.99))
@@ -269,10 +301,10 @@ def _question_sign(p: Profile, target_mean: pl.Expr) -> pl.Expr:
 
 def compute(data: StudyData, p: Profile, noise: pl.DataFrame | None = None) -> pl.DataFrame:
     """Per-SNV quantities for the profile's tissues (see module docstring)."""
-    t = tracks(data, p.scorer, p.assays or None, p.sources or None)
+    t = tracks(data, p.scorer, p.assays or None, p.sources or None, p.score)
     by_tissue: dict[str, list[str]] = {}
     for r in t.iter_rows(named=True):
-        by_tissue.setdefault(r["ontology_curie"], []).append(f"{r['column_prefix']}_raw")
+        by_tissue.setdefault(r["ontology_curie"], []).append(f"{r['column_prefix']}_{p.score}")
     keep = ["variant_id", "position", "ref_allele", "alt_allele", "genomic_domain", "distance_to_tss",
             "ensembl_transcript_region", "avi_phred", "top_feature", "atlas_url"]
     df = data.master.select([c for c in keep if c in data.master.columns])
@@ -285,14 +317,14 @@ def compute(data: StudyData, p: Profile, noise: pl.DataFrame | None = None) -> p
     if not target:
         return df.with_columns(pl.lit(None, dtype=pl.Float64).alias(x) for x in
                                ("target_mean", "target_toward", *none_cols, "diff", "diff_sigma"))
-    tm = pl.mean_horizontal([pl.col(f"eff_{c}") for c in target])
+    tm = _group([pl.col(f"eff_{c}") for c in target], p.group_agg)
     df = df.with_columns(tm.alias("target_mean"))
     df = df.with_columns(_question_sign(p, pl.col("target_mean")).alias("_s"))
     df = df.with_columns(pl.min_horizontal([pl.col(f"eff_{c}") * pl.col("_s") for c in target]).alias("target_toward"))
     if control:
         cols = [pl.col(f"eff_{c}") for c in control]
         df = df.with_columns(
-            pl.mean_horizontal(cols).alias("control_mean"),
+            _group(cols, p.group_agg).alias("control_mean"),
             pl.min_horizontal(cols).alias("control_min"), pl.max_horizontal(cols).alias("control_max"),
             pl.max_horizontal([c * pl.col("_s") for c in cols]).clip(lower_bound=0).alias("control_same"),
             pl.max_horizontal([-c * pl.col("_s") for c in cols]).clip(lower_bound=0).alias("control_opposite"))
@@ -302,6 +334,11 @@ def compute(data: StudyData, p: Profile, noise: pl.DataFrame | None = None) -> p
     mag = (pl.col("target_mean").abs() + pl.col("control_mean").abs()) / 2
     df = df.with_columns((pl.col("diff") / _sigma_at(noise, mag)).alias("diff_sigma"))
     return df.drop("_s")
+
+
+def _group(cols: list[pl.Expr], how: str) -> pl.Expr:
+    """Mean or median of the group's tissue effects, per variant."""
+    return pl.concat_list(cols).list.median() if how == "median" else pl.mean_horizontal(cols)
 
 
 def _ref_by_tissue(data: StudyData) -> dict[str, float]:
@@ -341,13 +378,20 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
         steps.append((label, df.height))
 
     has_control = "control_mean" in df.columns and df["control_mean"].null_count() < df.height
-    if p.domains:
+    # every region chosen is no filter (the dashboard sends them all when none is unticked)
+    if p.domains and not set(data.master["genomic_domain"].unique().to_list()) <= set(p.domains):
         step("domínios", pl.col("genomic_domain").is_in(p.domains))
     flags = expression_flags(data, p)
     if p.ref_floor is not None and p.ref_floor_applies in ("target", "both"):
         bad = [c for c in p.target if flags.get(c) == "below floor"]
         step("piso de expressão no alvo", pl.lit(not bad))
-    if p.min_change_pct > 0 or p.question != "either":
+    pct_ok = uses_pct(p)
+    if not pct_ok and (p.min_change_pct > 0 or p.max_control_pct is not None):
+        steps.append(("mudança mínima no alvo / máxima no controle: ignorado (pontuação em quantil, sem %)", df.height))
+    if not pct_ok and p.question != "either":
+        # in quantiles the question still keeps only variants moving every target tissue the way asked
+        step("todo tecido alvo no sentido da pergunta", pl.col("target_toward") > 0)
+    elif p.min_change_pct > 0 or p.question != "either":
         # every target tissue must move in the question's direction by at least the % chosen, converted on
         # its own side (a 30% decrease is log 0.7, a 30% increase log 1.3); 0 and "either" skip the step
         up = from_pct(p.min_change_pct, p.scorer)
@@ -355,7 +399,7 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
         thr = pl.when(pl.col("target_mean") >= 0).then(up).otherwise(down) if p.question == "either" else \
             pl.lit(up if p.question == "increase" else down)
         step("mudança no alvo ≥ mínimo (todo tecido alvo, no sentido da pergunta)", pl.col("target_toward") >= thr)
-    if p.max_control_pct is not None:
+    if p.max_control_pct is not None and pct_ok:
         if has_control:
             hi = from_pct(p.max_control_pct, p.scorer)
             lo = from_pct(-min(p.max_control_pct, 99.999), p.scorer)
@@ -369,25 +413,51 @@ def apply(df: pl.DataFrame, data: StudyData, p: Profile, noise: pl.DataFrame | N
         elif noise is None:
             steps.append(("alvo − controle acima do ruído: ignorado (sem medida de ruído)", df.height))
         else:
-            step(f"alvo − controle ≥ {p.min_diff_sigma:g} σ do ruído", pl.col("diff_sigma").abs() >= p.min_diff_sigma)
+            # in the question's direction: an increase must be target above control, a repression target below
+            # control; "either" accepts both. A variant that raises the target cannot pass a repression question
+            s = p.min_diff_sigma
+            if p.question == "increase":
+                step(f"alvo − controle ≥ {s:g} σ do ruído (alvo acima)", pl.col("diff_sigma") >= s)
+            elif p.question == "repression":
+                step(f"alvo − controle ≥ {s:g} σ do ruído (alvo abaixo)", pl.col("diff_sigma") <= -s)
+            else:
+                step(f"alvo − controle ≥ {s:g} σ do ruído (nos dois sentidos)", pl.col("diff_sigma").abs() >= s)
     metric = p.y_metric if p.y_metric in df.columns else "target_mean"
     if p.one_alt_per_position:
-        df = df.sort(pl.col(metric).abs(), descending=True, nulls_last=True).unique("position", keep="first", maintain_order=True)
+        df = df.sort(order_expr(metric, p.question), descending=True, nulls_last=True).unique(
+            "position", keep="first", maintain_order=True)
         steps.append(("uma alternativa por posição", df.height))
-    return df.sort(order_expr(metric), descending=True, nulls_last=True), steps
+    return df.sort(order_expr(metric, p.question), descending=True, nulls_last=True), steps
 
 
-def order_expr(metric: str) -> pl.Expr:
-    """Sort key of 'Ordenar por': the size of the change, except target_toward, which is already signed toward the
-    question (larger = more in the direction asked)."""
-    return pl.col(metric) if metric == "target_toward" else pl.col(metric).abs()
+SIGNED_METRICS = ("target_mean", "diff", "diff_sigma")  # ordered in the question's direction
 
 
-def first_k(df: pl.DataFrame, metric: str, k: int | None) -> pl.DataFrame:
+def order_expr(metric: str, question: str = "either") -> pl.Expr:
+    """Sort key of 'Ordenar por' (larger first). The change in the target and the target − control difference
+    are ordered in the direction asked: with an increase the largest rise (or the target furthest above the
+    control) comes first, with a repression the largest fall; with 'either' the size of the change. A variant
+    whose control changes more than the target therefore goes to the end, not to the top. target_toward is
+    already signed toward the question; the other metrics are ordered by size."""
+    if metric == "target_toward":
+        return pl.col(metric)
+    if metric in SIGNED_METRICS and question in ("increase", "repression"):
+        return pl.col(metric) * (1.0 if question == "increase" else -1.0)
+    return pl.col(metric).abs()
+
+
+def first_k(df: pl.DataFrame, metric: str, k: int | None, question: str = "either") -> pl.DataFrame:
     """The first `k` rows in the order of 'Ordenar por' (all when k is 0 or None). A display limit, not a filter."""
     metric = metric if metric in df.columns else "target_mean"
-    df = df.sort(order_expr(metric), descending=True, nulls_last=True)
+    df = df.sort(order_expr(metric, question), descending=True, nulls_last=True)
     return df.head(k) if k else df
+
+
+def without_tracks(data: StudyData, p: Profile) -> dict[str, list[str]]:
+    """Tissues of each group with no measurement under the chosen assays and sources: they leave the group's
+    value without any other sign, so the headline names them."""
+    have = set(tracks(data, p.scorer, p.assays or None, p.sources or None, p.score)["ontology_curie"].to_list())
+    return {"target": [c for c in p.target if c not in have], "control": [c for c in p.control if c not in have]}
 
 
 def funnel(steps: list[tuple[str, int]]) -> pl.DataFrame:

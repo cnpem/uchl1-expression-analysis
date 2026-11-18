@@ -43,7 +43,7 @@ def display_frame(effects: pl.DataFrame, kept: pl.DataFrame, profile: A.Profile,
     if show_mode == "all" and profile.domains:
         pool = pool.filter(pl.col("genomic_domain").is_in(profile.domains))
     metric = profile.y_metric if profile.y_metric in pool.columns else "target_mean"
-    return A.first_k(pool, metric, profile.top_k)
+    return A.first_k(pool, metric, profile.top_k, profile.question)
 
 
 def target_control_scatter(df: pl.DataFrame, profile: A.Profile, color_col: str, color_title: str, *,
@@ -65,7 +65,7 @@ def target_control_scatter(df: pl.DataFrame, profile: A.Profile, color_col: str,
                       scale=alt.Scale(domain=dom, range=rng) if dom is not None else alt.Undefined)
     lim = float(max(df["target_mean"].abs().max() or 0.01, df["control_mean"].abs().max() or 0.01)) * 1.05
     sc = alt.Scale(domain=[-lim, lim])
-    u = A.UNIT.get(profile.scorer, "log")
+    u = A.unit(profile)
     x = alt.X("target_mean:Q", title=f"Mudança no {profile.target_label} ({u})", scale=sc)
     y = alt.Y("control_mean:Q", title=f"Mudança no {profile.control_label} ({u})", scale=sc)
     base = alt.Chart(p)
@@ -134,7 +134,7 @@ def tissue_matrix(effects: pl.DataFrame, profile: A.Profile, labels: dict[str, s
                   picked: Optional[Sequence[str]] = None) -> tuple[Any, dict[str, Any]]:
     """Figure 3: variants (rows) x the profile's tissues (columns: target, control, context), LFC per tissue."""
     tissues = [c for c in dict.fromkeys([*profile.target, *profile.control, *profile.shown]) if f"eff_{c}" in effects.columns]
-    rows = (effects.sort(pl.col(metric_col).abs(), descending=True, nulls_last=True) if order_by == "metric" and metric_col
+    rows = (effects.sort(A.order_expr(metric_col, profile.question), descending=True, nulls_last=True) if order_by == "metric" and metric_col
             else effects.sort("position")).head(max_rows)
     ids = rows["variant_id"].to_list()
     names = {c: labels.get(c, c).split(" (")[0] for c in tissues}
@@ -241,28 +241,39 @@ def _n(x: float, digits: int = 1, sign: bool = False) -> str:
 
 
 def headline(kept: pl.DataFrame, effects: pl.DataFrame, profile: A.Profile, labels: dict[str, str],
-             ref_by_tissue: dict[str, float], top: int = 3) -> str:
-    """One paragraph answering the current question with the current choices (Portuguese)."""
-    q = {"repression": "diminuem", "increase": "aumentam", "either": "mudam"}[profile.question]
+             ref_by_tissue: dict[str, float], top: int = 3, missing: dict[str, list[str]] | None = None) -> str:
+    """One paragraph answering the current question with the current choices (Portuguese).
+
+    The variants named are the first ones in the order of 'Ordenar por', the same as the table's first rows.
+    `missing` (A.without_tracks) names the tissues that left a group for lack of measurements."""
     total = effects.height
     lines = [f"**{_n(kept.height, 0)} de {_n(total, 0)} variantes** passam nas escolhas atuais "
              f"(alvo: {profile.target_label}; controle: {profile.control_label})."]
     if kept.height and "target_mean" in kept.columns:
-        col = "target_toward" if profile.question != "either" else "target_mean"
-        best = kept.sort(pl.col(col).abs() if profile.question == "either" else pl.col(col), descending=True, nulls_last=True).head(top)
+        metric = profile.y_metric if profile.y_metric in kept.columns else "target_mean"
+        order = next((k for k, v in Y_METRICS.items() if v == metric), metric)
+        best = kept.sort(A.order_expr(metric, profile.question), descending=True, nulls_last=True).head(top)
         items = []
         for r in best.iter_rows(named=True):
-            t = A.pct(r["target_mean"], profile.scorer) if r["target_mean"] is not None else float("nan")
-            c = A.pct(r["control_mean"], profile.scorer) if r.get("control_mean") is not None else None
-            items.append(f"`{r['variant_id']}` ({_n(t, 1, True)}% no alvo" + (f", {_n(c, 1, True)}% no controle)" if c is not None else ")"))
-        what = A.SCALES.get(profile.scorer, (None, "o sinal previsto"))[1]
-        lines.append(f"Variantes que mais {q} {what} no alvo: " + "; ".join(items) + ".")
+            t = A.effect_text(r["target_mean"], profile)
+            c = A.effect_text(r["control_mean"], profile) if r.get("control_mean") is not None else None
+            items.append(f"`{r['variant_id']}` ({t} no alvo" + (f", {c} no controle)" if c is not None else ")"))
+        lines.append(f"Primeiras em *Ordenar por: {order}*: " + "; ".join(items) + ".")
+    name = lambda c: labels.get(c, c).split(" (")[0]
+    gone = [f"{role}: {', '.join(name(c) for c in cs)}" for role, cs in
+            (("alvo", (missing or {}).get("target") or []), ("controle", (missing or {}).get("control") or [])) if cs]
+    if gone:
+        lines.append("**Atenção**: sem medição com os ensaios e fontes escolhidos, ficam fora do cálculo: "
+                     + "; ".join(gone) + ". Com menos tecidos no grupo, mais variantes podem passar.")
     # REF is the gene's predicted expression: the warning concerns RNA_SEQ effects on a gene that is off.
     # Reference level: the researcher's floor when set, else 0.01 (ten times the model's pseudocount, 0.001).
     floor = profile.ref_floor if profile.ref_floor is not None else 0.01
     low = ([labels.get(c, c).split(" (")[0] for c in profile.target if c in ref_by_tissue and ref_by_tissue[c] < floor]
            if profile.scorer == "RNA_SEQ" else [])
-    if low:
+    if low and profile.ref_floor is not None:
+        lines.append(f"**Atenção**: tecidos do alvo abaixo do piso de expressão escolhido (REF < {_n(floor, 3)}): "
+                     f"{', '.join(low)}. Onde o gene é pouco expresso, os efeitos previstos são menos estáveis.")
+    elif low:
         lines.append(f"**Atenção**: o gene tem expressão prevista quase nula em {', '.join(low)} (REF < {_n(floor, 3)}; "
                      "o pseudocount do modelo é 0,001): efeitos previstos ali são instáveis; só interprete como possível "
                      "ativação ectópica.")

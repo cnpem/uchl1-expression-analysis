@@ -100,10 +100,17 @@ def _avi_argv(*args: str) -> list[str]:
 def _atlas_query_argv(*args: str) -> list[str]:
     env = deps.env_file()
     pre = ["--env-file", env.as_posix()] if env else []  # uv drops backslashes from this path on Windows
-    if env is None and not __import__("os").environ.get("ALPHAGENOME_API_KEY"):
-        raise FetchError("ALPHAGENOME_API_KEY is neither in ~/.env nor in the environment; set it with the "
-                         "'credentials' skill (expression.py check names what is missing).")
+    if not deps.key_present("ALPHAGENOME_API_KEY"):
+        raise FetchError("ALPHAGENOME_API_KEY is not set in the project's .env; the researcher sets it with the "
+                         "alphagenome-skills-setup skill (expression.py check names what is missing).")
     return ["uv", "run", *pre, *deps.uv_with(deps.ATLAS_QUERY_PINS), str(deps.skill_script(*ATLAS_QUERY)), *args]
+
+
+def _env_args() -> list[str]:
+    """`--env-file <the project's .env>` for uv: the key reaches the scripts from the project's .env only (K-Dense
+    reads the environment; DeepMind would otherwise look in ~/.env); the value never appears in the command."""
+    env = deps.env_file()
+    return ["--env-file", env.as_posix()] if env else []  # uv drops backslashes from this path on Windows
 
 
 def _polite_argv(script: tuple[str, str], *args: str) -> list[str]:
@@ -332,7 +339,7 @@ def interpret(ws: Workspace, variant: str, ontology: str, gene: str, tissue: str
     tag = f"{chrom}_{pos}_{ref}_{alt}"
     out = _out(ws, f"raw/interpret_{tag}.txt")
     common = ["--chrom", chrom, "--pos", pos, "--ref", ref, "--alt", alt]
-    argv = ["uv", "run", "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
+    argv = ["uv", "run", *_env_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
             str(deps.skill_script(*SVA_INTERPRET)), *common, "--ontology_id", ontology]
     written: list[Path] = []
     run = _exec(ws, argv)
@@ -342,7 +349,7 @@ def interpret(ws: Workspace, variant: str, ontology: str, gene: str, tissue: str
                   [_rel(ws, out)], {"python": deps.DEP_PYTHON, "packages": _pins(deps.SVA_DEPS)})
         written.append(out)
     vdir = _out(ws, f"figures/variants/{tag}")
-    argv = ["uv", "run", "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
+    argv = ["uv", "run", *_env_args(), "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.SVA_DEPS),
             str(deps.skill_script(*SVA_VISUALIZE)), *common, "--gene", gene, "--tissue", tissue, "--ontology",
             ontology, "--tracks", "regulatory", "--output_dir", str(vdir)]
     if _exec(ws, argv) is not None:

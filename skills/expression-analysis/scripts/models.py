@@ -849,7 +849,8 @@ class OlsTerm(_Record):
                          "ontology_name": _str, "ontology_prefix": _str,
                          "is_defining_ontology": _bool, "is_obsolete": _bool,
                          "has_children": _bool, "is_root": _bool, "short_form": _str,
-                         "synonyms": _str_tuple, "annotation": _mapping, "in_subset": _str_tuple,
+                         "synonyms": _str_tuple, "annotation": _mapping,
+                         "in_subset": lambda v, source="": () if v is None else _str_tuple(v),  # OLS sends null for none
                          **{rel: _many(OlsRelatedTerm) for rel in _OLS_RELATIONS},
                          "graph": _omapping}
     OPTIONAL: ClassVar = frozenset({*_OLS_RELATIONS, "graph"})

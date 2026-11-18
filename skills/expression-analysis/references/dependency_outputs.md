@@ -43,7 +43,9 @@ client (`alphagenome.atlas`) and `alphagenome.data.genome` still work, so `alpha
 `atlas_query.py` and `alphagenome_atlas_links.py` run; `interpret_splicing.py` (and every model-API
 script) needs `uv run --with "alphagenome<2" …` (resolved 0.11.0).
 
-**Keys.** The DeepMind scripts load `~/.env` themselves. The K-Dense scripts read only the
+**Keys.** The key lives only in the project's `.env` (`deps.env_file()`); the fetch passes that file with
+`--env-file` to every script that needs it (the DeepMind scripts would otherwise look in `~/.env`). The
+K-Dense scripts read only the
 environment, so the fetch runs them as `uv run --env-file <home>/.env …` with the path expanded in
 Python and written with `/` (uv drops the backslashes of a Windows path given to `--env-file`). uv
 loads the file into the process environment; no shell sources it, and the key never appears on a
@@ -119,7 +121,8 @@ on `−`. Only `+`-strand genes were recorded so far; the `−` branch follows t
   --gene G -o …` for one SNV in the middle of exon 1 (REF from the sequence): one row per RNA-seq track
   with the gene's predicted activity (`raw_score`); same columns as `scores_{S}.tsv`.
 
-Neither is copied into a study; the files of `OUT/exploration/raw/` are, with their manifest steps.
+Of the two, only the baseline file is copied into a study, as `raw/scores_RNA_SEQ_ACTIVE_baseline.tsv` (the
+dashboard reconstructs REF from it); the files of `OUT/exploration/raw/` are copied too, with their manifest steps.
 
 ## `regulatory.json` — Ensembl Regulatory Build (step 3)
 

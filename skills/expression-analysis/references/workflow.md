@@ -59,15 +59,17 @@ it back) and never overwrite a researcher's answer. Report them to the researche
 
 ```bash
 uv run SKILL/scripts/study.py pending --study-dir D
-uv run SKILL/scripts/study.py decide --study-dir D --key "locus.exon1_overlap:FEATURE" --value keep_full_unit --step 4 --note "Question as shown; the researcher's reason"
+uv run SKILL/scripts/study.py decide --study-dir D --key "locus.exon1_overlap:FEATURE" --value keep_full_unit --step 4 --said "<the researcher's words>" --note "Question as shown; the researcher's reason"
 ```
 
 `--value` is parsed as YAML, so a list is written `"[UBERON:0000955, UBERON:0002107]"`. Quote keys
 (they contain `:`). Several keys with the same answer go in one call, one `--key` each. Then run the
 stage again. `decide` copies the question's `options` and `recommended` into `decisions.yaml`, so the
 record shows what was offered next to what was chosen; for a question you ask yourself, pass what you
-offered with `--option` (once per option) and `--recommended`. If the researcher delegated the choice,
-record the recommendation and write that in the note. A key must look like
+offered with `--option` (once per option) and `--recommended`. `--said` (required) quotes the
+researcher's words the answer comes from, as they wrote them; the report shows them next to the answer. If
+the researcher explicitly told you to choose this question, record the recommendation, quote that
+instruction in `--said` and add `--delegated` (a general "go ahead" is not delegation: see SKILL.md). A key must look like
 `<area>.<topic>[:<subject>]` (as `pending` prints it); `decide` refuses anything else.
 
 ## Step 0. Exploration
@@ -77,14 +79,10 @@ uv run SKILL/scripts/expression.py check
 uv run SKILL/scripts/expression.py explore --gene MYGENE --tissue "<words of the researcher>" --tissue "<another>" --out OUT
 ```
 
-- `check` exit 1 lists each missing item; `check --json` gives them as questions in the same shape as
-  `study.py pending --json` (title, question, why, identifiers, options with label and effect,
-  recommended) plus `handled_by`, the skill that resolves it. If the `alphagenome-skills-setup` skill is
-  installed (`setup_skill_installed`), hand the setup to it. Otherwise go through the items one at a
-  time, in the researcher's language: for a **skill**, its origin and install command; for a
-  **licence notice**, that dependency's `SKILL.md` Prerequisites, creating that one `.licenses/` file
-  only after their explicit OK; for the **key**, the `credentials` skill; for **uv**, the `uv` skill.
-  Run `check` again until it passes.
+- `check` exit 1 lists what is missing and hands it to the `alphagenome-skills-setup` skill, which asks
+  the researcher item by item (skills, terms of use, the key in the project's `.env`) and installs only
+  what they approve. If that skill is not installed, `check` prints how to install it; ask first. Install
+  nothing from this skill. Run `check` again until it passes.
 - `explore` asks nothing and writes `OUT/exploration/` (see `SKILL.md` Outputs). Options:
   `--scorers` (default `RNA_SEQ CAGE DNASE ATAC`), `--flank-bp` (Regulatory Build search around the
   gene, default 2000, the study default), `--floor` (relative activity below which the gene reads as
@@ -101,26 +99,60 @@ and why each part matters for the choice:
 | Section | Holds | Why |
 |---|---|---|
 | 3. Windows | 3-5 windows derived from the features (regulatory unit at the TSS through exon 1, with gaps bridged, the TSS feature alone, TSS ± 500 bp, all promoters/enhancers of the region), with size, SNVs = 3 × bp, Atlas rows per scorer and features included or left out | the window is the set of variants every conclusion rests on, and its size is the cost |
-| 4. Terms | per tissue text: OLS candidates (UBERON, CL, EFO, CLO) with tracks per scorer, data source and RNA-seq protocol; catalogue terms whose name contains the text (subtypes, cell lines); served descendants of a term without RNA-seq tracks | a term without tracks cannot be contrasted; one track means no replicate |
+| 4. Terms | per tissue text: OLS candidates (UBERON, CL, EFO, CLO) with tracks per scorer, data source and RNA-seq protocol; catalogue terms whose name contains the text (subtypes, cell lines); served descendants of a term without RNA-seq tracks | a term without tracks cannot be contrasted; one track leaves nothing to compare it with (two tracks of a term differ in assay or source: they are not replicates) |
 | 5. Baseline | `RNA_SEQ_ACTIVE` of the gene per tissue, relative to its maximum, with a warning below the floor | a gene that is silent in the target makes predicted fold changes large and unreliable there |
 | 6. Scorers | which recommended terms each scorer serves | a scorer without tracks in one group is dropped later |
 | 7. Limits | SNVs only (indels through the model API, `score_variants.py` of the `alphagenome` skill), window scope | what the study cannot answer |
 
+### Changing the groups after the results
+
+When the researcher wants other target or control tissues (for example, controls where the gene is also
+expressed), that is a redefinition of the study, and it follows the same path as the definition. Choose from
+the exploration, never from ad-hoc code:
+
+1. Show `OUT/exploration/activity.md`. It lists every catalogue term with the gene's predicted activity
+   (relative to the most active), kind of sample, assays, sources and number of measurements. Without it (an
+   older exploration), run `expression.py explore --out OUT --activity-only`; it captures nothing. For
+   tissues the researcher names in their own words, run `explore` again with those `--tissue` texts: it
+   reuses the captures and only searches the new terms.
+2. Discuss the choice with the researcher. Prefer terms where the gene is expressed. Keep the kinds of
+   sample and the assays balanced with the target. Say what the new comparison asks, which may differ from
+   the original question.
+3. Record it: `study.py decide --key cohort.control` (or `cohort.target`) with the new list, the terms
+   offered (`--option`) and the recommended one, the group's new name (`--group-label`), the researcher's words (`--said`) and a note saying
+   why the study was redefined. `decide` writes the new terms and name into `study.yaml`; do not edit it.
+   Then `fetch tracks`, `cohorts`, `fetch scores`, `variants`, `master`, `contrast`, `report`, as in steps
+   7-13. The contrast plan the skill generated follows the new groups by itself; do not delete it.
+   Tissues taken out of a group can stay visible as context tissues on the dashboard. `decide` keeps the
+   earlier answer in `previous` (value, note, date, options), and `report.md` lists it under
+   *Redefinições*; never edit `decisions.yaml` to replace an answer.
+4. Close it in the report. When the researcher settles on the redefined analysis, run `figures` with its
+   choices and `report` again, and read back *Redefinições* and the dashboard section: what changed, why,
+   and what the new comparison shows.
+
 ## Step 1. Study from the exploration
 
-Ask the researcher, with the words of the summary page: which window (section 3, by its name; you
-pass its id to `--window`), which terms form the target and the control groups (section 4) with a short
-name for each group, and which kinds of prediction to compare (section 6; gene expression, `RNA_SEQ`,
-is always included). Then:
+Ask the researcher, with the words of the summary page, for the five answers the study needs: which
+window (section 3, by its name; you pass its id to `--window`), which terms form the target and the control
+groups (section 4) with a short name for each group, which kinds of prediction to compare (section 6; gene
+expression, `RNA_SEQ`, is always included) and what they look for in the target (`--question`: `repression`
+for a decrease, `increase`, or `either`). Ask for the missing ones together; an answer the researcher did not
+give is asked, never taken from the recommendation. `init` stops and lists any that is missing. Then:
 
 ```bash
-uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --origin-note "Requested by <researcher> on <date>: <question in one line>"
-uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --recommended "CL:AAAAAAA (<label>)" --step 1 --note "Chosen by the researcher from the exploration; why"
-uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --recommended "UBERON:CCCCCCC (<label>)" --step 1 --note "Chosen by the researcher; why"
+uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --question repression --said "<the researcher's words / joined across messages>" --origin-note "Requested by <researcher> on <date>: <question in one line>"
+uv run SKILL/scripts/study.py decide --study-dir D --key cohort.target --value "[CL:AAAAAAA, UBERON:BBBBBBB]" --option "CL:AAAAAAA (<label>)" --option "UBERON:BBBBBBB (<label>)" --option "UBERON:DDDDDDD (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher from the exploration; why"
+uv run SKILL/scripts/study.py decide --study-dir D --key cohort.control --value "[UBERON:CCCCCCC]" --option "UBERON:CCCCCCC (<label>)" --step 1 --said "<the researcher's words>" --note "Chosen by the researcher; why"
 uv run SKILL/scripts/study.py validate --study-dir D
 ```
 
-`init --from-exploration` writes `study.yaml` (window policy from the option: `regulatory_unit`
+The groups take no `--recommended` (`decide` refuses it): the page recommends one term per text the researcher
+gave, not a group. Groups or tissues given only now, after the exploration, go through `explore` again first
+(every text; the other captures are reused), so the researcher sees the terms and the gene's activity found.
+
+`init --from-exploration` records `study.window`, `study.scorers` and `analysis.question` in
+`decisions.yaml` with the options offered (the report lists them with the cohort answers; the dashboard opens
+on that question), writes `study.yaml` (window policy from the option: `regulatory_unit`
 with its `max_feature_gap_bp`, or `explicit` with the interval) and copies `gtf.json`,
 `regulatory.json`, the sequence, the OLS files and the catalogues of the chosen scorers into `raw/`,
 each with the manifest step that captured it (`copied_from`), so steps 2, 3, 5 and part of 7 need no
@@ -224,6 +256,9 @@ a question's "For the agent" line asks for `fetch ols-term`, run it and `cohorts
 
 Rule (not asked): `cohort.scorer_without_cohort:{scorer}`, a prediction type without measurements in
 one group is left out (`drop_scorer`, `decided_by: skill`); an `abort` recorded earlier still stops.
+Rule (not asked): `cohort.term_without_ols:{curie}`, a study term the Atlas catalogue serves but the ontology
+no longer knows (cell lines renamed or retired, e.g. some EFO cell lines) enters with the catalogue's sample
+name (`atlas_catalogue`).
 
 Recording `replace:{curie}` also writes the new CURIE into `study.yaml` (a comment at its end keeps the
 original and the decision), so `study.yaml` stays the request the study ran on. After `replace:` or
@@ -243,7 +278,7 @@ uv run SKILL/scripts/expression.py fetch scores --study-dir D
   `max(1000, window length)` (the script refuses wider windows otherwise).
 - `scores` writes `raw/scores_{S}.tsv` for each scorer kept by `cohorts`, with every kept CURIE of
   both cohorts, `--gene` only for gene-centric scorers (`RNA_SEQ`, `RNA_SEQ_ACTIVE`,
-  `POLYADENYLATION`, `SPLICE_*`), and the key from `~/.env` (the K-Dense script reads only the
+  `POLYADENYLATION`, `SPLICE_*`), and the key from the project's `.env` (the K-Dense script reads only the
   environment; the fetch passes the file to `uv`, so the key never reaches a command line).
 - Capture both together: scores of another window or pull do not line up with the AVI table.
 
@@ -300,6 +335,10 @@ uv run SKILL/scripts/expression.py report --study-dir D
 
 ```bash
 uv run SKILL/scripts/expression.py dashboard --study-dir D
+uv run SKILL/scripts/expression.py view --study-dir D
+uv run SKILL/scripts/expression.py summarize --study-dir D --from-dashboard --top 10
+uv run SKILL/scripts/expression.py view --study-dir D --min-sigma 1 --message "<what this view is>"
+uv run SKILL/scripts/expression.py figures --study-dir D --from-dashboard
 uv run SKILL/scripts/expression.py summarize --study-dir D --question repression --top 10
 uv run SKILL/scripts/expression.py dashboard --study-dir D --export-html D/figures/dashboard.html
 uv run SKILL/scripts/expression.py figures --study-dir D --question repression --target CL:AAAAAAA --control UBERON:BBBBBBB --top-k 100 --show all
@@ -313,7 +352,14 @@ is printed: two pages opened while it starts can break the first session (a matp
 server output; reload the page). If you restart it, tell the
 researcher to reload the page: an old page is refused by the new server ("Unauthorized").
 
-The dashboard writes nothing to the study. To explain what the researcher sees, run `summarize` with
+While it is open, the page and you share two files in `D/.dashboard/`: the page writes what the researcher
+has on screen (`researcher_view.json`) and follows the view you send (`agent_view.json`). `view` without
+choices prints the screen; with choices, the page moves to that view without reloading (only what you pass
+changes; `--reset` starts from the opening view). `summarize` and `figures` take `--from-dashboard` to use
+the choices on screen. The page must be open in a browser for the link to work; `references/dashboard.md`
+(*Link with the page*) has the rules. Nothing else is written to the study.
+
+To explain what the researcher sees, run `summarize --from-dashboard`, or, with the page closed, with
 the same choices (`--target`/`--control` CURIEs, `--question`, `--min-change-pct`, `--max-control-pct`,
 `--min-sigma`, `--ref-floor`, `--floor-applies`, `--assay`, `--source`, `--domain`, `--one-alt`,
 `--y-metric`, `--scorer`): it runs the dashboard's
@@ -346,8 +392,10 @@ Reproducing the reference (`expression.py reproduce --reference uchl1`): after a
 | `Dependency skill '…' not found` (`fetch`) | the skill is not installed where `check` looks | `expression.py check`; install only with the researcher's approval |
 | `command failed with exit N: …` (`fetch`) | the dependency script failed; its last output follows | read it; network, key or an argument (e.g. an unknown gene symbol) |
 | `FAIL file=… field=… skill=…` / `DependencyOutputError` | a dependency changed its output format | stop; compare with `dependency_outputs.md`; tell the researcher |
-| `ALPHAGENOME_API_KEY is neither in ~/.env …` | no key | the `credentials` skill |
+| `ALPHAGENOME_API_KEY is not set in the project's .env` | no key in the project | the `alphagenome-skills-setup` skill |
+| `Warning: … .env holds keys but git does not ignore it` | a workspace `.env` could be committed | add `.env` to `.gitignore` now |
 | `QC failed for N variant(s)` (`master`) | raw files disagree | check that steps 3, 9 and 10 used the same window and pull |
 | An OLS or Ensembl fetch that never ends | a stale `polite-http` reservation | the fetch resets the skill's own lock folder; a call made outside the skill uses the system temp folder |
 | `'X' is not an answer to 'K'` (`decide`) | the value is not one of the codes the question offered | record one of the codes it lists (`pending` shows label and code) |
+| `--said is required` (`decide`, `init`) | no words of the researcher were passed for the answer | quote what they wrote; if they have not answered, ask (never record an answer of your own) |
 | `Reference 'uchl1': … mismatch` (`reproduce`) | a code or data change moved a reference number | read the stage/metric table it prints before changing anything |

@@ -11,6 +11,7 @@ for a maintainer, `contrasts.yaml`.
 - [Prerequisites: `expression.py check --json`](#prerequisites-expressionpy-check---json)
 - [Answers and rules: `decisions.yaml`](#answers-and-rules-decisionsyaml)
 - [Exploration: `exploration/exploration.json`](#exploration-explorationexplorationjson)
+- [Link with the open dashboard: `.dashboard/`](#link-with-the-open-dashboard-dashboard)
 - [Contrast plan: `contrasts.yaml`](#contrast-plan-contrastsyaml)
 
 ## Questions: `processed/pending_decisions.json`
@@ -53,10 +54,20 @@ A mapping from key to entry:
 | `options`, `recommended` | together, when the question offered options | what was offered (`{code, label}`; bare codes in older studies) and the recommended code |
 | `value_label` | when the value is one of the options | the label the researcher saw |
 | `decided_by` | only for rules | `skill`: applied by a fixed rule, without asking (absent = the researcher) |
+| `said` | researcher answers (absent in older studies) | the researcher's own words the answer comes from, copied from the conversation (`--said`); shown in the report |
+| `delegated` | only when true | the researcher explicitly told the agent to choose (`--delegated`); `said` quotes that instruction |
 | `rule` | only for rules | the rule and what it affected, in words |
+| `previous` | only after a redefinition | earlier answers to the same key, oldest first: `value`, `value_label`, `answered_at`, `note`, `options`, `recommended` as they were; `decide` appends the old entry when the value changes |
+
+Researcher answers written by `study.py init --from-exploration` (step 1, with the options offered):
+`study.window` (the exploration's window id), `study.scorers` (the kinds of prediction) and `analysis.question`
+(`repression`, `increase` or `either`; the dashboard and the report's opening view use it). `cohort.target` and
+`cohort.control` are recorded with `decide`; answering them again writes the new terms (and `--group-label`)
+into `study.yaml`.
 
 Rules in use: `locus.multiple_tss_features` (`union`), `locus.exon1_overlap:{feature}`
-(`keep_full_unit`), `cohort.scorer_without_cohort:{scorer}` (`drop_scorer`), `variants.ref_mismatch:{pos}` and
+(`keep_full_unit`), `cohort.scorer_without_cohort:{scorer}` (`drop_scorer`), `cohort.term_without_ols:{curie}`
+(`atlas_catalogue`: a study term the Atlas serves but the ontology no longer knows, named as in the catalogue), `variants.ref_mismatch:{pos}` and
 `variants.missing_in_atlas:{pos}` (`exclude_position`; above 1% of the window only after the researcher's
 `variants.exclusion_limit` = `exclude_all`), `contrast.plan` (`generated`, with the plan's sha256 in
 `note`; `existing` when the `contrasts.yaml` in the study was written or edited outside the skill). They are evaluated again on every run and removed when they no
@@ -78,6 +89,30 @@ What `explore` found, read by `study.py init --from-exploration`:
 | `baseline_variant` | the single SNV whose `RNA_SEQ_ACTIVE` score gives the gene's activity per tissue |
 | `activity` | `max`, `floor`, `median_relative`, `top` (most active terms) and `by_curie`: `name`, `activity`, `relative` (to the maximum), `tracks`, `expressed` (relative ≥ floor) |
 | `recommended_tracks_per_scorer` | tracks of the recommended terms, per prediction type |
+
+## Link with the open dashboard: `.dashboard/`
+
+Two JSON files exist only while the live dashboard is used (not in an export). They are a channel between
+the page and the agent, not a result of the study, and are not in the manifest.
+
+`researcher_view.json`, written by the page on every change (read it with `expression.py view`):
+
+| Field | Content |
+|---|---|
+| `updated_at` | UTC time of the last change on the page |
+| `choices` | the page's controls: the fields of the analysis choices (`scorer`, `target`, `control`, `shown`, `target_label`, `control_label`, `question`, `min_change_pct`, `max_control_pct`, `min_diff_sigma`, `ref_floor`, `ref_floor_applies`, `assays`, `sources`, `domains`, `one_alt_per_position`, `y_metric`, `top_k`, `score`, `group_agg`, `color_by`), plus `show_mode` (`kept` or `all`) and `highlight` (variant IDs) |
+| `window_shown` | `[start, end]` of the stretch of the window on screen |
+| `n_pass`, `n_total` | variants that pass the choices, and all variants of the window |
+
+`agent_view.json`, written by `expression.py view` with choices (the page follows it):
+
+| Field | Content |
+|---|---|
+| `sent_at` | UTC time the view was sent |
+| `message` | the line shown on the page (`--message`) |
+| `choices` | the same keys as above; `highlight` only when the agent sends or clears highlights; `window` (`[start, end]` or `"full"`) only when the agent sets the stretch. Values the page cannot take are ignored |
+
+With several browser tabs open, `researcher_view.json` holds the state of the one that wrote last.
 
 ## Contrast plan: `contrasts.yaml`
 

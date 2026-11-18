@@ -4,6 +4,21 @@ Read this before reporting results. All numbers come from AlphaGenome Atlas pred
 prioritise experiments, they are not measurements, and they are for research use only (never a
 diagnosis or a clinical finding).
 
+## Where each score is defined
+
+The formula, the sign and the window of every AlphaGenome score are defined by the `alphagenome`
+dependency skill, not here. Before explaining what a score is, read its `references/model-api.md`
+(table *Recommended scorers*, column *Meaning of `raw_score`*) and its `references/interpretation.md`
+(*Raw score and quantile: always both*, *Tissue matching*, *What the model cannot see*). Do not define
+a score from memory. Two points this skill's pages depend on:
+
+- `RNA_SEQ_ACTIVE` (the exploration's "atividade", and the basis of REF) is the larger of the REF and
+  ALT alleles' mean predicted RNA-seq coverage over the gene's exons. It is a level, not a change, it
+  has no official unit (the documentation says "normalized read signal") and it exists only per
+  variant, so the exploration scores one probe SNV to read it.
+- The quantile is the rank of a raw score among common variants, per prediction type and per track.
+  It says how unusual a score is, not how large the effect is.
+
 The analysis the researcher sees is the dashboard's (`references/dashboard.md`): % change per tissue,
 target and control groups chosen on the page, the noise between measurements of the same tissue, and
 filters that start off. The tier files, the labels and the workbench below are the pipeline's fixed
@@ -30,7 +45,7 @@ Computed from tissue-level **quantiles** of the plan's `direction_contrast`; the
 | Label | Meaning |
 | :--- | :--- |
 | `predicted_direction` | **Increase** / **Decrease** when every target tissue has that sign; otherwise **Inconsistent (within target)**. |
-| `target_min_abs_quantile` | The weakest target effect: smallest \|quantile\| across target tissues. Large values mean a strong effect in every target tissue. |
+| `target_min_abs_quantile` | The weakest target effect: smallest \|quantile\| across target tissues. A large value means that, in every target tissue, the score is unusual among common variants; the size of the effect is the raw score, not the quantile. |
 | `specificity_scope` | Control tissues vote against the target direction: **Shared** (no control goes the other way), **Opposite in control** (most controls go the other way), **Mixed**; **No scope** when the direction is inconsistent, or when no control tissue has a score for the variant (no control data, so no vote). |
 
 Tissue-specific effects are the ones with a consistent direction, a high `target_min_abs_quantile`

@@ -16,7 +16,7 @@ Or copy `skills/expression-analysis` into `.claude/skills/`, `.agents/skills/`, 
 
 ## Prerequisites & Dependencies
 
-Run the prerequisite check (prints missing skills and install commands; never installs anything automatically):
+Run the prerequisite check (it names what is missing and never installs anything; the `alphagenome-skills-setup` skill installs it, one approved item at a time):
 
 ```bash
 uv run skills/expression-analysis/scripts/expression.py check
@@ -26,7 +26,7 @@ External dependency skills (installed separately by the researcher as needed):
 - From `google-deepmind/science-skills`: `uv`, `credentials`, `alphagenome-variant-impact-score`, `alphagenome-single-variant-analysis`, `alphagenome-atlas-website-links`, `embl-ebi-ols`, `ensembl-database`
 - From `K-Dense-AI/scientific-agent-skills`: `alphagenome`
 
-Set `ALPHAGENOME_API_KEY` in `~/.env` (see the `credentials` skill) and create required `.licenses/` acknowledgement files only after reviewing each dependency's terms of use.
+Set `ALPHAGENOME_API_KEY` in the project's `.env` (the only place the key is read from; keep `.env` out of git) and create the required `.licenses/` acknowledgement files only after reviewing each dependency's terms of use.
 
 ## Quick Start
 
