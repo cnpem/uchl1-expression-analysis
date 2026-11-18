@@ -91,6 +91,12 @@ Kind = Literal["expression", "splicing"]
 KINDS = {"expression-analysis": "expression", "splicing-analysis": "splicing"}
 
 
+# Exit codes of every stage and helper: 0 done, 1 error, 3 the researcher must answer a question first
+# (study.py pending lists it), 130 interrupted. A caller tells "ask" from "failed" by the code, not the text.
+EXIT_ERROR = 1
+EXIT_DECISIONS = 3
+
+
 class StudyError(Exception):
     """Invalid study input; the CLI prints it and exits with 1."""
 
@@ -571,7 +577,7 @@ def clear_pending(study_dir: Path, prefixes: tuple[str, ...], keep: tuple[str, .
 
 
 def raise_pending(study_dir: Path, items: list[PendingDecision], prefixes: tuple[str, ...] = ()) -> NoReturn:
-    """Merges `items` into processed/pending_decisions.json and exits 1.
+    """Merges `items` into processed/pending_decisions.json and exits with EXIT_DECISIONS (3).
 
     Items with a key already pending replace the older entry; with `prefixes` (the stage's areas), older
     entries under them that the stage no longer raises are dropped. Exit message:
@@ -585,7 +591,8 @@ def raise_pending(study_dir: Path, items: list[PendingDecision], prefixes: tuple
             previous = merged.get(item.key, {})
             merged[item.key] = {**dataclasses.asdict(item), "asked_at": previous.get("asked_at", _now())}
         _write_pending(study_dir, list(merged.values()))
-    _fail(f"{len(merged)} decision(s) needed: run study.py pending.")
+    print(f"{len(merged)} decision(s) needed: run study.py pending.", file=sys.stderr)
+    sys.exit(EXIT_DECISIONS)
 
 
 # --- max window -----------------------------------------------------------------------------
@@ -824,6 +831,17 @@ def init_from_exploration(args: argparse.Namespace) -> None:
                          "summary.md); never fill an answer from the recommendation. Nothing was created.")
     root = _exploration_root(Path(args.from_exploration))
     data = json.loads((root / "exploration.json").read_text(encoding="utf-8"))
+    found = data.get("format_version", 1)
+    if not isinstance(found, int) or found > 1:
+        raise StudyError(f"{root / 'exploration.json'}: format_version {found!r} is newer than this skill reads (1): the "
+                         "exploration was made by a newer version of the skill. Update the skill, or run explore "
+                         "again with this one.")
+    if data.get("unavailable"):
+        names = ", ".join(u.get("service", u.get("capture", "?")) for u in data["unavailable"])
+        raise StudyError(f"the exploration is missing captures the study needs ({names}): the locus and the SNV table "
+                         "read the Regulatory Build and the reference sequence. Run expression.py explore again with "
+                         "the same options when the service answers (captures already made are reused), show the "
+                         "updated summary.md, then init. Nothing was created.")
     windows = {w["id"]: w for w in data["windows"]}
     if args.window not in windows:
         raise StudyError(f"--window {args.window!r} is not one of the exploration windows {list(windows)}")

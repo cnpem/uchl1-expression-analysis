@@ -664,6 +664,8 @@ def _choice_args(p: argparse.ArgumentParser) -> None:
 
 
 AGENT_VIEW = ".dashboard/agent_view.json"            # written by `view`; the open dashboard follows it
+VIEW_FORMAT = 1  # format_version of both link files; the page and the CLI refuse a newer one (a page left
+                 # open from another version of the skill)
 RESEARCHER_VIEW = ".dashboard/researcher_view.json"  # written by the open dashboard: what is on screen now
 # option (argparse dest) -> key in the view files (the fields of core.analysis.Profile, plus how to show)
 VIEW_KEYS = {"scorer": "scorer", "target": "target", "control": "control", "shown": "shown", "target_label": "target_label",
@@ -685,6 +687,10 @@ def _researcher_view(study_dir: Path) -> dict:
         view = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as exc:
         _stage_error(RuntimeError(f"{path} could not be read ({exc}); run this again"))
+    found = view.get("format_version", 1) if isinstance(view, dict) else 1
+    if not isinstance(found, int) or found > VIEW_FORMAT:
+        _stage_error(RuntimeError(f"{path} was written by a newer version of the dashboard (format {found!r}); "
+                                  "restart it with this skill (expression.py dashboard) and reload the page"))
     if not isinstance(view, dict) or not isinstance(view.get("choices"), dict):
         _stage_error(RuntimeError(f"{path} has no choices; reload the dashboard page"))
     return view
@@ -743,7 +749,8 @@ def view_cmd(args: argparse.Namespace) -> None:
     choices.update(given)
     out = study_dir / AGENT_VIEW
     out.parent.mkdir(exist_ok=True)
-    body = {"sent_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    body = {"format_version": VIEW_FORMAT,
+            "sent_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "message": args.message or "", "choices": choices}
     out.write_text(json.dumps(body, indent=1), encoding="utf-8")  # ASCII JSON, written in place: the page watches this file
     changed = "the study's opening view (highlights cleared, whole window)" if sent_reset else \

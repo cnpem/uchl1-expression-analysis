@@ -273,8 +273,33 @@ def record_agents(ws: Path, agents: list[str]) -> None:
 
 
 def save_state(ws: Path, st: dict[str, Any]) -> None:
+    """Writes state.json whole or not at all (a write cut halfway would lose the record of what was installed)."""
     (ws / STATE_DIR).mkdir(exist_ok=True)
-    (ws / STATE_DIR / "state.json").write_text(json.dumps(st, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    target = ws / STATE_DIR / "state.json"
+    tmp = target.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(st, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, target)
+
+
+def version_notes(ws: Path) -> list[str]:
+    """Dependency skills installed in a version other than the one the analysis skills were validated with
+    (skills-lock.json against tested_hash in assets/targets.json). A note, not a failure: `npx skills add` takes the
+    repository as it is that day."""
+    lock_file = ws / "skills-lock.json"
+    if not lock_file.is_file():
+        return []
+    try:
+        lock = json.loads(lock_file.read_text(encoding="utf-8")).get("skills", {})
+    except (OSError, ValueError):
+        return []
+    notes = []
+    for name, spec in TARGETS["dependency_skills"].items():
+        installed = (lock.get(name) or {}).get("computedHash")
+        if installed and spec.get("tested_hash") and installed != spec["tested_hash"]:
+            notes.append(f"{name} is installed in a version other than the one the analysis skills were tested with "
+                         f"(hash {installed[:12]}, tested {spec['tested_hash'][:12]}). It usually works; if a check or a "
+                         "capture fails on a field, this is the first thing to look at.")
+    return notes
 
 
 def targets_for(ws: Path, wanted: list[str] | None, agents: list[str]) -> list[str]:
@@ -516,7 +541,7 @@ def plan_items(d: dict[str, Any], agents: list[str]) -> list[dict[str, Any]]:
 def cmd_plan(args: argparse.Namespace) -> None:
     d = diagnose_data(args.ws, args.target, args.agents, args.agents_source, net=not args.no_network)
     items = plan_items(d, args.agents)
-    notes = unreachable_notes(d["network"])
+    notes = unreachable_notes(d["network"]) + version_notes(args.ws)
     if args.json:
         print(json.dumps({"ready": not items, "agents": d["agents"], "notices": notes, "items": items},
                          indent=2, ensure_ascii=False))
@@ -645,6 +670,9 @@ def _install_skill(ws: Path, name: str, agents: list[str]) -> int:
                                "path": r.get("path"), "agents": r.get("agents"), "installed_at": _now()})
         print(f"Installed {r.get('name')} from {r.get('source')} at {r.get('path')}")
     save_state(ws, st)
+    for note in version_notes(ws):
+        if note.startswith(f"{name} "):
+            print(f"Notice (tell the researcher): {note}")
     record_agents(ws, agents)
     still = [a for a, p in locate(ws, name, agents)["per_agent"].items() if not p]
     if still:
@@ -829,6 +857,8 @@ def cmd_verify(args: argparse.Namespace) -> None:
             if not v["reachable"]:
                 results.append({"skill": "-", "step": "network", "ok": None,
                                 "detail": f"{v['service']} cannot be reached ({v['status']}); affects {v['affects']}"})
+    for note in version_notes(args.ws):
+        results.append({"skill": note.split(" ", 1)[0], "step": "version", "ok": None, "detail": note})
     st = state(args.ws)
     st["verify"] = {"at": _now(), "results": results}
     save_state(args.ws, st)

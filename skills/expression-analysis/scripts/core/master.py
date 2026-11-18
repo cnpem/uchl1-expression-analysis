@@ -35,6 +35,7 @@ import polars as pl
 
 import models
 from core import locus as core_locus
+from core import tracks as core_tracks
 from core import variants as core_variants
 from core.locus import LocusConfig
 from models import AVI_FEATURES, AviRecord, TrackScoreRow
@@ -304,7 +305,12 @@ def load_registry(study_dir: Path) -> pl.DataFrame:
     path = Path(study_dir) / REGISTRY_FILE
     if not path.is_file():
         raise MasterError(f"{REGISTRY_FILE} not found in {study_dir}; run expression.py cohorts (Workflow step 8).")
-    return pl.read_csv(path, separator="\t", infer_schema_length=None)
+    df = pl.read_csv(path, separator="\t", infer_schema_length=None)
+    missing = [c for c in core_tracks.REGISTRY_COLUMNS if c not in df.columns]
+    if missing:
+        raise MasterError(f"{REGISTRY_FILE} lacks the column(s) {missing} that the cohorts step writes; it was made by "
+                          "another version of the skill or edited. Run expression.py cohorts again.")
+    return df
 
 
 def _load_scores(study_dir: Path, scorers: Sequence[str]) -> list[TrackScoreRow]:

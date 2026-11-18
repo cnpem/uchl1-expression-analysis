@@ -357,6 +357,12 @@ def load_core_variants(study_dir: Path) -> pl.DataFrame:
     if not path.is_file():
         raise VariantsError(f"{CORE_VARIANTS_FILE} not found in {study_dir}; run expression.py variants "
                             f"(Workflow step {WORKFLOW_STEP}).")
+    with path.open(encoding="utf-8") as handle:
+        header = handle.readline().rstrip("\r\n").split("\t")
+    missing = [c for c in VARIANT_COLUMNS if c not in header]
+    if missing:
+        raise VariantsError(f"{CORE_VARIANTS_FILE} lacks the column(s) {missing} that the variants step writes; it was "
+                            "made by another version of the skill or edited. Run expression.py variants again.")
     return pl.read_csv(path, separator="\t", schema_overrides=CORE_SCHEMA)
 
 
