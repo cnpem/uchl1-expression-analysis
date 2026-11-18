@@ -352,14 +352,20 @@ First version:
     format of study files (0.3.0 → 0.4.0);
   - the last number goes up for fixes and documentation that do not change results (0.3.0 → 0.3.1);
   - 1.0.0 marks a skill considered stable for use outside the team.
-- **One version per merge to `main`.** A pull request that changes the skill updates `metadata.version`
-  and adds its entry here. Small changes collect under *Unreleased* until the next version.
-- **Every released version** gets a git tag `vX.Y.Z` on the merge commit and a GitHub release whose
-  notes are its entry here.
+- **One version of each skill per merge to `main`.** A pull request that changes a skill updates its
+  `metadata.version` and adds its entry to that skill's changelog (this file for `expression-analysis`;
+  [`skills/alphagenome-skills-setup/CHANGELOG.md`](skills/alphagenome-skills-setup/CHANGELOG.md) for the setup
+  skill). One merge may carry a version of each skill. Small changes collect under *Unreleased* until the
+  next version.
+- **A release goes to `main` in one pull request**, not in pull requests stacked on each other: a stacked one
+  merged after its base reached `main` lands in the old base branch instead of `main`.
+- **Every released version** gets a git tag on the merge commit (`vX.Y.Z` for `expression-analysis`,
+  `setup-vX.Y.Z` for the setup skill) and a GitHub release whose notes are its changelog entry.
 - **Changes to the files shared with the splicing skill** (`study.py`, `manifest.py`, `models.py`,
   `reference.py`) go to both repositories.
 
-[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/cnpem/uchl1-expression-analysis/releases/tag/v0.1.0

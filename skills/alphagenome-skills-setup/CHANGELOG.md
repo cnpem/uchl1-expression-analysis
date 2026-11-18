@@ -46,6 +46,14 @@ ran its own analysis with the dependency skills, choosing the window and the tis
 - **Terms of use**: `terms <skill> --open` explains in plain words what each set of terms covers and opens the pages (`assets/terms.json`; AlphaGenome, EMBL-EBI OLS, Ensembl).
 
 
+### Tested
+
+- Windows 11 on ARM64 (Claude): a workspace with the skills in `.skills/`, and one with the analysis skill in
+  `.agents/skills/` only; both reported and placed.
+- Ubuntu on WSL (Antigravity): a real `npx skills add` into `.agents/skills/`; a project prepared by 0.1.0
+  passed `verify` (placement, `check`, offline `reproduce`) with the Ensembl outage as a notice.
+- Not yet tested on macOS, or with Codex, Cursor, Gemini CLI or OpenCode.
+
 ## [0.1.0] - 2026-11-16
 
 ### Added
