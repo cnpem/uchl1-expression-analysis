@@ -18,8 +18,12 @@ This repository holds two skills:
 Install the setup skill and ask the agent, for example, "prepare my computer to use expression-analysis":
 
 ```bash
-npx skills add cnpem/uchl1-expression-analysis --skill alphagenome-skills-setup --copy
+npx skills add cnpem/uchl1-expression-analysis --skill alphagenome-skills-setup --copy --agent <app>
 ```
+
+with `<app>` the agent app you use: `claude-code`, `antigravity`, `codex`, `cursor`, `gemini-cli` or `opencode`. The
+app only lists skills from its own folder, so the setup skill has to land there; from then on it asks which app
+you use and puts every other skill in that app's folder.
 
 It checks what is there and installs each missing piece (uv, Node.js, `expression-analysis`, its dependency
 skills, the terms of use, the AlphaGenome key in the project's `.env`) only after the researcher approves

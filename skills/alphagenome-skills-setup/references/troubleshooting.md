@@ -12,7 +12,10 @@ The message to look for, what it means, and what to say and do. Say it to the re
 | `EPERM` / `operation not permitted` on Windows | antivirus or OneDrive locking a file | try again; move the workspace out of OneDrive; allow it in the antivirus |
 | `setup.py key` says `not set` after the researcher saved | the key line was not saved, or was pasted with spaces, quotes or a line break | run `install setup.key:…` again (it reopens the project `.env`); the line must be `ALPHAGENOME_API_KEY=<key>` with nothing else; save |
 | `verify`: `check` lists missing terms | a dependency skill's terms were not accepted in this workspace | `plan`, then the terms item |
-| `verify`: `check` lists a missing skill | installed for another agent folder, or not installed | `diagnose` shows where each skill is; install it with the right `--agents` |
+| `verify`: `check` lists a missing skill | installed for another agent folder, or not installed | `diagnose` shows where each skill is; `plan` offers the install for the recorded app |
+| `verify`: `placed` failed, or the agent answers without the analysis skill (chooses windows or tissues itself, never shows the exploration) | the skill is in a folder the app does not read (`.skills/`, the download folder, another app's folder) | `plan` offers `setup.place:<name>`; then a new conversation in the app |
+| `Unknown agent id(s)` | an id not in the `agents` table | use one of the ids printed (claude-code, antigravity, codex, cursor, gemini-cli, opencode) |
+| `Notice: … cannot be reached now` | the service is down or slow (e.g. Ensembl REST) | tell the researcher what it affects; nothing to install; try later |
 | `verify`: `unknown feature flag: 'sse3'` | an analysis skill without the pinned polars, on Windows on ARM | update the analysis skill to a version with pinned dependencies |
 | `verify`: `reproduce` slow the first time | it downloads the Python packages (a few hundred MB) once | wait; later runs take seconds |
 | `verify`: reproduce `skipped` | this copy of the analysis skill has no reference study | nothing to fix; `check` passing is enough |
