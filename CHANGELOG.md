@@ -9,6 +9,14 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-18
+
+Every number the skill shows has one name, one definition and a source, and the pages write genes, variants
+and numbers by the usual conventions. This version changes the wording of the pages and of the questions
+(step 0 confirms the HGNC symbol), and adds a genomic HGVS column to `report.md`, `summarize` and the
+dashboard. The numbers do not change: the bundled reference reproduces with the same values. A study made
+with 0.4.0 opens as it is; running `report` again writes it with the new names.
+
 ### Added
 
 - **Writing conventions** (`scripts/nomenclature.py`; *Writing conventions* in `references/glossary.md`, from

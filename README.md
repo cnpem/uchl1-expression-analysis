@@ -41,6 +41,10 @@ uv run skills/expression-analysis/scripts/expression.py dashboard --study-dir /t
 
 See [`skills/expression-analysis/SKILL.md`](skills/expression-analysis/SKILL.md) and [`skills/expression-analysis/references/workflow.md`](skills/expression-analysis/references/workflow.md) for the complete 14-step workflow.
 
+## What the numbers mean
+
+Every quantity the pages show is defined once in [`assets/terms.yaml`](skills/expression-analysis/assets/terms.yaml), with its name in Portuguese and English, formula, unit and source; [`references/glossary.md`](skills/expression-analysis/references/glossary.md) is generated from it (`expression.py terms --write-glossary`), and [`references/interpretation.md`](skills/expression-analysis/references/interpretation.md) explains how each score is computed and what the model does not establish. `expression.py terms` checks that the code and the documentation use only the registry's names.
+
 ## Versions
 
 The skill version is `metadata.version` in [`SKILL.md`](skills/expression-analysis/SKILL.md); each study records it in its manifest and report. What changed in each version, and the versioning rules, are in [`CHANGELOG.md`](CHANGELOG.md). Released versions are tagged `vX.Y.Z`.
