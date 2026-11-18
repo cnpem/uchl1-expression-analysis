@@ -382,7 +382,7 @@ def dashboard_cmd(args: argparse.Namespace) -> None:
         _stage_error(exc)
     if shutil.which("uv") is None:
         _stage_error(RuntimeError("'uv' is not on PATH; install it with the 'uv' skill."))
-    env = {**os.environ, "EXPRESSION_ANALYSIS_SCRIPTS": str(SKILL_DIR / "scripts"), "PYTHONIOENCODING": "utf-8"}
+    env = deps.clean_env({"EXPRESSION_ANALYSIS_SCRIPTS": str(SKILL_DIR / "scripts")})  # the dashboard needs no key
     base = ["uv", "run", "--no-project", "--python", deps.DEP_PYTHON, *deps.uv_with(deps.WORKBENCH_DEPS), "marimo"]
     packages = ", ".join(deps.WORKBENCH_DEPS)
     step = "14-workbench" if args.legacy else "14-dashboard"

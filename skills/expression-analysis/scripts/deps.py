@@ -276,12 +276,23 @@ class DependencyRun:
     seconds: float
 
 
+# Key variables a shell or the system may export. They are dropped from the environment a dependency inherits:
+# `uv run --env-file` keeps a variable that is already set, so an exported key would win over the project's .env.
+KEY_VARS = ("ALPHAGENOME_API_KEY", "ALPHA_GENOME_API_KEY", "NCBI_API_KEY")
+
+
+def clean_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment for a dependency: the current one without key variables, in UTF-8, plus `extra`."""
+    env = {k: v for k, v in os.environ.items() if k.upper() not in KEY_VARS}
+    return {**env, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1", **(extra or {})}
+
+
 def run(argv: list[str], *, env_extra: dict[str, str] | None = None, cwd: Path | None = None,
         echo: bool = True) -> DependencyRun:
     """Runs a dependency command, echoing its stderr, and returns its output (stdout kept for the caller)."""
     if shutil.which(argv[0]) is None:
         raise DependencyError(f"'{argv[0]}' is not on PATH; install it with the 'uv' skill.")
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1", **(env_extra or {})}
+    env = clean_env(env_extra)  # keys reach a dependency only through --env-file <the project's .env>
     if echo:
         print(f"$ {display_command(argv)}", file=sys.stderr, flush=True)
     t0 = time.monotonic()

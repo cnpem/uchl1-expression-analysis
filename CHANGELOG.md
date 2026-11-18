@@ -52,6 +52,15 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 - The exploration no longer says that a tissue without expression is a good control "para mostrar ausência
   de efeito": a term of very low level can dominate a group value.
 
+### Fixed
+
+- **The key comes only from the project's `.env`, for every capture.** The AVI capture (step 9) and the Atlas
+  links ran without `--env-file`, so the DeepMind script read the key from the environment or `~/.env`;
+  they now get the project's `.env`, as the other captures do. The key variables of the inherited
+  environment are dropped before any dependency runs, because `uv run --env-file` keeps a variable that
+  is already set; and the AVI capture and the interpretation refuse to run when the project's `.env` lacks
+  the key, as the Atlas queries already did.
+
 ## [0.4.0] - 2026-11-17
 
 The researcher's decisions become part of the study, and the agent and the open dashboard can see and move
