@@ -1010,6 +1010,11 @@ def prerequisite_items() -> list[dict]:
 
 def check(args: argparse.Namespace) -> None:
     items = prerequisite_items()
+    if not deps.agent_reads(SKILL_DIR):
+        print(f"Warning: this skill is in {SKILL_DIR}, a folder no agent app reads, so a new conversation will not "
+              f"load it and the agent will answer with the dependency skills alone. Move the folder to "
+              f"<project>/.agents/skills/{SKILL_DIR.name} (or .claude/skills/ for Claude Code) and start a new "
+              "conversation.", file=sys.stderr)
     for f in deps.env_unprotected():
         print(f"Warning: {f} holds keys but git does not ignore it; add '.env' to .gitignore before any commit "
               "(an AlphaGenome key is personal and must not be shared).", file=sys.stderr)
@@ -1022,7 +1027,8 @@ def check(args: argparse.Namespace) -> None:
     except T.TermError as exc:
         print(f"Warning: {exc}", file=sys.stderr)
     if args.json:
-        print(json.dumps({"ready": not items, "setup_skill": SETUP_SKILL,
+        print(json.dumps({"ready": not items, "skill_dir_read_by_agents": deps.agent_reads(SKILL_DIR),
+                          "setup_skill": SETUP_SKILL,
                           "setup_skill_installed": deps.find_skill(SETUP_SKILL) is not None, "items": items},
                          indent=2, ensure_ascii=False))
         sys.exit(1 if items else 0)

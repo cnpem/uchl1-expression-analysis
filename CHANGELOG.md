@@ -54,6 +54,9 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ### Fixed
 
+- **`check` warns when the skill sits where no agent app reads it.** A copy in `<project>/.skills/` was never
+  loaded by Antigravity, which read only the dependency skills in `.agents/skills/` and ran its own analysis,
+  choosing the window and the tissues without asking the researcher. `check` now names the folder to move it to.
 - **The key comes only from the project's `.env`, for every capture.** The AVI capture (step 9) and the Atlas
   links ran without `--env-file`, so the DeepMind script read the key from the environment or `~/.env`;
   they now get the project's `.env`, as the other captures do. The key variables of the inherited

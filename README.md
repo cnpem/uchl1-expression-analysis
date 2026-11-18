@@ -12,7 +12,9 @@ Install the skill with the Skills CLI:
 npx skills add cnpem/uchl1-expression-analysis --skill expression-analysis
 ```
 
-Or copy `skills/expression-analysis` into `.claude/skills/`, `.agents/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`.
+Or copy `skills/expression-analysis` into `.claude/skills/`, `.agents/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`. Agent apps load project skills only from these folders; a copy kept anywhere else (for example a
+`.skills/` folder) is never loaded, and the agent then answers with the dependency skills alone, choosing
+windows and tissues without the researcher. `expression.py check` warns when the skill is in such a folder.
 
 ## Prerequisites & Dependencies
 

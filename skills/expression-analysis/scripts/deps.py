@@ -122,6 +122,17 @@ def _workspace_of(skill_folder: Path) -> Path | None:
     return None
 
 
+def agent_reads(skill_folder: Path) -> bool:
+    """True when an agent app would find this skill: it sits in `.agents/skills/` or `.claude/skills/` (of a
+    project or of the home folder), or in a repository's `skills/` (the development layout). A copy kept anywhere
+    else (`.skills/`, Downloads, a project's root) is never loaded, and the agent then improvises with the
+    dependency skills alone."""
+    skills = skill_folder.resolve().parent
+    if skills.name == "skills" and skills.parent.name in (".claude", ".agents"):
+        return True
+    return skills.name == "skills" and (skills.parent / ".git").exists()
+
+
 def licence_dirs(installed: dict[str, Path] | None = None) -> list[Path]:
     """Folders that may hold `.licenses/`: the working directory first, then the workspaces of this skill and of
     each dependency skill found, so `check` gives the same answer from any folder of the workspace."""
