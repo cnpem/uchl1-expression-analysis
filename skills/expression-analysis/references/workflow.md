@@ -5,6 +5,7 @@ in `dependency_outputs.md`; how to read the results is in `interpretation.md`.
 
 ## Contents
 
+- [Progress checklist](#progress-checklist)
 - [Conventions](#conventions): paths, what each command records, researcher decisions
 - [Step 0. Exploration](#step-0-exploration)
 - [Step 1. Study from the exploration](#step-1-study-from-the-exploration)
@@ -19,6 +20,27 @@ in `dependency_outputs.md`; how to read the results is in `interpretation.md`.
 - [Step 13. Interpretation and report](#step-13-interpretation-and-report)
 - [Step 14. Dashboard](#step-14-dashboard)
 - [When a command fails](#when-a-command-fails)
+- [Common mistakes](#common-mistakes)
+
+## Progress checklist
+
+Copy this checklist into the conversation and tick it as you go:
+
+```
+expression-analysis progress:
+- [ ] Step 0: check passes (anything missing set up by alphagenome-skills-setup); explore run; summary.md shown
+- [ ] Step 1: window, target, control, labels, scorers and question given by the researcher (early answers matched and shown; the rest asked together; none filled from the recommendation unless explicitly delegated); init --from-exploration with --said; cohort decisions recorded
+- [ ] Requests made ahead of their step listed, and each done at its step
+- [ ] Step 4: locus run; locus.* answered by the researcher; Figure 1 shown
+- [ ] Steps 6-8: fetch tracks; cohorts run; cohort.* answered (study.yaml updated on replace)
+- [ ] Steps 9-10: fetch avi and fetch scores, same window and pull
+- [ ] Step 11: variants and master run; positions left out by rule noted; QC gates passed
+- [ ] Step 12: contrast run
+- [ ] Step 13: atlas links (and interpretations) fetched; report.md written and read back
+- [ ] Step 14: dashboard opened and presented (choices, how to show, filters, Avançado); questions answered from `summarize`; the researcher's view drawn with `figures` and `report` run again
+- [ ] Final answer: researcher decisions (delegated ones named), the skill's rules and agent choices in separate lists; requests still to do
+- [ ] Every number explained with the glossary's name, its unit and status, from a command; levels given next to large percentages; open points said as open
+```
 
 ## Conventions
 
@@ -70,7 +92,7 @@ record shows what was offered next to what was chosen; for a question you ask yo
 offered with `--option` (once per option) and `--recommended`. `--said` (required) quotes the
 researcher's words the answer comes from, as they wrote them; the report shows them next to the answer. If
 the researcher explicitly told you to choose this question, record the recommendation, quote that
-instruction in `--said` and add `--delegated` (a general "go ahead" is not delegation: see SKILL.md). A key must look like
+instruction in `--said` and add `--delegated` (a general "go ahead" is not delegation: see `conversation.md`). A key must look like
 `<area>.<topic>[:<subject>]` (as `pending` prints it); `decide` refuses anything else.
 
 ## Step 0. Exploration
@@ -84,7 +106,7 @@ uv run SKILL/scripts/expression.py explore --gene MYGENE --tissue "<words of the
   the researcher item by item (skills, terms of use, the key in the project's `.env`) and installs only
   what they approve. If that skill is not installed, `check` prints how to install it; ask first. Install
   nothing from this skill. Run `check` again until it passes.
-- `explore` asks nothing and writes `OUT/exploration/` (see `SKILL.md` Outputs). Options:
+- `explore` asks nothing and writes `OUT/exploration/` (see `formats.md`, *Folder layout*). Options:
   `--scorers` (default `RNA_SEQ CAGE DNASE ATAC`), `--flank-bp` (Regulatory Build search around the
   gene, default 2000, the study default), `--floor` (share of the gene's maximum below which a term is
   flagged, default 0.05). Re-running it reuses what was captured, so adding a
@@ -105,11 +127,39 @@ and why each part matters for the choice:
 | 6. Scorers | which recommended terms each scorer serves | a scorer without tracks in one group is dropped later |
 | 7. Limits | SNVs only (indels through the model API, `score_variants.py` of the `alphagenome` skill), window scope | what the study cannot answer |
 
+**What to ask, and when.** The gene is its HGNC symbol (`explore --gene`). When the researcher names a
+disease, a protein or an alias ("PKU", "phenylalanine hydroxylase"), say which gene you take it to be (*PAH*)
+and confirm before exploring; a disease with several genes is a question, not a choice for you. Write the
+symbol in italics (`glossary.md`, *Writing conventions*).
+
+Ask the researcher only for the gene and the tissues or cell types in their own words, for both sides: where
+they want to know whether the variants change expression (target) and what to compare it with (control), or
+that they want the exploration to show candidates first. Ask even when the request names some tissues: a
+request that names only the target, or names tissues only as context, would be explored again once the groups
+come. Then `expression.py explore`. If the first request already brings other answers (a window, the groups,
+the question), keep them for step 1 and say so; do not act on them yet. Tissues that reach you after the
+exploration (new groups at step 1, a redefinition) go through `explore` again with every text (the other
+captures are reused), and the researcher sees the terms and the gene's predicted expression level found for
+them before `init` or `decide`.
+
+Show `summary.md`: windows with size, SNVs and cost; candidate terms with tracks per scorer, source and assay;
+served descendants of terms without tracks; the gene's predicted expression level per tissue, with a warning
+where it is below the floor. Explain that level with *The exploration's expression level* in
+`interpretation.md` (a prediction of the probe SNV's larger allele, no official unit, not TPM, comparable only
+within one kind of track). Do not ask for the study's choices before this page is shown, because they depend
+on it. Asking before the data are in hand makes the researcher choose blind, and every later surprise (a
+term without tracks, a tissue where the gene's predicted level is very low) becomes another interruption.
+
+**When Ensembl does not answer**, `explore` still writes the page, without the regulatory elements and the
+expression level, and opens it with *Capturas que faltam*. Show it as it is, say what is missing and that the
+study waits for it (`init` refuses), and run the same `explore` again later; nothing already captured is
+fetched twice. Do not fill the gap with another source or your own code.
+
 ### Changing the groups after the results
 
 When the researcher wants other target or control tissues (for example, controls where the gene is also
 expressed), that is a redefinition of the study, and it follows the same path as the definition. Choose from
-the exploration, never from ad-hoc code:
+the exploration, never from ad-hoc code; never rank tissues with your own code:
 
 1. Show `OUT/exploration/activity.md`. It lists every catalogue term with the gene's predicted expression level
    (as a share of the gene's maximum), kind of sample, assays, sources and number of tracks. Without it (an
@@ -138,7 +188,15 @@ window (section 3, by its name; you pass its id to `--window`), which terms form
 groups (section 4) with a short name for each group, which kinds of prediction to compare (section 6; gene
 expression, `RNA_SEQ`, is always included) and what they look for in the target (`--question`: `repression`
 for a decrease, `increase`, or `either`). Ask for the missing ones together; an answer the researcher did not
-give is asked, never taken from the recommendation. `init` stops and lists any that is missing. Then:
+give is asked, never taken from the recommendation. `init` stops and lists any that is missing. If the
+researcher answers only some (for example, only the groups), ask the rest before going on; never fill an
+answer from the recommendation, even when the researcher seems in a hurry. Answers given before this step
+count once they are matched to the options and the researcher has seen the match (`conversation.md`, *The
+researcher talks freely*). Assays, sources, the score (raw or quantile) and how a group's tissues are combined
+are not asked: everything is captured and the researcher changes them on the dashboard (*Avançado*).
+`study.py init --from-exploration` refuses to run without `--window`, `--target`, `--control`, `--scorers`,
+`--question` and `--said` (their words, joined with ` / ` when they came in several messages; `--delegated
+window` etc. for an answer they explicitly left to you). Then:
 
 ```bash
 uv run SKILL/scripts/study.py init --study-dir D --from-exploration OUT --window regulatory_unit --target CL:AAAAAAA --target UBERON:BBBBBBB --control UBERON:CCCCCCC --target-label "<label>" --control-label "<label>" --scorers RNA_SEQ CAGE --question repression --said "<the researcher's words / joined across messages>" --origin-note "Requested by <researcher> on <date>: <question in one line>"
@@ -225,6 +283,10 @@ definition to show the researcher. A plain word may not return the intended term
 search again with the full label (both files are kept). `fetch ols-term` writes
 `raw/ols_term_<PREFIX>_<digits>.json` with `hierarchicalChildren` and `hierarchicalDescendants`,
 because a served tissue can sit several levels below the one asked for.
+
+If the researcher's text finds nothing, another spelling of the same name ("MCF7" for "MCF-7") is fine: say so
+and put it in the `--note` of the cohort decision. A different term than the one they named is their choice:
+ask.
 
 ## Step 7. Track catalogue
 
@@ -334,6 +396,17 @@ uv run SKILL/scripts/expression.py report --study-dir D
 
 ## Step 14. Dashboard
 
+Read `dashboard.md` first. With the researcher: run `expression.py dashboard` and give them the link (tell
+them to reload the page if you restart it), with the short presentation of that file: the three choices, the
+row of how to show, where filters and *Avançado* are. When they open *Avançado* or ask about a field, explain
+it with the field table there, including what the page does without saying (empty = all, ignored filters,
+display limits). When they ask about what they see, read it with `expression.py view` and run
+`expression.py summarize --from-dashboard`, then explain from its numbers; do not describe results you have
+not computed. To show them a view, say what you will change and why, then send it with
+`expression.py view <choices> --message "…"`: the open page follows, and they can change it further. When they
+settle on a view, run `expression.py figures --from-dashboard`, then `expression.py report` again, so
+`report.md` shows that view's figures with the choices behind them; the dashboard itself saves no analysis.
+
 ```bash
 uv run SKILL/scripts/expression.py dashboard --study-dir D
 uv run SKILL/scripts/expression.py view --study-dir D
@@ -400,3 +473,39 @@ Reproducing the reference (`expression.py reproduce --reference uchl1`): after a
 | `'X' is not an answer to 'K'` (`decide`) | the value is not one of the codes the question offered | record one of the codes it lists (`pending` shows label and code) |
 | `--said is required` (`decide`, `init`) | no words of the researcher were passed for the answer | quote what they wrote; if they have not answered, ask (never record an answer of your own) |
 | `Reference 'uchl1': … mismatch` (`reproduce`) | a code or data change moved a reference number | read the stage/metric table it prints before changing anything |
+
+## Common mistakes
+
+- **Asking for tissues, scorers and window before the exploration.** The researcher then chooses
+  without knowing which terms have tracks or where the gene is expressed; run `explore` first.
+- **Typing dependency commands by hand.** Use `expression.py fetch`: it pins the packages, writes the
+  file name the stages read and records the command; a hand-typed command is easy to misname
+  (`ols_t_cell.json` instead of `ols_search_t_cell.json` breaks `cohorts`) or to paraphrase.
+- **Annotating exons from Ensembl REST instead of `raw/gtf.json`.** The Atlas scores were computed
+  on GENCODE v46; Ensembl is used only for the Regulatory Build, the sequence and IDs.
+- **Editing `raw/`.** The `gtf` starts are 0-based as written; every stage normalises them once.
+- **Mixing scores of different Atlas pulls or windows.** `avi_region.parquet` and every
+  `scores_{S}.tsv` describe one window captured together; re-capture all of them or none.
+- **Reading a predicted effect in a tissue where the gene's predicted level is very low as tissue-specific.**
+  A large % there can be a minimal absolute change; check the exploration's activity table and give the level.
+- **Defining a score from memory, or naming a quantity your own way.** What each number is, its unit and its
+  status are in `glossary.md`; use the Portuguese name written there, and say "not established" for
+  an entry marked undecided. The full definition of a score is in the `alphagenome` dependency skill
+  (`interpretation.md`, *Where each score is defined*).
+- **Explaining the dashboard from memory.** Its numbers depend on the researcher's current choices; read the
+  screen with `view`, run `summarize --from-dashboard` and quote it, and use the wording of `dashboard.md`.
+- **Moving the researcher's page without saying so, or assuming a view arrived.** Say what you will change and
+  why before `view`, give it a `--message`, and read the screen back; with the page closed the view only waits.
+- **Presenting a filter as a clinical threshold.** A minimum % change, a multiple of the between-track disagreement, AVI
+  Phred 20 or a large Δ rank predicted effects; none is a pathogenicity cut-off.
+- **Writing your own scripts in the study folder.** Ad-hoc code in `D/` is not in the manifest and is
+  mistaken for the skill's output; use the commands here, and keep out-of-scope work outside `D/`
+  (`conversation.md`, *Out of scope*).
+- **Choosing for the researcher, or editing `decisions.yaml` by hand.** Record answers with
+  `study.py decide`, which also clears the pending question and keeps the timestamps.
+- **Showing codes instead of the question.** `keep_full_unit`, `drop_curie` or `abort` mean nothing to
+  the researcher; ask with the labels and effects, in their language, and keep the identifiers.
+- **Installing a dependency, writing a `.licenses/` file or handling a key from this skill.** That is
+  `alphagenome-skills-setup`'s job; doing it here repeats its questions.
+- **Printing or committing a `.env`, or putting the key elsewhere.** The key lives only in the project's
+  `.env`, listed in `.gitignore`; the fetch commands load it and it never reaches the screen, the manifest or git.
