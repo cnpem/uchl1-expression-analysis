@@ -9,6 +9,40 @@ step's `source_versions`; also shown in `report.md`). To know what a study's num
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-23
+
+`SKILL.md` is now a short map (8.5 thousand characters, was 34.5 thousand) and the detail moved to
+`references/`, so the skill passes the package lint of the test plan (body ≤ 10,000 characters, sections
+*Output contract* and *Failure behavior*). No rule was dropped: every rule of the former body is in
+`SKILL.md` or in a reference. Scripts, questions and study files do not change, and the bundled reference
+reproduces with the same values (22 tracks; 2,382 SNVs; 713 under the default filters).
+
+### Added
+
+- **`references/conversation.md`**: asking, recording (`--said`), delegation, answers given early, the final
+  answer, text from outside, resuming, explaining a number and out-of-scope questions, in full.
+- **`references/commands.md`**: what the skill does, quick start, every command, what `check` tests, the
+  dependency skills, services and rate limits, citations.
+- **SKILL.md**: *Rules for every turn* (the short form of `conversation.md`), *Output contract* (files and
+  checkable fields per step) and *Failure behavior* (missing setup, Ensembl down, network or dependency errors,
+  changed outputs, QC failures, no answer).
+
+### Changed
+
+- **SKILL.md** keeps one line per Workflow step and a table of which reference to read when. The step detail
+  that was only in `SKILL.md` (what to ask at step 0, Ensembl down, the five answers of step 1, another
+  spelling at step 5, presenting the dashboard at step 14), the progress checklist and *Common Mistakes* moved
+  to `references/workflow.md`; the folder layout moved to `references/formats.md`.
+
+### Fixed
+
+- **SKILL.md** now states, among the rules for every turn, that `gtf.json` mixes conventions: `start` is 0-based
+  (first base = `start` + 1) and `end` is 1-based, unlike the dependency's own docs ("1-based closed"). It also
+  says to use `models.normalize_gtf` or add 1 to every start, and to check that introns read GT…AG. Until now
+  this was only in `references/dependency_outputs.md`, which the SKILL.md sends the agent to only when an output
+  fails validation. In the pilot of the 22/11 test round, an agent with the skill read exon 1 of APOA1 as
+  starting one base earlier and gave a window 1 bp too long. Scripts and results do not change.
+
 ## [0.6.0] - 2026-11-18
 
 A new gene can be explored while Ensembl is down, a pending question has its own exit code, and every study
@@ -395,7 +429,8 @@ First version:
 - **Changes to the files shared with the splicing skill** (`study.py`, `manifest.py`, `models.py`,
   `reference.py`) go to both repositories.
 
-[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cnpem/uchl1-expression-analysis/compare/v0.3.0...v0.4.0

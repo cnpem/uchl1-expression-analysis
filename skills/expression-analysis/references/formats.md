@@ -7,6 +7,7 @@ for a maintainer, `contrasts.yaml`.
 
 ## Contents
 
+- [Folder layout](#folder-layout)
 - [Versions and exit codes](#versions-and-exit-codes)
 - [Questions: `processed/pending_decisions.json`](#questions-processedpending_decisionsjson)
 - [Prerequisites: `expression.py check --json`](#prerequisites-expressionpy-check---json)
@@ -15,6 +16,30 @@ for a maintainer, `contrasts.yaml`.
 - [Link with the open dashboard: `.dashboard/`](#link-with-the-open-dashboard-dashboard)
 - [Contrast plan: `contrasts.yaml`](#contrast-plan-contrastsyaml)
 - [Tables passed between stages: `processed/`](#tables-passed-between-stages-processed)
+
+## Folder layout
+
+```
+OUT/exploration/                     # step 0, before any study
+  summary.md                         # Portuguese options page for the researcher
+  activity.md                        # every catalogue term with the gene's predicted expression level (choosing groups)
+  exploration.json                   # the same options, read by study.py init --from-exploration
+  raw/                               # captures with the study's file names (copied into the study)
+  atlas/                             # atlas_tracks.tsv (sources, assays), scores_RNA_SEQ_ACTIVE_baseline.tsv
+  manifest.json                      # every command, version and output
+<study_dir>/                         # chosen by the researcher, never inside the skill
+  study.yaml                         # the request (gene, cohorts, scorers, window policy, top_n)
+  decisions.yaml                     # the researcher's answers and the skill's rules (below)
+  contrasts.yaml                     # the triage's contrast plan (step 12)
+  manifest.json                      # provenance: every command, output, version and decision key
+  raw/                               # dependency outputs, unedited
+  processed/                         # this skill's outputs (locus, registry, master, contrast, top variants)
+  figures/                           # fig1_genomic_architecture.html, dashboard.html (export), variants/ (step 13),
+                                     # dashboard/ (step 14: the researcher's view as PNG + choices.json, shown in report.md)
+  .dashboard/                        # link with the open dashboard: researcher_view.json (what is on screen),
+                                     # agent_view.json (the view sent with expression.py view)
+  report.md                          # Portuguese report
+```
 
 ## Versions and exit codes
 
